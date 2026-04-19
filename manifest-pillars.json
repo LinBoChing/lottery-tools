@@ -1,0 +1,20 @@
+{
+"name": "吸金穩贏模組",
+"short_name": "吸金穩贏",
+"start_url": "./v13-pillars.html?v=20260419",
+"display": "standalone",
+"background_color": "#111111",
+"theme_color": "#111111",
+"icons": [
+{
+"src": "caishen-192.png",
+"sizes": "192x192",
+"type": "image/png"
+},
+{
+"src": "caishen-512.png",
+"sizes": "512x512",
+"type": "image/png"
+}
+]
+}
