@@ -1,104 +1,2318 @@
-<!DOCTYPE html>
 
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>吸金穩贏模組</title>
-
 <meta name="theme-color" content="#111111">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-
 <link rel="manifest" href="manifest-pillars.json">
-<link rel="icon" href="caishen-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="caishen-192.png">
 <link rel="apple-touch-icon" href="caishen-192.png">
-
 <style>
-body{
-  margin:0;
-  background:linear-gradient(180deg,#080808,#141414);
-  color:#f5f1e8;
-  font-family:"Microsoft JhengHei";
-}
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --card2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #22c55e;
+      --accent2: #38bdf8;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+      background: linear-gradient(180deg, #020617 0%, #111827 100%);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .sub {
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+    }
+    .card {
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+    }
+    textarea {
+      width: 100%;
+      min-height: 360px;
+      resize: vertical;
+      background: #020617;
+      color: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .textarea-small {
+      min-height: 120px;
+      margin-top: 12px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s ease, opacity .15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: .6; cursor: wait; transform: none; }
+    .btn-primary { background: var(--accent); color: #052e16; }
+    .btn-secondary { background: var(--accent2); color: #082f49; }
+    .btn-dark { background: #334155; color: #f8fafc; }
+    .small-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .stat {
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .stat .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .stat .value {
+      font-size: 22px;
+      font-weight: 800;
+    }
+    .results {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .result-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-left: 8px;
+    }
+    .badge-ai { background: rgba(34,197,94,.15); color: #86efac; border: 1px solid rgba(34,197,94,.35); }
+    .badge-random { background: rgba(56,189,248,.15); color: #7dd3fc; border: 1px solid rgba(56,189,248,.35); }
+    .pillars {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .pillar {
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+    .pillar-title {
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .nums {
+      line-height: 1.9;
+      font-size: 16px;
+      word-break: break-word;
+    }
+    .metrics {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .metrics th, .metrics td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 6px;
+      text-align: left;
+    }
+    .metrics th { color: var(--muted); font-weight: 600; width: 46%; }
+    .compare {
+      margin-top: 16px;
+      overflow-x: auto;
+    }
+    .compare table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .compare th, .compare td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+    .compare th { color: var(--muted); font-weight: 700; }
+    .ok { color: #86efac; font-weight: 700; }
+    .mid { color: #fde68a; font-weight: 700; }
+    .bad { color: #fca5a5; font-weight: 700; }
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .log {
+      white-space: pre-wrap;
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      color: #cbd5e1;
+      min-height: 104px;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    .footer-note {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .overlap-controls {
+      display: grid;
+      grid-template-columns: 1.1fr 0.85fr 0.85fr 1fr;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+    .check-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      min-height:44px;
+      align-items:center;
+      background:#0b1220;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+    }
+    .check-row label {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+      font-size:14px;
+    }
+    .overlap-table td.rate-low { color:#86efac; font-weight:800; }
+    .overlap-table td.rate-mid { color:#fde68a; font-weight:800; }
+    .overlap-table td.rate-high { color:#fca5a5; font-weight:800; }
+    .overlap-table td.note-low { color:#86efac; }
+    .overlap-table td.note-mid { color:#fde68a; }
+    .overlap-table td.note-high { color:#fca5a5; }
 
-.wrap{
-  max-width:1100px;
-  margin:auto;
-  padding:16px;
-}
-
-.title{
-  font-size:28px;
-  font-weight:900;
-  color:#f3d36a;
-}
-
-.sub{
-  color:#c8b98a;
-  margin-bottom:16px;
-}
-
-.card{
-  background:#1a1a1a;
-  border:1px solid rgba(212,175,55,0.3);
-  border-radius:16px;
-  padding:14px;
-  margin-bottom:12px;
-}
-
-textarea{
-  width:100%;
-  min-height:200px;
-  background:#111;
-  color:#fff;
-  border-radius:10px;
-  border:1px solid #444;
-  padding:10px;
-}
-
-button{
-  background:linear-gradient(180deg,#3c2d09,#c99b1f);
-  color:#fff;
-  border:none;
-  padding:10px;
-  border-radius:10px;
-  font-weight:bold;
-  margin-top:10px;
-}
-
-.result{
-  margin-top:10px;
-  line-height:1.8;
-  color:#ffe9a8;
-}
-</style>
-
+    .mode-pill {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      min-height:44px;
+      background:#0b1220;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      font-size:14px;
+      cursor:pointer;
+    }
+    .mode-pill input { transform: scale(1.05); }
+    @media (max-width: 980px) {
+      .grid, .results { grid-template-columns: 1fr; }
+      .controls, .stat-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-
 <body>
-<div class="wrap">
+  <div class="wrap">
+    <div class="title">百期立柱 AI 對照版</div>
+    <div class="sub">
+      貼上近百期開獎號碼後，工具會做兩件事：<br>
+      1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
+      2. 同時產生相同組數的 <b>大小、單雙平均分配</b> 隨機立柱作對照。<br>
+      本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。
+    </div>
 
-<div class="title">吸金穩贏模組</div>
-<div class="sub">BLACK GOLD EDITION｜539 AI分析工具</div>
+    <div class="grid">
+      <div class="card">
+        <div class="section-title">輸入百期開獎號碼</div>
+        <textarea id="drawInput" placeholder="每行 1 期，最上方 = 最新一期。\n可接受：01 07 10 20 26 或 01,07,10,20,26 之類格式\n\n範例：\n01 07 10 20 26\n04 09 16 28 37\n05 11 14 23 39"></textarea>
+        <div class="section-title" style="margin-top:12px;">今日多人分享不出牌</div>
+        <textarea id="noDrawInput" class="textarea-small" placeholder="每行可貼一組多人分享的不出牌，系統會統計各號碼被提到的次數，再結合百期資料，自動挑出最適合摘掉的一支。&#10;&#10;範例：&#10;01 07 18 22 31&#10;07 18 26 31&#10;04 18 22 31 39"></textarea>
+        <div class="section-title" style="margin-top:12px;">今日多人分享推薦號碼</div>
+        <textarea id="candidateInput" class="textarea-small" placeholder="每行可貼一組別人分享的推薦號碼，系統會統計各號碼被提到的次數，再結合百期資料，列出各號碼的候選分數供你自己篩選。&#10;&#10;範例：&#10;03 11 17 28 35&#10;11 17 22 28 31&#10;03 17 28 31 39"></textarea>
+        <div class="controls">
+          <select id="groupCount" class="btn btn-dark" style="text-align:center; appearance:auto;">
+            <option value="1">一次生成 1 組</option>
+            <option value="2" selected>一次生成 2 組</option>
+            <option value="3">一次生成 3 組</option>
+            <option value="4">一次生成 4 組</option>
+            <option value="5">一次生成 5 組</option>
+          </select>
+          <button class="btn btn-primary" id="runBtn">開始分析並產生多組立柱</button>
+          <button class="btn btn-dark" id="sampleBtn">載入範例</button>
+        </div>
+        <div class="small-note">
+          規則說明：<br>
+          • 每行會抓出前 5 個 01~39 的號碼當作該期開獎號碼。<br>
+          • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
+          • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
+          • 可選擇一次生成 1~5 組，系統會依回測分數由高到低列出。<br>
+          • 生成立柱後會同時產出三種模式：AI 最佳立柱、隨機平衡立柱、候選名單立柱。<br>
+          • 候選名單立柱會依候選排行第1名放第一柱、第2名放第二柱、第3名放第三柱、第4名再回第一柱輪流拆入。<br>
+          • 三種模式都可額外使用「扣除所有絕對不出版本」。
+          • 防補出模式會檢查號碼是否已超過自己的合理間隔，避免把『快補出的冷號』當成絕對不出。
+        </div>
+      </div>
 
-<div class="card">
-<textarea id="input" placeholder="貼上百期開獎號碼..."></textarea>
-<button onclick="run()">開始分析</button>
+      <div class="card">
+        <div class="section-title">資料摘要 / 執行狀態</div>
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="label">有效期數</div>
+            <div class="value" id="countDraws">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">使用號碼範圍</div>
+            <div class="value">01 ~ 39</div>
+          </div>
+          <div class="stat">
+            <div class="label">立柱規格</div>
+            <div class="value">10 / 14 / 15</div>
+          </div>
+          <div class="stat">
+            <div class="label">過關定義</div>
+            <div class="value">三柱皆中</div>
+          </div>
+        </div>
+        <div style="margin-top:14px" class="section-title">執行紀錄</div>
+        <div class="log" id="logBox">等待資料輸入。</div>
+      </div>
+    </div>
+
+    <div class="card compare">
+      <div class="section-title">主要版本重疊率比較</div>
+      <div class="overlap-controls">
+        <div>
+          <div class="small-note" style="margin-top:0; margin-bottom:6px;">勾選你想比對的主要版本</div>
+          <div class="check-row">
+            <label><input type="checkbox" id="cmpAI" checked>AI</label>
+            <label><input type="checkbox" id="cmpAnti" checked>防穿透</label>
+            <label><input type="checkbox" id="cmpRandom" checked>隨機</label>
+            <label><input type="checkbox" id="cmpCandidate" checked>候選</label>
+          </div>
+        </div>
+        <div>
+          <div class="small-note" style="margin-top:0; margin-bottom:6px;">重疊算法</div>
+          <select id="cmpMode" class="btn btn-dark" style="text-align:center; appearance:auto;">
+            <option value="pillar">同柱重疊</option>
+            <option value="all">整體重疊</option>
+            <option value="core">核心號碼重疊</option>
+          </select>
+        </div>
+        <div>
+          <div class="small-note" style="margin-top:0; margin-bottom:6px;">比對範圍</div>
+          <select id="cmpScope" class="btn btn-dark" style="text-align:center; appearance:auto;">
+            <option value="first">只比第一組</option>
+            <option value="all">全部組數平均</option>
+          </select>
+          <div>
+          <div class="small-note" style="margin-top:0; margin-bottom:6px;">防穿透模式</div>
+          <label class="mode-pill"><input type="checkbox" id="extremeAntiMode" checked>極限防穿透（目標同柱 0~25%）</label>
+        </div>
+      </div>
+        <div>
+          <div class="small-note" style="margin-top:0; margin-bottom:6px;">防穿透模式</div>
+          <label class="mode-pill"><input type="checkbox" id="extremeAntiMode" checked>極限防穿透（目標同柱 0~25%）</label>
+        </div>
+      </div>
+      <table class="overlap-table">
+        <thead>
+          <tr>
+            <th>比對組合</th>
+            <th>重疊率</th>
+            <th>說明</th>
+          </tr>
+        </thead>
+        <tbody id="overlapBody">
+          <tr><td colspan="3">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        說明：這裡只比對 AI / 防穿透 / 隨機 / 候選四種主要版本，不把摘除版本算進來。顏色越偏紅代表重疊越高，越偏綠代表越分散；若切到整體重疊，因為 39 號全包，通常會固定接近 100%。
+      </div>
+    </div>
+
+    <div class="card compare">
+      <div class="section-title">每日推薦扣除後之結構維持比較</div>
+
+<div id="bestRemoveRecommendation" style="margin-bottom:10px; font-weight:800; color:#22c55e;">
+👉 尚未產生推薦
 </div>
 
-<div class="card">
-<div id="output" class="result">尚未產生結果</div>
-</div>
+      <div style="margin-bottom:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <label style="font-size:13px;">這裡要比較的扣除數量：</label>
+        <select id="compareRemoveCountSelect" class="btn btn-dark" style="padding:6px 10px; font-size:13px;">
+          <option value="5">前5名</option>
+          <option value="10">前10名</option>
+          <option value="15" selected>前15名</option>
+          <option value="20">前20名</option>
+        </select>
+        <label style="font-size:13px;">比較範圍：</label>
+        <select id="compareGroupScopeSelect" class="btn btn-dark" style="padding:6px 10px; font-size:13px;">
+          <option value="avg" selected>全部平均</option>
+          <option value="0">第1組</option>
+          <option value="1">第2組</option>
+          <option value="2">第3組</option>
+          <option value="3">第4組</option>
+          <option value="4">第5組</option>
+        </select>
+      </div>
 
+      <table>
+        <thead>
+          <tr>
+            <th>版本類型</th>
+            <th>平均第一柱</th>
+            <th>平均第二柱</th>
+            <th>平均第三柱</th>
+            <th>與 10/14/15 總落差</th>
+            <th>判定</th>
+          </tr>
+        </thead>
+        <tbody id="removeCountCompareBody">
+          <tr><td colspan="6">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        說明：此區會使用目前的扣除數量設定，直接比較 AI / 防穿透 / 隨機 / 候選 四種主要版本，在扣除每日推薦不出後，哪一種類型最能維持原始 10 / 14 / 15 結構。
+      </div>
+    </div>
+
+    <div class="card compare">
+      <div class="section-title">每日推薦扣除後之組別明細排名</div>
+      <div id="bestRemoveDetailRecommendation" style="margin-bottom:10px; font-weight:800; color:#22c55e;">
+👉 尚未產生推薦
 </div>
+      <table>
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>版本 / 組別</th>
+            <th>第一柱</th>
+            <th>第二柱</th>
+            <th>第三柱</th>
+            <th>與 10/14/15 總落差</th>
+            <th>判定</th>
+          </tr>
+        </thead>
+        <tbody id="removeDetailCompareBody">
+          <tr><td colspan="7">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        說明：這裡會把 AI / 防穿透 / 隨機 / 候選 的每一組都拆開逐筆比較，讓你知道真正最接近原始 10 / 14 / 15 的是「哪一種、哪一組」。
+      </div>
+    </div>
+
+    <div class="results">
+      <div class="card" id="aiCard">
+        <div class="result-title">AI 最佳立柱 <span class="badge badge-ai">AI BEST</span></div>
+        <div id="aiResult">尚未產生。</div>
+      </div>
+      <div class="card" id="antiCard">
+        <div class="result-title">防穿透立柱 <span class="badge badge-ai">ANTI PENETRATION</span></div>
+        <div id="antiResult">尚未產生。</div>
+      </div>
+      <div class="card" id="randomCard">
+        <div class="result-title">隨機平衡立柱 <span class="badge badge-random">RANDOM</span></div>
+        <div id="randomResult">尚未產生。</div>
+      </div>
+      <div class="card" id="candidateCard">
+        <div class="result-title">候選名單立柱 <span class="badge badge-ai">CANDIDATE</span></div>
+        <div id="candidateResult">尚未產生。</div>
+      </div>
+    </div>
+
+    <div class="results">
+      <div class="card" id="aiRemoveCard">
+        <div class="result-title">AI 絕對不出摘除版 <span class="badge badge-ai">AI REMOVE</span></div>
+        <div id="aiRemoveResult">尚未產生。</div>
+      </div>
+      <div class="card" id="antiRemoveCard">
+        <div class="result-title">防穿透摘除版 <span class="badge badge-ai">ANTI REMOVE</span></div>
+        <div id="antiRemoveResult">尚未產生。</div>
+      </div>
+      <div class="card" id="randomRemoveCard">
+        <div class="result-title">隨機絕對不出摘除版 <span class="badge badge-random">RANDOM REMOVE</span></div>
+        <div id="randomRemoveResult">尚未產生。</div>
+      </div>
+      <div class="card" id="candidateRemoveCard">
+        <div class="result-title">候選名單摘除版 <span class="badge badge-ai">CANDIDATE REMOVE</span></div>
+        <div id="candidateRemoveResult">尚未產生。</div>
+      </div>
+    </div>
+
+    <div class="card compare">
+      <div class="section-title">三種立柱模式回測比較</div>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>AI 最佳立柱</th>
+            <th>防穿透立柱</th>
+            <th>隨機平衡立柱</th>
+            <th>候選名單立柱</th>
+            <th>較佳者</th>
+          </tr>
+        </thead>
+        <tbody id="compareBody">
+          <tr><td colspan="6">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        補充：<br>
+        • AI 版是以大量候選立柱回測後，挑出整體過關率最高者。<br>
+        • 如果過關率同分，會再優先選擇全倒率較低、近 20 期較穩、結構較平衡的組合。<br>
+        • 隨機版仍會維持單雙與大小大致平均，不是純亂數亂塞。<br>
+        • 候選名單版會依候選排行輪流拆入三柱，再把未上榜號碼用大小單雙平衡方式補滿 10 / 14 / 15。
+      </div>
+    
+    </div>
+
+    <div class="card compare">
+      <div class="section-title">三種摘除版模式回測比較</div>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>AI 摘除版</th>
+            <th>防穿透摘除版</th>
+            <th>隨機摘除版</th>
+            <th>候選名單摘除版</th>
+            <th>較佳者</th>
+          </tr>
+        </thead>
+        <tbody id="removeCompareBody">
+          <tr><td colspan="6">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        摘除邏輯：<br>
+        • 先統計今日多人分享不出牌中，各號碼被提到的次數。<br>
+        • 再結合近10期、近30期熱冷與目前漏期，計算「絕對不出分數」。<br>
+        • 系統會在原始立柱內，自動測試摘掉每一柱的每一支號碼，挑出分數最高且整體傷害最小的方案。
+      </div>
+    </div>
+
+    <div class="card compare">
+      <div class="section-title">絕對不出評分排行</div>
+      <table>
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>號碼</th>
+            <th>絕對不出分數</th>
+            <th>被分享次數</th>
+            <th>目前漏期</th>
+            <th>近10期出現</th>
+            <th>近30期出現</th>
+          </tr>
+        </thead>
+        <tbody id="scoreBoardBody">
+          <tr><td colspan="7">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        說明：分數越高，代表該號碼越像今日可優先考慮的「絕對不出候選」。防補出模式會把『漏太久、可能補出』的號碼降權。
+      </div>
+    </div>
+
+    <div class="card compare">
+      <div class="section-title">推薦號碼候選分數排行</div>
+      <table>
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>號碼</th>
+            <th>候選分數</th>
+            <th>被分享次數</th>
+            <th>目前漏期</th>
+            <th>近10期出現</th>
+            <th>近30期出現</th>
+          </tr>
+        </thead>
+        <tbody id="candidateScoreBoardBody">
+          <tr><td colspan="7">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        說明：候選號碼會先由系統依近百期資料自動精選，再參考你貼上的分享號碼加分，所以排行內可能出現「別人沒貼、但系統判定值得納入」的號碼。
+      </div>
+    </div>
+
+    <div class="card compare">
+      <div class="section-title">核心號碼池 / 防穿透分析</div>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>內容</th>
+          </tr>
+        </thead>
+        <tbody id="antiAnalysisBody">
+          <tr><td colspan="2">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        說明：<br>
+        • 核心號碼池：依近百期熱度、近10/30期表現、目前漏期、分享候選加權後，取前 18 名。<br>
+        • 防穿透同柱重疊率：用來看防穿透立柱和 AI 最佳立柱有多少號碼還留在同一柱；越低代表越不像單純 AI 複製版。<br>
+        • 防穿透危險型態率：把 5-0-0、4-1-0、3-2-0 視為危險穿透型，越低越好。
+      </div>
+    </div>
+
+  </div>
 
 <script>
-function run(){
-  document.getElementById("output").innerHTML = "分析完成（示範版已套用黑金UI）";
-}
-</script>
+(() => {
+  const drawInput = document.getElementById('drawInput');
+  const noDrawInput = document.getElementById('noDrawInput');
+  const candidateInput = document.getElementById('candidateInput');
+  const runBtn = document.getElementById('runBtn');
+  const sampleBtn = document.getElementById('sampleBtn');
+  const countDraws = document.getElementById('countDraws');
+  const groupCount = document.getElementById('groupCount');
+  const logBox = document.getElementById('logBox');
+  const aiResult = document.getElementById('aiResult');
+  const antiResult = document.getElementById('antiResult');
+  const randomResult = document.getElementById('randomResult');
+  const candidateResult = document.getElementById('candidateResult');
+  const aiRemoveResult = document.getElementById('aiRemoveResult');
+  const antiRemoveResult = document.getElementById('antiRemoveResult');
+  const randomRemoveResult = document.getElementById('randomRemoveResult');
+  const candidateRemoveResult = document.getElementById('candidateRemoveResult');
+  const compareBody = document.getElementById('compareBody');
+  const removeCompareBody = document.getElementById('removeCompareBody');
+  const scoreBoardBody = document.getElementById('scoreBoardBody');
+  const candidateScoreBoardBody = document.getElementById('candidateScoreBoardBody');
+  const antiAnalysisBody = document.getElementById('antiAnalysisBody');
+  const overlapBody = document.getElementById('overlapBody');
+  const removeCountCompareBody = document.getElementById('removeCountCompareBody');
+  const removeDetailCompareBody = document.getElementById('removeDetailCompareBody');
+  const cmpAI = document.getElementById('cmpAI');
+  const cmpAnti = document.getElementById('cmpAnti');
+  const cmpRandom = document.getElementById('cmpRandom');
+  const cmpCandidate = document.getElementById('cmpCandidate');
+  const cmpMode = document.getElementById('cmpMode');
+  const cmpScope = document.getElementById('cmpScope');
+  const extremeAntiMode = document.getElementById('extremeAntiMode');
 
+  let lastAI = [];
+  let lastAnti = [];
+  let lastRandom = [];
+  let lastCandidate = [];
+  let lastAIRemove = [];
+  let lastAntiRemove = [];
+  let lastRandomRemove = [];
+  let lastCandidateRemove = [];
+  let lastScoreData = null;
+  let lastCandidateScoreData = null;
+
+  function log(msg) {
+    const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+    logBox.textContent += (logBox.textContent.trim() ? '\n' : '') + `[${time}] ${msg}`;
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function resetLog() {
+    logBox.textContent = '';
+  }
+
+  function pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  function formatNums(arr) {
+    return arr.map(pad2).join(' ');
+  }
+  let rngState = 1;
+
+  function hashString(str) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function setRunSeed(seedText) {
+    rngState = hashString(seedText) || 1;
+  }
+
+  function rand() {
+    rngState = (Math.imul(rngState, 1664525) + 1013904223) >>> 0;
+    return rngState / 4294967296;
+  }
+
+
+  function parseDraws(text) {
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const draws = [];
+    for (const line of lines) {
+      const nums = (line.match(/\d{1,2}/g) || [])
+        .map(n => Number(n))
+        .filter(n => n >= 1 && n <= 39)
+        .slice(0, 5);
+      if (nums.length === 5) {
+        const unique = [...new Set(nums)];
+        if (unique.length === 5) draws.push(unique);
+      }
+    }
+    return draws;
+  }
+
+  function range39() {
+    return Array.from({length: 39}, (_, i) => i + 1);
+  }
+
+  function parseNoDrawShares(text) {
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const counts = Object.fromEntries(range39().map(n => [n, 0]));
+    let rows = 0;
+    for (const line of lines) {
+      const nums = [...new Set((line.match(/\d{1,2}/g) || [])
+        .map(n => Number(n))
+        .filter(n => n >= 1 && n <= 39))];
+      if (!nums.length) continue;
+      rows++;
+      nums.forEach(n => counts[n]++);
+    }
+    return { counts, rows };
+  }
+
+  function parseCandidateShares(text) {
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const counts = Object.fromEntries(range39().map(n => [n, 0]));
+    let rows = 0;
+    for (const line of lines) {
+      const nums = [...new Set((line.match(/\d{1,2}/g) || [])
+        .map(n => Number(n))
+        .filter(n => n >= 1 && n <= 39))];
+      if (!nums.length) continue;
+      rows++;
+      nums.forEach(n => counts[n]++);
+    }
+    return { counts, rows };
+  }
+
+  function buildNumberStats(draws) {
+    const recent10 = Object.fromEntries(range39().map(n => [n, 0]));
+    const recent30 = Object.fromEntries(range39().map(n => [n, 0]));
+    const miss = Object.fromEntries(range39().map(n => [n, 0]));
+    const coldHot = Object.fromEntries(range39().map(n => [n, 0]));
+    const avgGap = Object.fromEntries(range39().map(n => [n, 0]));
+    const size10 = Math.min(10, draws.length);
+    const size30 = Math.min(30, draws.length);
+
+    for (let i = 0; i < draws.length; i++) {
+      for (const n of draws[i]) {
+        coldHot[n]++;
+        if (i < size10) recent10[n]++;
+        if (i < size30) recent30[n]++;
+      }
+    }
+
+    for (const n of range39()) {
+      let gap = 0;
+      let found = false;
+      for (let i = 0; i < draws.length; i++) {
+        if (draws[i].includes(n)) {
+          found = true;
+          break;
+        }
+        gap++;
+      }
+      miss[n] = found ? gap : draws.length;
+      const hitCount = coldHot[n] || 0;
+      avgGap[n] = hitCount > 0 ? (draws.length - hitCount) / (hitCount + 1) : draws.length;
+    }
+    return { recent10, recent30, miss, coldHot, avgGap };
+  }
+
+  function getAntiRefillMode() {
+    const select = document.getElementById('antiRefillModeSelect');
+    return select ? select.value : 'safe';
+  }
+
+  function getAntiRefillConfig() {
+    const mode = getAntiRefillMode();
+    if (mode === 'aggressive') {
+      return { mode, refillStart: 1.60, refillPenalty: 10, sweetLow: 0.55, sweetHigh: 1.18, missWeight: 0.85 };
+    }
+    if (mode === 'normal') {
+      return { mode, refillStart: 1.35, refillPenalty: 14, sweetLow: 0.48, sweetHigh: 1.05, missWeight: 0.72 };
+    }
+    return { mode: 'safe', refillStart: 1.15, refillPenalty: 20, sweetLow: 0.42, sweetHigh: 0.95, missWeight: 0.60 };
+  }
+
+  function calcNoDrawScores(draws, shareCounts) {
+    const stats = buildNumberStats(draws);
+    const cfg = getAntiRefillConfig();
+    const scores = {};
+    for (const n of range39()) {
+      const share = shareCounts[n] || 0;
+      const r10 = stats.recent10[n] || 0;
+      const r30 = stats.recent30[n] || 0;
+      const miss = stats.miss[n] || 0;
+      const hot = stats.coldHot[n] || 0;
+      const avgGap = Math.max(1, stats.avgGap[n] || 1);
+      const ratio = miss / avgGap;
+
+      let sweetSpot = 0;
+      if (ratio >= cfg.sweetLow && ratio <= cfg.sweetHigh) {
+        const center = (cfg.sweetLow + cfg.sweetHigh) / 2;
+        const half = Math.max(0.01, (cfg.sweetHigh - cfg.sweetLow) / 2);
+        sweetSpot = Math.max(0, 1 - Math.abs(ratio - center) / half) * 16;
+      } else if (ratio < cfg.sweetLow) {
+        sweetSpot = Math.max(0, 6 - (cfg.sweetLow - ratio) * 10);
+      } else {
+        sweetSpot = Math.max(0, 7 - (ratio - cfg.sweetHigh) * 8);
+      }
+
+      const refillRisk = Math.max(0, ratio - cfg.refillStart);
+      const refillPenalty = refillRisk * cfg.refillPenalty;
+      const missContribution = Math.min(miss, avgGap * cfg.refillStart) * cfg.missWeight;
+
+      scores[n] =
+        share * 18 +
+        missContribution +
+        sweetSpot +
+        (10 - r10) * 1.6 +
+        (30 - r30) * 0.42 -
+        hot * 0.2 -
+        refillPenalty;
+    }
+    return scores;
+  }
+
+  function buildScoreRanking(draws, shareCounts) {
+    const stats = buildNumberStats(draws);
+    const cfg = getAntiRefillConfig();
+    const scores = calcNoDrawScores(draws, shareCounts);
+    const ranking = range39().map(n => {
+      const avgGap = stats.avgGap[n] || 0;
+      const miss = stats.miss[n] || 0;
+      const ratio = avgGap > 0 ? miss / Math.max(1, avgGap) : 0;
+      const refillRisk = Math.max(0, ratio - cfg.refillStart);
+      return {
+        n,
+        score: scores[n] || 0,
+        share: shareCounts[n] || 0,
+        miss,
+        r10: stats.recent10[n] || 0,
+        r30: stats.recent30[n] || 0,
+        avgGap,
+        ratio,
+        refillRisk
+      };
+    }).sort((a, b) => b.score - a.score || a.refillRisk - b.refillRisk || b.share - a.share || b.miss - a.miss || a.n - b.n);
+    return { ranking, stats, scores, antiRefillMode: cfg.mode };
+  }
+
+  function calcPureCandidateScores(draws) {
+    const stats = buildNumberStats(draws);
+    const scores = {};
+    for (const n of range39()) {
+      const r10 = stats.recent10[n] || 0;
+      const r30 = stats.recent30[n] || 0;
+      const miss = stats.miss[n] || 0;
+      const hot = stats.coldHot[n] || 0;
+      const missWindowBonus = miss >= 2 && miss <= 8 ? 8 : miss <= 1 ? 2 : Math.max(0, 12 - Math.abs(miss - 9));
+      scores[n] = r10 * 4.5 + r30 * 1.35 + hot * 0.75 + missWindowBonus - Math.max(0, miss - 15) * 0.6;
+    }
+    return scores;
+  }
+
+  function calcCandidateScores(draws, shareCounts) {
+    const pureScores = calcPureCandidateScores(draws);
+    const scores = {};
+    for (const n of range39()) {
+      const share = shareCounts[n] || 0;
+      scores[n] = (pureScores[n] || 0) + share * 20;
+    }
+    return scores;
+  }
+
+  function buildCandidateScoreRanking(draws, shareCounts) {
+    const stats = buildNumberStats(draws);
+    const pureScores = calcPureCandidateScores(draws);
+    const scores = calcCandidateScores(draws, shareCounts);
+    const systemTopCount = 12;
+    const systemTopSet = new Set(
+      range39()
+        .map(n => ({ n, score: pureScores[n] || 0 }))
+        .sort((a, b) => b.score - a.score || a.n - b.n)
+        .slice(0, systemTopCount)
+        .map(item => item.n)
+    );
+
+    const ranking = range39()
+      .filter(n => (shareCounts[n] || 0) > 0 || systemTopSet.has(n))
+      .map(n => ({
+        n,
+        score: scores[n] || 0,
+        pureScore: pureScores[n] || 0,
+        share: shareCounts[n] || 0,
+        miss: stats.miss[n] || 0,
+        r10: stats.recent10[n] || 0,
+        r30: stats.recent30[n] || 0,
+        source: systemTopSet.has(n) && (shareCounts[n] || 0) > 0 ? '系統+分享' : systemTopSet.has(n) ? '系統精選' : '分享'
+      }))
+      .sort((a, b) => b.score - a.score || b.pureScore - a.pureScore || b.share - a.share || a.n - b.n);
+    return { ranking, stats, scores, pureScores, systemTopSet };
+  }
+
+  function renderScoreBoard(scoreData) {
+    if (!scoreData || !scoreData.ranking || !scoreData.ranking.length) {
+      scoreBoardBody.innerHTML = '<tr><td colspan="7">尚未產生結果。</td></tr>';
+      return;
+    }
+    const top = scoreData.ranking.slice(0, 15);
+    scoreBoardBody.innerHTML = top.map((item, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td>${pad2(item.n)}</td>
+        <td>${item.score.toFixed(2)}</td>
+        <td>${item.share}</td>
+        <td>${item.miss}</td>
+        <td>${item.r10}</td>
+        <td>${item.r30}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderCandidateScoreBoard(scoreData) {
+    if (!scoreData || !scoreData.ranking || !scoreData.ranking.length) {
+      candidateScoreBoardBody.innerHTML = '<tr><td colspan="7">尚未產生結果。</td></tr>';
+      return;
+    }
+    candidateScoreBoardBody.innerHTML = scoreData.ranking.map((item, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td>${pad2(item.n)}</td>
+        <td>${item.score.toFixed(2)}</td>
+        <td>${item.share}</td>
+        <td>${item.miss}</td>
+        <td>${item.r10}</td>
+        <td>${item.r30}</td>
+      </tr>
+    `).join('');
+  }
+
+  function getPreferredPillarIndex(rankIndex, groups, targets) {
+    const preferred = rankIndex % 3;
+    if (groups[preferred].length < targets[preferred]) return preferred;
+    for (let offset = 1; offset < 3; offset++) {
+      const next = (preferred + offset) % 3;
+      if (groups[next].length < targets[next]) return next;
+    }
+    return -1;
+  }
+
+  function candidateFillPenalty(candidate, targetSize) {
+    return oddEvenBalance(candidate) * 2.2 + bigSmallBalance(candidate) * 2.2 + headSpreadPenalty(candidate) * 0.9 + Math.max(0, targetSize - candidate.length) * 0.15;
+  }
+
+  function buildCandidateBasedPillar(scoreData, draws) {
+    const targets = [10, 14, 15];
+    const groups = [[], [], []];
+    const rankingNumbers = (scoreData && scoreData.ranking ? scoreData.ranking : []).map(item => item.n);
+    const rankingSet = new Set(rankingNumbers);
+
+    rankingNumbers.forEach((n, idx) => {
+      const gi = getPreferredPillarIndex(idx, groups, targets);
+      if (gi >= 0 && !groups[gi].includes(n)) groups[gi].push(n);
+    });
+
+    const remaining = range39().filter(n => !rankingSet.has(n));
+    const orderedRemaining = remaining.sort((a, b) => {
+      const aScore = (scoreData && scoreData.pureScores ? scoreData.pureScores[a] : 0) || 0;
+      const bScore = (scoreData && scoreData.pureScores ? scoreData.pureScores[b] : 0) || 0;
+      return bScore - aScore || a - b;
+    });
+
+    for (const n of orderedRemaining) {
+      let bestIdx = -1;
+      let bestScore = Infinity;
+      for (let i = 0; i < 3; i++) {
+        if (groups[i].length >= targets[i]) continue;
+        const candidate = groups[i].concat(n);
+        const penalty = candidateFillPenalty(candidate, targets[i]);
+        if (penalty < bestScore) {
+          bestScore = penalty;
+          bestIdx = i;
+        }
+      }
+      if (bestIdx >= 0) groups[bestIdx].push(n);
+    }
+
+    groups.forEach(g => g.sort((a, b) => a - b));
+    return {
+      groups,
+      stats: evaluate(groups, draws),
+      rankingCount: rankingNumbers.length,
+      pickedFromRanking: groups.map(g => g.filter(n => rankingSet.has(n)).length)
+    };
+  }
+
+  function buildCandidateCollection(draws, scoreData, totalWanted) {
+    if (!scoreData || !scoreData.ranking || !scoreData.ranking.length) return [];
+    const base = buildCandidateBasedPillar(scoreData, draws);
+    const results = [base];
+    for (let i = 0; i < 120 && results.length < totalWanted; i++) {
+      let groups = cloneGroups(base.groups);
+      const swapCount = 1 + (i % 3);
+      for (let s = 0; s < swapCount; s++) groups = randomSwap(groups);
+      const stats = evaluate(groups, draws);
+      results.push({ groups, stats, rankingCount: base.rankingCount, pickedFromRanking: base.pickedFromRanking.slice() });
+    }
+    const unique = [];
+    for (const item of results.sort((a, b) => b.stats.score - a.stats.score)) {
+      const key = exportText(item.groups);
+      if (!unique.some(x => exportText(x.groups) === key)) unique.push(item);
+      if (unique.length >= totalWanted) break;
+    }
+    return unique;
+  }
+
+  function buildRemoveVersion(baseGroups, draws, shareCounts) {
+    const scores = calcNoDrawScores(draws, shareCounts);
+    const saveMap = [5250, 3750, 3500];
+    const baseEval = evaluate(baseGroups, draws);
+    let best = null;
+
+    for (let gi = 0; gi < baseGroups.length; gi++) {
+      for (const n of baseGroups[gi]) {
+        const groups = cloneGroups(baseGroups);
+        groups[gi] = groups[gi].filter(x => x !== n);
+        const stats = evaluate(groups, draws);
+        const passLoss = (baseEval.passRate - stats.passRate) * 100;
+        const recentLoss = (baseEval.recentRate - stats.recentRate) * 100;
+        const structurePenalty = gi === 0 ? 4.5 : gi === 1 ? 2.2 : 1.5;
+        const totalScore = (scores[n] || 0) + saveMap[gi] / 450 - passLoss * 9 - recentLoss * 6 - structurePenalty;
+
+        if (!best || totalScore > best.totalScore) {
+          best = {
+            groups,
+            stats,
+            removedNumber: n,
+            removedGroupName: gi === 0 ? '第一柱（10支）' : gi === 1 ? '第二柱（14支）' : '第三柱（15支）',
+            removedScore: scores[n] || 0,
+            saveCost: saveMap[gi],
+            passLoss,
+            recentLoss,
+            totalScore
+          };
+        }
+      }
+    }
+    return best;
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function oddEvenBalance(nums) {
+    const odd = nums.filter(n => n % 2 === 1).length;
+    const even = nums.length - odd;
+    return Math.abs(odd - even);
+  }
+
+  function bigSmallBalance(nums) {
+    const small = nums.filter(n => n <= 19).length;
+    const big = nums.length - small;
+    return Math.abs(big - small);
+  }
+
+  function headSpreadPenalty(nums) {
+    const heads = [0,0,0,0];
+    nums.forEach(n => { heads[Math.floor((n-1)/10)]++; });
+    const avg = nums.length / 4;
+    return heads.reduce((s, v) => s + Math.abs(v - avg), 0);
+  }
+
+  function buildBalancedRandomPillar() {
+    const numbers = shuffle(range39());
+    const groups = [[], [], []];
+    const targets = [10, 14, 15];
+
+    for (const n of numbers) {
+      let bestIdx = -1;
+      let bestScore = Infinity;
+      for (let i = 0; i < 3; i++) {
+        if (groups[i].length >= targets[i]) continue;
+        const candidate = groups[i].concat(n);
+        const sizeGap = targets[i] - candidate.length;
+        const score =
+          oddEvenBalance(candidate) * 2 +
+          bigSmallBalance(candidate) * 2 +
+          headSpreadPenalty(candidate) * 0.8 +
+          sizeGap * 0.2;
+        if (score < bestScore) {
+          bestScore = score;
+          bestIdx = i;
+        }
+      }
+      groups[bestIdx].push(n);
+    }
+
+    groups.forEach(g => g.sort((a, b) => a - b));
+    return groups;
+  }
+
+  function pillarToMap(groups) {
+    const mp = new Map();
+    groups.forEach((g, idx) => g.forEach(n => mp.set(n, idx)));
+    return mp;
+  }
+
+  function evaluate(groups, draws) {
+    const mp = pillarToMap(groups);
+    let pass = 0;
+    let fail = 0;
+    let allInOne = 0;
+    let recentPass = 0;
+    const recentSize = Math.min(20, draws.length);
+
+    const patterns = {};
+    for (let i = 0; i < draws.length; i++) {
+      const counts = [0, 0, 0];
+      for (const n of draws[i]) counts[mp.get(n)]++;
+      const sortedPattern = counts.slice().sort((a,b) => b - a).join('-');
+      patterns[sortedPattern] = (patterns[sortedPattern] || 0) + 1;
+      const ok = counts.every(v => v >= 1);
+      if (ok) pass++; else fail++;
+      if (counts.includes(5)) allInOne++;
+      if (i < recentSize && ok) recentPass++;
+    }
+
+    const total = draws.length || 1;
+    const recentRate = recentSize ? recentPass / recentSize : 0;
+
+    const balancePenalty =
+      groups.reduce((s, g) => s + oddEvenBalance(g) * 0.25 + bigSmallBalance(g) * 0.25 + headSpreadPenalty(g) * 0.05, 0);
+
+    const score =
+      (pass / total) * 1000 +
+      recentRate * 120 -
+      (allInOne / total) * 120 -
+      balancePenalty;
+
+    return {
+      pass,
+      fail,
+      passRate: pass / total,
+      failRate: fail / total,
+      recentPass,
+      recentRate,
+      allInOne,
+      allInOneRate: allInOne / total,
+      balancePenalty,
+      score,
+      patterns
+    };
+  }
+
+  function cloneGroups(groups) {
+    return groups.map(g => g.slice());
+  }
+
+  function randomSwap(groups) {
+    const g = cloneGroups(groups);
+    const a = Math.floor(rand() * 3);
+    let b = Math.floor(rand() * 3);
+    while (b === a) b = Math.floor(rand() * 3);
+    const ai = Math.floor(rand() * g[a].length);
+    const bi = Math.floor(rand() * g[b].length);
+    [g[a][ai], g[b][bi]] = [g[b][bi], g[a][ai]];
+    g.forEach(x => x.sort((m,n) => m-n));
+    return g;
+  }
+
+  function better(evalA, evalB) {
+    if (!evalB) return true;
+    if (evalA.passRate !== evalB.passRate) return evalA.passRate > evalB.passRate;
+    if (evalA.failRate !== evalB.failRate) return evalA.failRate < evalB.failRate;
+    if (evalA.recentRate !== evalB.recentRate) return evalA.recentRate > evalB.recentRate;
+    if (evalA.allInOneRate !== evalB.allInOneRate) return evalA.allInOneRate < evalB.allInOneRate;
+    return evalA.score > evalB.score;
+  }
+
+  async function searchBestPillar(draws) {
+    let globalBestGroups = null;
+    let globalBestEval = null;
+
+    const rounds = 60;
+    const stepsPerRound = 260;
+
+    for (let r = 0; r < rounds; r++) {
+      let currentGroups = buildBalancedRandomPillar();
+      let currentEval = evaluate(currentGroups, draws);
+
+      for (let s = 0; s < stepsPerRound; s++) {
+        const candidateGroups = randomSwap(currentGroups);
+        const candidateEval = evaluate(candidateGroups, draws);
+
+        const accept = candidateEval.score >= currentEval.score || rand() < 0.02;
+        if (accept) {
+          currentGroups = candidateGroups;
+          currentEval = candidateEval;
+        }
+
+        if (better(candidateEval, globalBestEval)) {
+          globalBestGroups = cloneGroups(candidateGroups);
+          globalBestEval = candidateEval;
+        }
+      }
+
+      if (better(currentEval, globalBestEval)) {
+        globalBestGroups = cloneGroups(currentGroups);
+        globalBestEval = currentEval;
+      }
+
+      if ((r + 1) % 10 === 0) {
+        log(`AI 搜尋中：已完成 ${r + 1}/${rounds} 輪，當前最佳過關率 ${(globalBestEval.passRate * 100).toFixed(2)}%`);
+        await new Promise(requestAnimationFrame);
+      }
+    }
+
+    return { groups: globalBestGroups, stats: globalBestEval };
+  }
+
+  function patternSummary(patterns) {
+    const items = Object.entries(patterns).sort((a,b) => b[1] - a[1]).slice(0, 5);
+    return items.map(([k, v]) => `${k}：${v} 期`).join('<br>');
+  }
+
+  function buildResultHTML(title, groups, stats, removeInfo = null, extraInfo = null) {
+    const pillarNames = ['第一柱（10支）', '第二柱（14支）', '第三柱（15支）'];
+    return `
+      ${extraInfo ? `
+        <table class="metrics">
+          <tr><th>候選榜單總數</th><td>${extraInfo.rankingCount}</td></tr>
+          <tr><th>榜單拆入數量</th><td>第一柱 ${extraInfo.pickedFromRanking[0]} 支 / 第二柱 ${extraInfo.pickedFromRanking[1]} 支 / 第三柱 ${extraInfo.pickedFromRanking[2]} 支</td></tr>
+        </table>
+      ` : ''}
+      ${removeInfo ? `
+        <table class="metrics">
+          <tr><th>摘掉哪一柱</th><td>${removeInfo.removedGroupName}</td></tr>
+          <tr><th>摘掉哪一支</th><td>${pad2(removeInfo.removedNumber)}</td></tr>
+          <tr><th>預估省下成本</th><td>${removeInfo.saveCost.toLocaleString()} 元</td></tr>
+          <tr><th>絕對不出分數</th><td>${removeInfo.removedScore.toFixed(2)}</td></tr>
+          <tr><th>整體過關率下降</th><td>${removeInfo.passLoss.toFixed(2)}%</td></tr>
+          <tr><th>近20期過關率下降</th><td>${removeInfo.recentLoss.toFixed(2)}%</td></tr>
+        </table>
+      ` : ''}
+      <div class="pillars">
+        ${groups.map((g, i) => `
+          <div class="pillar">
+            <div class="pillar-title">${pillarNames[i]}</div>
+            <div class="nums">${formatNums(g)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <table class="metrics">
+        <tr><th>整體過關率</th><td>${(stats.passRate * 100).toFixed(2)}%</td></tr>
+        ${typeof stats.zeroRisk === 'number' ? `<tr><th>危險型態率</th><td>${(stats.zeroRisk * 100).toFixed(2)}%</td></tr>` : ''}
+        ${typeof stats.antiTotalScore === 'number' ? `<tr><th>防穿透主評分</th><td>${stats.antiTotalScore.toFixed(2)}</td></tr>` : ''}
+        <tr><th>過關期數</th><td>${stats.pass} 期</td></tr>
+        <tr><th>未過關期數</th><td>${stats.fail} 期</td></tr>
+        <tr><th>近20期過關率</th><td>${(stats.recentRate * 100).toFixed(2)}%</td></tr>
+        <tr><th>5號集中同一柱次數</th><td>${stats.allInOne} 期</td></tr>
+        <tr><th>結構平衡懲罰</th><td>${stats.balancePenalty.toFixed(2)}</td></tr>
+        <tr><th>常見分布前5名</th><td>${patternSummary(stats.patterns)}</td></tr>
+      </table>
+    `;
+  }
+
+
+  function buildMultiResultHTML(items, prefix, removeMode = false, copyType = '') {
+    if (!items || !items.length) return '尚未產生。';
+    return items.map((item, idx) => `
+      <div class="pillar" style="margin-bottom:12px;">
+        <div class="pillar-title" style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>${prefix} 第 ${idx + 1} 組</span>
+            <button class="btn btn-secondary single-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px;">只複製這一組</button>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-dark single-pillar-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-pillar-index="0" style="padding:6px 10px; font-size:13px;">複製第一柱</button>
+            <button class="btn btn-dark single-pillar-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-pillar-index="1" style="padding:6px 10px; font-size:13px;">複製第二柱</button>
+            <button class="btn btn-dark single-pillar-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-pillar-index="2" style="padding:6px 10px; font-size:13px;">複製第三柱</button>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+            <button class="btn btn-primary single-absolute-remove-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px;">複製扣除所有絕對不出版本</button>
+          
+<div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+  <div>
+    <label style="font-size:13px;">扣除絕對不出數量：</label>
+    <select id="removeCountSelect" class="btn btn-dark" style="padding:6px 10px; font-size:13px;">
+      <option value="5">前5名</option>
+      <option value="10">前10名</option>
+      <option value="15" selected>前15名</option>
+      <option value="20">前20名</option>
+    </select>
+  </div>
+  <div>
+    <label style="font-size:13px;">防補出模式：</label>
+    <select id="antiRefillModeSelect" class="btn btn-dark" style="padding:6px 10px; font-size:13px;">
+      <option value="safe" selected>保守</option>
+      <option value="normal">一般</option>
+      <option value="aggressive">激進</option>
+    </select>
+  </div>
+</div>
+
+        </div>
+        ${buildResultHTML(`${prefix} 第 ${idx + 1} 組`, item.groups, item.stats, removeMode ? item : null, item.rankingCount ? item : null)}
+      </div>
+    `).join('');
+  }
+
+  function summarizeCollection(items) {
+    const total = items.length || 1;
+    return items.reduce((acc, item) => {
+      acc.passRate += item.stats.passRate;
+      acc.recentRate += item.stats.recentRate;
+      acc.fail += item.stats.fail;
+      acc.allInOne += item.stats.allInOne;
+      acc.score += item.stats.score;
+      return acc;
+    }, { passRate: 0, recentRate: 0, fail: 0, allInOne: 0, score: 0, count: total });
+  }
+
+  function averageMetrics(items) {
+    const s = summarizeCollection(items);
+    return {
+      passRate: s.passRate / s.count,
+      recentRate: s.recentRate / s.count,
+      fail: s.fail / s.count,
+      allInOne: s.allInOne / s.count,
+      score: s.score / s.count
+    };
+  }
+
+  function getPrimarySortValue(item, scoreKey = 'score') {
+    if (!item || !item.stats) return -Infinity;
+    if (scoreKey === 'antiTotalScore') return item.stats.antiTotalScore ?? -Infinity;
+    return item.stats.score ?? -Infinity;
+  }
+
+  function pickUniqueBest(list, candidate, maxSize, scoreKey = 'score') {
+    const key = exportText(candidate.groups);
+    if (list.some(item => exportText(item.groups) === key)) return list;
+    const next = list.concat(candidate).sort((a, b) => getPrimarySortValue(b, scoreKey) - getPrimarySortValue(a, scoreKey));
+    return next.slice(0, maxSize);
+  }
+
+  async function buildTopAiGroups(draws, totalWanted) {
+    let results = [];
+    let attempts = 0;
+    const maxAttempts = Math.max(totalWanted * 4, 8);
+    while (results.length < totalWanted && attempts < maxAttempts) {
+      attempts++;
+      log(`AI 搜尋第 ${results.length + 1}/${totalWanted} 組中...`);
+      const ai = await searchBestPillar(draws);
+      results = pickUniqueBest(results, ai, totalWanted);
+    }
+    return results.slice(0, totalWanted);
+  }
+
+  function buildTopRandomGroups(draws, totalWanted) {
+    let results = [];
+    for (let i = 0; i < 120; i++) {
+      const groups = buildBalancedRandomPillar();
+      const stats = evaluate(groups, draws);
+      results = pickUniqueBest(results, { groups, stats }, totalWanted);
+    }
+    return results.slice(0, totalWanted);
+  }
+
+  function buildRemoveCollection(baseItems, draws, shareCounts) {
+    return baseItems.map(item => buildRemoveVersion(item.groups, draws, shareCounts));
+  }
+
+  function zeroRiskRate(patterns, total) {
+    const dangerous = ['5-0-0', '4-1-0', '3-2-0'];
+    return dangerous.reduce((sum, key) => sum + (patterns[key] || 0), 0) / (total || 1);
+  }
+
+  function antiScore(groups, draws) {
+    const stats = evaluate(groups, draws);
+    const zeroRisk = zeroRiskRate(stats.patterns, draws.length);
+    const pillarSpread = groups.reduce((sum, g) => sum + oddEvenBalance(g) + bigSmallBalance(g), 0);
+    return {
+      ...stats,
+      zeroRisk,
+      antiTotalScore:
+        stats.passRate * 1000 +
+        stats.recentRate * 150 -
+        zeroRisk * 260 -
+        stats.allInOneRate * 180 -
+        stats.balancePenalty * 1.15 -
+        pillarSpread * 0.25
+    };
+  }
+
+  function betterAnti(evalA, evalB) {
+    if (!evalB) return true;
+    if (evalA.antiTotalScore !== evalB.antiTotalScore) return evalA.antiTotalScore > evalB.antiTotalScore;
+    if (evalA.passRate !== evalB.passRate) return evalA.passRate > evalB.passRate;
+    if (evalA.zeroRisk !== evalB.zeroRisk) return evalA.zeroRisk < evalB.zeroRisk;
+    if (evalA.recentRate !== evalB.recentRate) return evalA.recentRate > evalB.recentRate;
+    return evalA.score > evalB.score;
+  }
+
+  function buildAntiSeed(draws, candidateScoreData) {
+    const base = candidateScoreData && candidateScoreData.ranking && candidateScoreData.ranking.length
+      ? buildCandidateBasedPillar(candidateScoreData, draws).groups
+      : buildBalancedRandomPillar();
+    let bestGroups = cloneGroups(base);
+    let bestEval = antiScore(bestGroups, draws);
+    for (let i = 0; i < 80; i++) {
+      const candidateGroups = randomSwap(bestGroups);
+      const candidateEval = antiScore(candidateGroups, draws);
+      if (betterAnti(candidateEval, bestEval) || rand() < 0.05) {
+        bestGroups = candidateGroups;
+        bestEval = candidateEval;
+      }
+    }
+    return { groups: bestGroups, stats: bestEval };
+  }
+
+  async function searchBestAntiPillar(draws, candidateScoreData) {
+    let globalBestGroups = null;
+    let globalBestEval = null;
+    const seed = buildAntiSeed(draws, candidateScoreData);
+    globalBestGroups = cloneGroups(seed.groups);
+    globalBestEval = seed.stats;
+
+    const rounds = 50;
+    const stepsPerRound = 220;
+
+    for (let r = 0; r < rounds; r++) {
+      let currentGroups = r === 0 ? cloneGroups(seed.groups) : buildAntiSeed(draws, candidateScoreData).groups;
+      let currentEval = antiScore(currentGroups, draws);
+
+      for (let s = 0; s < stepsPerRound; s++) {
+        const candidateGroups = randomSwap(currentGroups);
+        const candidateEval = antiScore(candidateGroups, draws);
+        const accept = candidateEval.antiTotalScore >= currentEval.antiTotalScore || rand() < 0.025;
+        if (accept) {
+          currentGroups = candidateGroups;
+          currentEval = candidateEval;
+        }
+        if (betterAnti(candidateEval, globalBestEval)) {
+          globalBestGroups = cloneGroups(candidateGroups);
+          globalBestEval = candidateEval;
+        }
+      }
+
+      if (betterAnti(currentEval, globalBestEval)) {
+        globalBestGroups = cloneGroups(currentGroups);
+        globalBestEval = currentEval;
+      }
+
+      if ((r + 1) % 10 === 0) {
+        log(`防穿透搜尋中：已完成 ${r + 1}/${rounds} 輪，當前最佳過關率 ${(globalBestEval.passRate * 100).toFixed(2)}%，危險型態 ${(globalBestEval.zeroRisk * 100).toFixed(2)}%`);
+        await new Promise(requestAnimationFrame);
+      }
+    }
+
+    return { groups: globalBestGroups, stats: globalBestEval };
+  }
+
+  async function buildTopAntiGroups(draws, candidateScoreData, totalWanted) {
+    let results = [];
+    let attempts = 0;
+    const maxAttempts = Math.max(totalWanted * 4, 8);
+    while (results.length < totalWanted && attempts < maxAttempts) {
+      attempts++;
+      log(`防穿透搜尋第 ${results.length + 1}/${totalWanted} 組中...`);
+      const anti = await searchBestAntiPillar(draws, candidateScoreData);
+      results = pickUniqueBest(results, anti, totalWanted, 'antiTotalScore');
+    }
+    return results.slice(0, totalWanted);
+  }
+
+  function corePoolFromCandidateScoreData(scoreData, topN = 18) {
+    if (!scoreData || !scoreData.ranking || !scoreData.ranking.length) return [];
+    return scoreData.ranking.slice(0, topN).map(item => item.n);
+  }
+
+  function samePillarOverlapRate(groupsA, groupsB) {
+    if (!groupsA || !groupsB) return 0;
+    let same = 0;
+    let total = 39;
+    for (let i = 0; i < 3; i++) {
+      const setB = new Set(groupsB[i] || []);
+      for (const n of (groupsA[i] || [])) if (setB.has(n)) same++;
+    }
+    return same / total;
+  }
+
+
+  function scoreMapFromCandidateData(candidateScoreData) {
+    const mp = {};
+    if (!candidateScoreData || !candidateScoreData.ranking) return mp;
+    candidateScoreData.ranking.forEach((item, idx) => {
+      mp[item.n] = (candidateScoreData.scores && candidateScoreData.scores[item.n] || item.score || 0) + (candidateScoreData.ranking.length - idx) * 0.01;
+    });
+    return mp;
+  }
+
+  function sourceAwarePenalty(candidate, targetSize, n, scoreMap, coreSet, coreTarget) {
+    const base = candidateFillPenalty(candidate, targetSize);
+    const scoreBoost = -((scoreMap[n] || 0) * 0.015);
+    const coreAfter = candidate.filter(x => coreSet.has(x)).length;
+    const corePenalty = Math.abs(coreAfter - coreTarget) * 0.9;
+    return base + scoreBoost + corePenalty;
+  }
+
+  function assignFromSourceToAllowed(sourceNums, allowedA, allowedB, countA, countB, groups, targets, scoreMap, coreSet, coreTargets) {
+    const ordered = sourceNums.slice().sort((a, b) => (scoreMap[b] || 0) - (scoreMap[a] || 0) || a - b);
+    let remainA = countA;
+    let remainB = countB;
+    for (let idx = 0; idx < ordered.length; idx++) {
+      const n = ordered[idx];
+      const left = ordered.length - idx;
+      let dest = null;
+      if (remainA === left) dest = allowedA;
+      else if (remainB === left) dest = allowedB;
+      else if (remainA <= 0) dest = allowedB;
+      else if (remainB <= 0) dest = allowedA;
+      else {
+        const scoreA = sourceAwarePenalty(groups[allowedA].concat(n), targets[allowedA], n, scoreMap, coreSet, coreTargets[allowedA]);
+        const scoreB = sourceAwarePenalty(groups[allowedB].concat(n), targets[allowedB], n, scoreMap, coreSet, coreTargets[allowedB]);
+        dest = scoreA <= scoreB ? allowedA : allowedB;
+      }
+      groups[dest].push(n);
+      if (dest === allowedA) remainA--; else remainB--;
+    }
+  }
+
+  function originalPillarMap(groups) {
+    const mp = {};
+    (groups || []).forEach((g, idx) => (g || []).forEach(n => { mp[n] = idx; }));
+    return mp;
+  }
+
+  function constrainedRandomSwap(groups, originMap) {
+    const g = cloneGroups(groups);
+    for (let tries = 0; tries < 40; tries++) {
+      const a = Math.floor(rand() * 3);
+      let b = Math.floor(rand() * 3);
+      while (b === a) b = Math.floor(rand() * 3);
+      const ai = Math.floor(rand() * g[a].length);
+      const bi = Math.floor(rand() * g[b].length);
+      const na = g[a][ai];
+      const nb = g[b][bi];
+      if (originMap[na] === b || originMap[nb] === a) continue;
+      [g[a][ai], g[b][bi]] = [nb, na];
+      g.forEach(x => x.sort((m, n) => m - n));
+      return g;
+    }
+    return g;
+  }
+
+  function buildExtremeAntiFromAi(aiGroups, candidateScoreData, draws) {
+    const scoreMap = scoreMapFromCandidateData(candidateScoreData);
+    const corePool = corePoolFromCandidateScoreData(candidateScoreData, 18);
+    const coreSet = new Set(corePool);
+    const targets = [10, 14, 15];
+    const coreTargets = [Math.round(corePool.length * 10 / 39), Math.round(corePool.length * 14 / 39), Math.round(corePool.length * 15 / 39)];
+    const groups = [[], [], []];
+    const base = cloneGroups(aiGroups).map(g => g.slice().sort((a, b) => (scoreMap[b] || 0) - (scoreMap[a] || 0) || a - b));
+
+    assignFromSourceToAllowed(base[0], 1, 2, 5, 5, groups, targets, scoreMap, coreSet, coreTargets);
+    assignFromSourceToAllowed(base[1], 0, 2, 4, 10, groups, targets, scoreMap, coreSet, coreTargets);
+    assignFromSourceToAllowed(base[2], 0, 1, 6, 9, groups, targets, scoreMap, coreSet, coreTargets);
+
+    const originMap = originalPillarMap(aiGroups);
+    let bestGroups = cloneGroups(groups);
+    let bestEval = antiScore(bestGroups, draws);
+    bestEval.sameOverlapVsAI = samePillarOverlapRate(bestGroups, aiGroups);
+    bestEval.extremeMode = true;
+
+    let currentGroups = cloneGroups(groups);
+    let currentEval = bestEval;
+    for (let i = 0; i < 420; i++) {
+      const candidateGroups = constrainedRandomSwap(currentGroups, originMap);
+      const candidateEval = antiScore(candidateGroups, draws);
+      candidateEval.sameOverlapVsAI = samePillarOverlapRate(candidateGroups, aiGroups);
+      candidateEval.extremeMode = true;
+      const candidateScore = candidateEval.antiTotalScore - candidateEval.sameOverlapVsAI * 420;
+      const currentScore = currentEval.antiTotalScore - currentEval.sameOverlapVsAI * 420;
+      if ((candidateScore >= currentScore || rand() < 0.02) && candidateEval.sameOverlapVsAI <= 0.25) {
+        currentGroups = candidateGroups;
+        currentEval = candidateEval;
+      }
+      const bestScore = bestEval.antiTotalScore - bestEval.sameOverlapVsAI * 420;
+      if (candidateEval.sameOverlapVsAI <= 0.25 && candidateScore > bestScore) {
+        bestGroups = cloneGroups(candidateGroups);
+        bestEval = candidateEval;
+      }
+    }
+    bestGroups.forEach(g => g.sort((a, b) => a - b));
+    return { groups: bestGroups, stats: bestEval };
+  }
+
+  async function buildTopExtremeAntiGroups(aiItems, draws, candidateScoreData, totalWanted) {
+    const results = [];
+    const total = Math.min(totalWanted, aiItems.length);
+    for (let i = 0; i < total; i++) {
+      log(`極限防穿透生成第 ${i + 1}/${total} 組中...`);
+      const built = buildExtremeAntiFromAi(aiItems[i].groups, candidateScoreData, draws);
+      results.push(built);
+      await new Promise(requestAnimationFrame);
+    }
+    return results;
+  }
+
+  function renderAntiAnalysis(candidateScoreData, aiItems, antiItems) {
+    const corePool = corePoolFromCandidateScoreData(candidateScoreData, 18);
+    const aiFirst = aiItems && aiItems.length ? aiItems[0] : null;
+    const antiFirst = antiItems && antiItems.length ? antiItems[0] : null;
+    if (!corePool.length || !antiFirst) {
+      antiAnalysisBody.innerHTML = '<tr><td colspan="2">尚未產生結果。</td></tr>';
+      return;
+    }
+    const coreSet = new Set(corePool);
+    const antiCoreCounts = antiFirst.groups.map(g => g.filter(n => coreSet.has(n)).length);
+    const overlapVsAi = aiFirst ? samePillarOverlapRate(antiFirst.groups, aiFirst.groups) : 0;
+    antiAnalysisBody.innerHTML = `
+      <tr><td>核心號碼池（前18）</td><td>${corePool.map(pad2).join(' ')}</td></tr>
+      <tr><td>防穿透首組吃到核心數</td><td>第一柱 ${antiCoreCounts[0]} 支 / 第二柱 ${antiCoreCounts[1]} 支 / 第三柱 ${antiCoreCounts[2]} 支</td></tr>
+      <tr><td>防穿透危險型態率</td><td>${((antiFirst.stats.zeroRisk || 0) * 100).toFixed(2)}%</td></tr>
+      <tr><td>防穿透同柱重疊率（對 AI 首組）</td><td>${(overlapVsAi * 100).toFixed(2)}%</td></tr>
+      <tr><td>極限防穿透模式</td><td>${antiFirst.stats && antiFirst.stats.extremeMode ? '已開啟' : '一般模式'}</td></tr>
+      <tr><td>防穿透主評分</td><td>${(antiFirst.stats.antiTotalScore || 0).toFixed(2)}</td></tr>
+    `;
+  }
+
+  function getSelectedOverlapItems() {
+    const items = [];
+    if (cmpAI.checked) items.push({ label: 'AI', data: lastAI });
+    if (cmpAnti.checked) items.push({ label: '防穿透', data: lastAnti });
+    if (cmpRandom.checked) items.push({ label: '隨機', data: lastRandom });
+    if (cmpCandidate.checked) items.push({ label: '候選', data: lastCandidate });
+    return items.filter(item => Array.isArray(item.data) && item.data.length);
+  }
+
+  function flattenGroupSets(groups) {
+    return new Set((groups || []).flat());
+  }
+
+  function coreOverlapRate(groupsA, groupsB) {
+    const corePool = corePoolFromCandidateScoreData(lastCandidateScoreData, 18);
+    if (!corePool.length) return 0;
+    const coreSet = new Set(corePool);
+    const setA = new Set((groupsA || []).flat().filter(n => coreSet.has(n)));
+    const setB = new Set((groupsB || []).flat().filter(n => coreSet.has(n)));
+    let same = 0;
+    for (const n of setA) if (setB.has(n)) same++;
+    return same / corePool.length;
+  }
+
+  function allOverlapRate(groupsA, groupsB) {
+    const setA = flattenGroupSets(groupsA);
+    const setB = flattenGroupSets(groupsB);
+    let same = 0;
+    for (const n of setA) if (setB.has(n)) same++;
+    return same / 39;
+  }
+
+  function calcOverlapRate(groupsA, groupsB, mode) {
+    if (mode === 'all') return allOverlapRate(groupsA, groupsB);
+    if (mode === 'core') return coreOverlapRate(groupsA, groupsB);
+    return samePillarOverlapRate(groupsA, groupsB);
+  }
+
+  function calcItemOverlap(itemA, itemB, mode, scope) {
+    const listA = itemA.data || [];
+    const listB = itemB.data || [];
+    if (!listA.length || !listB.length) return 0;
+    if (scope === 'all') {
+      const total = Math.min(listA.length, listB.length);
+      if (!total) return 0;
+      let sum = 0;
+      for (let i = 0; i < total; i++) {
+        sum += calcOverlapRate(listA[i].groups, listB[i].groups, mode);
+      }
+      return sum / total;
+    }
+    return calcOverlapRate(listA[0].groups, listB[0].groups, mode);
+  }
+
+  function overlapClass(rate, mode = 'pillar') {
+    if (mode === 'all') return 'rate-high';
+    if (rate >= 0.67) return 'rate-high';
+    if (rate >= 0.4) return 'rate-mid';
+    return 'rate-low';
+  }
+
+  function overlapNote(rate, mode = 'pillar') {
+    if (mode === 'all') return { cls: 'note-high', text: '全包 39 號玩法固定接近 100%，請改看同柱或核心重疊' };
+    if (mode === 'core') {
+      if (rate >= 0.85) return { cls: 'note-high', text: '核心幾乎一致，策略很接近' };
+      if (rate >= 0.6) return { cls: 'note-mid', text: '核心有重疊，方向仍算接近' };
+      return { cls: 'note-low', text: '核心分散較大，策略差異明顯' };
+    }
+    if (rate >= 0.67) return { cls: 'note-high', text: '高重疊，彼此很像' };
+    if (rate >= 0.4) return { cls: 'note-mid', text: '中重疊，可接受但要注意' };
+    if (rate >= 0.25) return { cls: 'note-low', text: '低重疊，已有防穿透感' };
+    return { cls: 'note-low', text: '超低重疊，屬於極限防穿透' };
+  }
+
+  
+  function getAllPrimaryItems() {
+    return []
+      .concat(Array.isArray(lastAI) ? lastAI : [])
+      .concat(Array.isArray(lastAnti) ? lastAnti : [])
+      .concat(Array.isArray(lastRandom) ? lastRandom : [])
+      .concat(Array.isArray(lastCandidate) ? lastCandidate : []);
+  }
+
+  function getAbsoluteNoDrawNumbersByCount(topCount) {
+    if (!lastScoreData || !Array.isArray(lastScoreData.ranking) || !lastScoreData.ranking.length) return [];
+    const preferred = lastScoreData.ranking.filter(item => (item.refillRisk || 0) <= 0.18);
+    const pool = preferred.length >= topCount ? preferred : lastScoreData.ranking;
+    return pool.slice(0, topCount).map(item => item.n);
+  }
+
+  function calcAveragePillarSizes(items, removeNumbers) {
+    if (!Array.isArray(items) || !items.length) return null;
+    let total1 = 0, total2 = 0, total3 = 0, count = 0;
+    for (const item of items) {
+      if (!item || !Array.isArray(item.groups)) continue;
+      const groups = subtractAbsoluteNoDrawGroups(item.groups, removeNumbers);
+      total1 += (groups[0] || []).length;
+      total2 += (groups[1] || []).length;
+      total3 += (groups[2] || []).length;
+      count++;
+    }
+    if (!count) return null;
+    const avg1 = total1 / count;
+    const avg2 = total2 / count;
+    const avg3 = total3 / count;
+    const diff = Math.abs(avg1 - 10) + Math.abs(avg2 - 14) + Math.abs(avg3 - 15);
+    return { avg1, avg2, avg3, diff, count };
+  }
+
+  
+  
+  function getCompareGroupScopeValue() {
+    const scopeEl = document.getElementById('compareGroupScopeSelect');
+    return scopeEl ? scopeEl.value : 'avg';
+  }
+
+  function calcSingleItemPillarSizes(item, removeNumbers) {
+    if (!item || !Array.isArray(item.groups)) return null;
+    const groups = subtractAbsoluteNoDrawGroups(item.groups, removeNumbers);
+    const c1 = (groups[0] || []).length;
+    const c2 = (groups[1] || []).length;
+    const c3 = (groups[2] || []).length;
+    const diff = Math.abs(c1 - 10) + Math.abs(c2 - 14) + Math.abs(c3 - 15);
+    return { avg1: c1, avg2: c2, avg3: c3, diff };
+  }
+
+  function renderRemoveDetailComparison() {
+    const recBox = document.getElementById('bestRemoveDetailRecommendation');
+    const countSelect = document.getElementById('compareRemoveCountSelect');
+    if (!removeDetailCompareBody) return;
+    if (!lastScoreData || !Array.isArray(lastScoreData.ranking) || !lastScoreData.ranking.length) {
+      removeDetailCompareBody.innerHTML = '<tr><td colspan="7">請先完成生成。</td></tr>';
+      if (recBox) recBox.innerHTML = '👉 尚未產生推薦';
+      return;
+    }
+    const topCount = countSelect ? Number(countSelect.value || 15) : 15;
+    const removeNumbers = getAbsoluteNoDrawNumbersByCount(topCount);
+
+    const collections = [
+      { label: 'AI最佳立柱', items: Array.isArray(lastAI) ? lastAI : [] },
+      { label: '防穿透', items: Array.isArray(lastAnti) ? lastAnti : [] },
+      { label: '隨機', items: Array.isArray(lastRandom) ? lastRandom : [] },
+      { label: '候選', items: Array.isArray(lastCandidate) ? lastCandidate : [] }
+    ];
+
+    const rows = [];
+    for (const col of collections) {
+      for (let i = 0; i < col.items.length; i++) {
+        const stat = calcSingleItemPillarSizes(col.items[i], removeNumbers);
+        if (!stat) continue;
+        rows.push({
+          label: col.label,
+          groupIndex: i,
+          groupLabel: `${col.label} 第${i + 1}組`,
+          ...stat
+        });
+      }
+    }
+
+    if (!rows.length) {
+      removeDetailCompareBody.innerHTML = '<tr><td colspan="7">目前沒有可比較的結果。</td></tr>';
+      if (recBox) recBox.innerHTML = '👉 尚未產生推薦';
+      return;
+    }
+
+    rows.sort((a, b) => a.diff - b.diff || a.groupIndex - b.groupIndex || a.label.localeCompare(b.label, 'zh-Hant'));
+    const best = rows[0];
+    if (recBox) {
+      recBox.innerHTML = `🔥 目前扣除前 ${topCount} 名不出時，最接近 10 / 14 / 15 的最佳組別是：${best.groupLabel}（誤差 ${best.diff.toFixed(2)}）`;
+    }
+
+    removeDetailCompareBody.innerHTML = rows.map((row, idx) => {
+      const isBest = idx === 0;
+      const cls = isBest ? 'ok' : (row.diff <= best.diff + 1 ? 'mid' : '');
+      return `<tr>
+        <td>${idx + 1}</td>
+        <td>${isBest ? '⭐ ' : ''}${row.groupLabel}</td>
+        <td>${row.avg1.toFixed(2)}</td>
+        <td>${row.avg2.toFixed(2)}</td>
+        <td>${row.avg3.toFixed(2)}</td>
+        <td class="${cls}">${row.diff.toFixed(2)}</td>
+        <td class="${cls}">${isBest ? '最佳' : (row.diff <= best.diff + 1 ? '接近' : '-')}</td>
+      </tr>`;
+    }).join('');
+  }
+
+function renderRemoveCountAverageComparison() {
+    const recBox = document.getElementById('bestRemoveRecommendation');
+    const countSelect = document.getElementById('compareRemoveCountSelect');
+
+    if (!removeCountCompareBody) return;
+    if (!lastScoreData || !Array.isArray(lastScoreData.ranking) || !lastScoreData.ranking.length) {
+      removeCountCompareBody.innerHTML = '<tr><td colspan="6">請先完成生成。</td></tr>';
+      if (recBox) recBox.innerHTML = '👉 尚未產生推薦';
+      renderRemoveDetailComparison();
+      return;
+    }
+
+    const topCount = countSelect ? Number(countSelect.value || 15) : 15;
+    const removeNumbers = getAbsoluteNoDrawNumbersByCount(topCount);
+    const scope = getCompareGroupScopeValue();
+
+    const collections = [
+      { label: 'AI最佳立柱', items: Array.isArray(lastAI) ? lastAI : [] },
+      { label: '防穿透', items: Array.isArray(lastAnti) ? lastAnti : [] },
+      { label: '隨機', items: Array.isArray(lastRandom) ? lastRandom : [] },
+      { label: '候選', items: Array.isArray(lastCandidate) ? lastCandidate : [] }
+    ];
+
+    const entries = collections.map(entry => {
+      if (scope === 'avg') {
+        const avg = calcAveragePillarSizes(entry.items, removeNumbers);
+        return avg ? { label: entry.label, ...avg } : null;
+      }
+      const idx = Number(scope);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= entry.items.length) return null;
+      const stat = calcSingleItemPillarSizes(entry.items[idx], removeNumbers);
+      return stat ? { label: `${entry.label} 第${idx + 1}組`, ...stat } : null;
+    }).filter(Boolean);
+
+    if (!entries.length) {
+      removeCountCompareBody.innerHTML = '<tr><td colspan="6">目前沒有可比較的結果。</td></tr>';
+      if (recBox) recBox.innerHTML = '👉 尚未產生推薦';
+      renderRemoveDetailComparison();
+      return;
+    }
+
+    const best = entries.reduce((a, b) => a.diff < b.diff ? a : b);
+    const scopeText = scope === 'avg' ? '全部平均' : `第${Number(scope) + 1}組`;
+
+    if (recBox) {
+      recBox.innerHTML = `🔥 目前扣除前 ${topCount} 名不出、比較範圍為 ${scopeText} 時，最接近 10 / 14 / 15 的是：${best.label}（誤差 ${best.diff.toFixed(2)}）`;
+    }
+
+    removeCountCompareBody.innerHTML = entries.map(entry => {
+      const isBest = entry.label === best.label;
+      const cls = isBest ? 'ok' : '';
+      return `<tr>
+        <td>${isBest ? '⭐ ' : ''}${entry.label}</td>
+        <td>${entry.avg1.toFixed(2)}</td>
+        <td>${entry.avg2.toFixed(2)}</td>
+        <td>${entry.avg3.toFixed(2)}</td>
+        <td class="${cls}">${entry.diff.toFixed(2)}</td>
+        <td class="${cls}">${isBest ? '最佳' : '-'}</td>
+      </tr>`;
+    }).join('');
+
+    renderRemoveDetailComparison();
+  }
+
+function renderOverlapComparison() {
+    const selected = getSelectedOverlapItems();
+    if (selected.length < 2) {
+      overlapBody.innerHTML = '<tr><td colspan="3">請至少勾選 2 個主要版本，並先完成生成。</td></tr>';
+      renderRemoveCountAverageComparison();
+      return;
+    }
+    const mode = cmpMode.value;
+    const scope = cmpScope.value;
+    const rows = [];
+    for (let i = 0; i < selected.length; i++) {
+      for (let j = i + 1; j < selected.length; j++) {
+        const rate = calcItemOverlap(selected[i], selected[j], mode, scope);
+        const cls = overlapClass(rate, mode);
+        const note = overlapNote(rate, mode);
+        rows.push(`<tr><td>${selected[i].label} vs ${selected[j].label}</td><td class="${cls}">${(rate * 100).toFixed(2)}%</td><td class="${note.cls}">${note.text}</td></tr>`);
+      }
+    }
+    overlapBody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="3">目前沒有可比對的結果。</td></tr>';
+    renderRemoveCountAverageComparison();
+  }
+
+  function compareWinner(ai, random, higherBetter = true) {
+    if (ai === random) return '平手';
+    if (higherBetter) return ai > random ? 'AI' : '隨機';
+    return ai < random ? 'AI' : '隨機';
+  }
+
+  function metricWinnerLabel(entries, higherBetter = true) {
+    const valid = entries.filter(item => Number.isFinite(item.value));
+    if (!valid.length) return '—';
+    const bestValue = higherBetter ? Math.max(...valid.map(item => item.value)) : Math.min(...valid.map(item => item.value));
+    const winners = valid.filter(item => item.value === bestValue).map(item => item.label);
+    return winners.length === 1 ? winners[0] : winners.join(' / ');
+  }
+
+  function renderCompare(aiItems, antiItems, randomItems, candidateItems) {
+    const aiStats = averageMetrics(aiItems);
+    const antiStats = averageMetrics(antiItems);
+    const randomStats = averageMetrics(randomItems);
+    const candidateStats = averageMetrics(candidateItems);
+    const rows = [
+      ['平均整體過關率', `${(aiStats.passRate * 100).toFixed(2)}%`, `${(antiStats.passRate * 100).toFixed(2)}%`, `${(randomStats.passRate * 100).toFixed(2)}%`, `${(candidateStats.passRate * 100).toFixed(2)}%`, metricWinnerLabel([{ label: 'AI', value: aiStats.passRate }, { label: '防穿透', value: antiStats.passRate }, { label: '隨機', value: randomStats.passRate }, { label: '候選', value: candidateStats.passRate }], true)],
+      ['平均近20期過關率', `${(aiStats.recentRate * 100).toFixed(2)}%`, `${(antiStats.recentRate * 100).toFixed(2)}%`, `${(randomStats.recentRate * 100).toFixed(2)}%`, `${(candidateStats.recentRate * 100).toFixed(2)}%`, metricWinnerLabel([{ label: 'AI', value: aiStats.recentRate }, { label: '防穿透', value: antiStats.recentRate }, { label: '隨機', value: randomStats.recentRate }, { label: '候選', value: candidateStats.recentRate }], true)],
+      ['平均未過關期數', `${aiStats.fail.toFixed(2)}`, `${antiStats.fail.toFixed(2)}`, `${randomStats.fail.toFixed(2)}`, `${candidateStats.fail.toFixed(2)}`, metricWinnerLabel([{ label: 'AI', value: aiStats.fail }, { label: '防穿透', value: antiStats.fail }, { label: '隨機', value: randomStats.fail }, { label: '候選', value: candidateStats.fail }], false)],
+      ['平均5號集中同一柱次數', `${aiStats.allInOne.toFixed(2)}`, `${antiStats.allInOne.toFixed(2)}`, `${randomStats.allInOne.toFixed(2)}`, `${candidateStats.allInOne.toFixed(2)}`, metricWinnerLabel([{ label: 'AI', value: aiStats.allInOne }, { label: '防穿透', value: antiStats.allInOne }, { label: '隨機', value: randomStats.allInOne }, { label: '候選', value: candidateStats.allInOne }], false)],
+      ['平均綜合評分', `${aiStats.score.toFixed(2)}`, `${antiStats.score.toFixed(2)}`, `${randomStats.score.toFixed(2)}`, `${candidateStats.score.toFixed(2)}`, metricWinnerLabel([{ label: 'AI', value: aiStats.score }, { label: '防穿透', value: antiStats.score }, { label: '隨機', value: randomStats.score }, { label: '候選', value: candidateStats.score }], true)]
+    ];
+    compareBody.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('');
+  }
+
+  function renderRemoveCompare(aiItems, antiItems, randomItems, candidateItems) {
+    const avgSave = list => list.reduce((s, x) => s + x.saveCost, 0) / (list.length || 1);
+    const avgRemovedScore = list => list.reduce((s, x) => s + x.removedScore, 0) / (list.length || 1);
+    const aiStats = averageMetrics(aiItems);
+    const antiStats = averageMetrics(antiItems);
+    const randomStats = averageMetrics(randomItems);
+    const candidateStats = averageMetrics(candidateItems);
+    const rows = [
+      ['平均整體過關率', `${(aiStats.passRate * 100).toFixed(2)}%`, `${(antiStats.passRate * 100).toFixed(2)}%`, `${(randomStats.passRate * 100).toFixed(2)}%`, `${(candidateStats.passRate * 100).toFixed(2)}%`, metricWinnerLabel([{ label: 'AI', value: aiStats.passRate }, { label: '防穿透', value: antiStats.passRate }, { label: '隨機', value: randomStats.passRate }, { label: '候選', value: candidateStats.passRate }], true)],
+      ['平均近20期過關率', `${(aiStats.recentRate * 100).toFixed(2)}%`, `${(antiStats.recentRate * 100).toFixed(2)}%`, `${(randomStats.recentRate * 100).toFixed(2)}%`, `${(candidateStats.recentRate * 100).toFixed(2)}%`, metricWinnerLabel([{ label: 'AI', value: aiStats.recentRate }, { label: '防穿透', value: antiStats.recentRate }, { label: '隨機', value: randomStats.recentRate }, { label: '候選', value: candidateStats.recentRate }], true)],
+      ['平均預估省下成本', `${avgSave(aiItems).toFixed(0)}`, `${avgSave(antiItems).toFixed(0)}`, `${avgSave(randomItems).toFixed(0)}`, `${avgSave(candidateItems).toFixed(0)}`, metricWinnerLabel([{ label: 'AI', value: avgSave(aiItems) }, { label: '防穿透', value: avgSave(antiItems) }, { label: '隨機', value: avgSave(randomItems) }, { label: '候選', value: avgSave(candidateItems) }], true)],
+      ['平均摘除號碼分數', `${avgRemovedScore(aiItems).toFixed(2)}`, `${avgRemovedScore(antiItems).toFixed(2)}`, `${avgRemovedScore(randomItems).toFixed(2)}`, `${avgRemovedScore(candidateItems).toFixed(2)}`, metricWinnerLabel([{ label: 'AI', value: avgRemovedScore(aiItems) }, { label: '防穿透', value: avgRemovedScore(antiItems) }, { label: '隨機', value: avgRemovedScore(randomItems) }, { label: '候選', value: avgRemovedScore(candidateItems) }], true)],
+      ['生成組數', `${aiItems.length}`, `${antiItems.length}`, `${randomItems.length}`, `${candidateItems.length}`, '—']
+    ];
+    removeCompareBody.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('');
+  }
+
+  function exportText(groups, label, removeInfo = null) {
+    const exportGroup = g => g.map(pad2).join(',');
+    return [groups[0], groups[1], groups[2]].map(exportGroup).join('+');
+  }
+
+  function exportGroupsCollection(items) {
+    return items.map((item, idx) => `第${idx + 1}組\n${exportText(item.groups)}`).join('\n\n');
+  }
+
+  sampleBtn.addEventListener('click', () => {
+    drawInput.value = [
+      '01 07 10 20 26','04 09 16 28 37','05 11 14 23 39','02 08 15 18 31','06 12 17 27 34',
+      '03 13 19 21 33','07 09 24 26 35','01 05 16 22 30','08 11 18 25 39','02 10 14 27 36',
+      '04 06 20 29 32','03 12 17 28 37','01 13 15 24 38','05 07 19 22 34','08 09 16 23 31',
+      '02 11 18 26 39','04 10 14 21 35','06 12 17 25 33','03 13 20 28 36','01 05 15 27 32',
+      '07 11 16 24 30','02 08 18 29 37','04 09 14 22 38','06 10 19 25 34','03 12 17 26 31'
+    ].join('\n');
+    noDrawInput.value = [
+      '07 18 22 31','04 18 22 31 39','07 18 26 31','04 07 18 22 31','07 18 22 26 31'
+    ].join('\n');
+    candidateInput.value = [
+      '03 11 17 28 35','11 17 22 28 31','03 17 28 31 39','03 11 22 28 31','11 17 28 35 39'
+    ].join('\n');
+  });
+
+  async function run() {
+    const draws = parseDraws(drawInput.value);
+    const shareData = parseNoDrawShares(noDrawInput.value);
+    const candidateShareData = parseCandidateShares(candidateInput.value);
+    const wantedGroups = Math.max(1, Math.min(5, Number(groupCount.value) || 2));
+    countDraws.textContent = draws.length;
+    if (!draws.length) {
+      alert('請先貼上有效的開獎號碼，每行需能辨識出 5 個 01~39 號碼。');
+      return;
+    }
+
+    runBtn.disabled = true;
+    const seedText = [drawInput.value, noDrawInput.value, candidateInput.value, String(wantedGroups)].join('\n---\n');
+    setRunSeed(seedText);
+    resetLog();
+    log(`已讀取 ${draws.length} 期資料。`);
+    log('本次已鎖定固定亂數種子：同一份資料重複生成，結果會固定；資料一改，結果才會變。');
+    log(`已讀取多人分享不出牌 ${shareData.rows} 行。`);
+    log(`已讀取多人分享推薦號碼 ${candidateShareData.rows} 行。`);
+    log(`本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組隨機立柱、${wantedGroups} 組候選名單立柱。`);
+
+    aiResult.innerHTML = 'AI 計算中...';
+    antiResult.innerHTML = '防穿透立柱待產生...';
+    randomResult.innerHTML = '隨機立柱待產生...';
+    candidateResult.innerHTML = '候選名單立柱待產生...';
+    aiRemoveResult.innerHTML = '摘除版待產生...';
+    antiRemoveResult.innerHTML = '摘除版待產生...';
+    randomRemoveResult.innerHTML = '摘除版待產生...';
+    candidateRemoveResult.innerHTML = '摘除版待產生...';
+    compareBody.innerHTML = '<tr><td colspan="6">計算中...</td></tr>';
+    removeCompareBody.innerHTML = '<tr><td colspan="6">計算中...</td></tr>';
+    scoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
+    candidateScoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
+    antiAnalysisBody.innerHTML = '<tr><td colspan="2">計算中...</td></tr>';
+    overlapBody.innerHTML = '<tr><td colspan="3">計算中...</td></tr>';
+
+    try {
+      const candidateScoreData = buildCandidateScoreRanking(draws, candidateShareData.counts);
+      lastCandidateScoreData = candidateScoreData;
+
+      lastAI = await buildTopAiGroups(draws, wantedGroups);
+      aiResult.innerHTML = buildMultiResultHTML(lastAI, 'AI 最佳立柱', false, 'ai');
+      log(`AI 最佳立柱完成，共 ${lastAI.length} 組。最佳整體過關率 ${(lastAI[0].stats.passRate * 100).toFixed(2)}%。`);
+
+      log(extremeAntiMode.checked ? '開始產生極限防穿透立柱...' : '開始產生防穿透立柱...');
+      if (extremeAntiMode.checked) {
+        lastAnti = await buildTopExtremeAntiGroups(lastAI, draws, candidateScoreData, wantedGroups);
+      } else {
+        lastAnti = await buildTopAntiGroups(draws, candidateScoreData, wantedGroups);
+      }
+      antiResult.innerHTML = buildMultiResultHTML(lastAnti, extremeAntiMode.checked ? '極限防穿透立柱' : '防穿透立柱', false, 'anti');
+      const antiFirst = lastAnti[0];
+      log(`${extremeAntiMode.checked ? '極限防穿透立柱' : '防穿透立柱'}完成，共 ${lastAnti.length} 組。最佳整體過關率 ${(antiFirst.stats.passRate * 100).toFixed(2)}%，同柱重疊 ${(samePillarOverlapRate(antiFirst.groups, lastAI[0].groups) * 100).toFixed(2)}%。`);
+
+      log('開始產生隨機平衡立柱...');
+      lastRandom = buildTopRandomGroups(draws, wantedGroups);
+      randomResult.innerHTML = buildMultiResultHTML(lastRandom, '隨機平衡立柱', false, 'random');
+      log(`隨機平衡立柱完成，共 ${lastRandom.length} 組。最佳整體過關率 ${(lastRandom[0].stats.passRate * 100).toFixed(2)}%。`);
+
+      lastAIRemove = buildRemoveCollection(lastAI, draws, shareData.counts);
+      aiRemoveResult.innerHTML = buildMultiResultHTML(lastAIRemove, 'AI 絕對不出摘除版', true, 'aiRemove');
+      log(`AI 摘除版完成，共 ${lastAIRemove.length} 組。`);
+
+      lastAntiRemove = buildRemoveCollection(lastAnti, draws, shareData.counts);
+      antiRemoveResult.innerHTML = buildMultiResultHTML(lastAntiRemove, '防穿透摘除版', true, 'antiRemove');
+      log(`防穿透摘除版完成，共 ${lastAntiRemove.length} 組。`);
+
+      lastRandomRemove = buildRemoveCollection(lastRandom, draws, shareData.counts);
+      randomRemoveResult.innerHTML = buildMultiResultHTML(lastRandomRemove, '隨機絕對不出摘除版', true, 'randomRemove');
+      log(`隨機摘除版完成，共 ${lastRandomRemove.length} 組。`);
+
+      const scoreData = buildScoreRanking(draws, shareData.counts);
+      lastScoreData = scoreData;
+      renderScoreBoard(scoreData);
+      if (scoreData.ranking.length) {
+        const top = scoreData.ranking[0];
+        log(`絕對不出評分完成：目前第一名是 ${pad2(top.n)}，分數 ${top.score.toFixed(2)}。`);
+      }
+
+      renderCandidateScoreBoard(candidateScoreData);
+      if (candidateScoreData.ranking.length) {
+        const topCandidate = candidateScoreData.ranking[0];
+        log(`推薦號碼候選分數完成：目前第一名是 ${pad2(topCandidate.n)}，分數 ${topCandidate.score.toFixed(2)}。`);
+      } else {
+        log('推薦號碼候選分數完成：本次未貼入可分析的推薦號碼。');
+      }
+
+      log('開始產生候選名單立柱...');
+      lastCandidate = buildCandidateCollection(draws, candidateScoreData, wantedGroups);
+      candidateResult.innerHTML = buildMultiResultHTML(lastCandidate, '候選名單立柱', false, 'candidate');
+      if (lastCandidate.length) {
+        log(`候選名單立柱完成，共 ${lastCandidate.length} 組。最佳整體過關率 ${(lastCandidate[0].stats.passRate * 100).toFixed(2)}%。`);
+      }
+
+      lastCandidateRemove = buildRemoveCollection(lastCandidate, draws, shareData.counts);
+      candidateRemoveResult.innerHTML = buildMultiResultHTML(lastCandidateRemove, '候選名單摘除版', true, 'candidateRemove');
+      log(`候選名單摘除版完成，共 ${lastCandidateRemove.length} 組。`);
+
+      renderCompare(lastAI, lastAnti, lastRandom, lastCandidate);
+      renderRemoveCompare(lastAIRemove, lastAntiRemove, lastRandomRemove, lastCandidateRemove);
+      renderAntiAnalysis(candidateScoreData, lastAI, lastAnti);
+      renderOverlapComparison();
+    renderRemoveCountAverageComparison();
+      log('三種原始立柱與三種摘除版本皆已完成比較。');
+    } catch (err) {
+      console.error(err);
+      log('發生錯誤：' + err.message);
+      alert('計算時發生錯誤：' + err.message);
+    } finally {
+      runBtn.disabled = false;
+    }
+  }
+
+  runBtn.addEventListener('click', run);
+
+  [cmpAI, cmpAnti, cmpRandom, cmpCandidate, cmpMode, cmpScope].forEach(el => {
+    el.addEventListener('change', () => {
+      renderOverlapComparison();
+    });
+  });
+
+  const removeCountSelectEl = document.getElementById('removeCountSelect');
+  if (removeCountSelectEl) {
+    removeCountSelectEl.addEventListener('change', () => {
+      renderRemoveCountAverageComparison();
+    });
+  }
+
+  const compareRemoveCountSelectEl = document.getElementById('compareRemoveCountSelect');
+  if (compareRemoveCountSelectEl) {
+    compareRemoveCountSelectEl.addEventListener('change', () => {
+      renderRemoveCountAverageComparison();
+    });
+  }
+
+  const compareGroupScopeSelectEl = document.getElementById('compareGroupScopeSelect');
+  if (compareGroupScopeSelectEl) {
+    compareGroupScopeSelectEl.addEventListener('change', () => {
+      renderRemoveCountAverageComparison();
+    });
+  }
+
+  const antiRefillModeSelectEl = document.getElementById('antiRefillModeSelect');
+  if (antiRefillModeSelectEl) {
+    antiRefillModeSelectEl.addEventListener('change', () => {
+      renderRemoveCountAverageComparison();
+    });
+  }
+
+  function legacyCopyText(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (e) {
+      ok = false;
+    }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  async function copyTextSmart(text, successMsg) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        alert(successMsg);
+        return;
+      }
+    } catch (e) {}
+
+    if (legacyCopyText(text)) {
+      alert(successMsg);
+      return;
+    }
+
+    const manualBox = document.createElement('textarea');
+    manualBox.value = text;
+    manualBox.setAttribute('readonly', '');
+    manualBox.style.position = 'fixed';
+    manualBox.style.left = '10px';
+    manualBox.style.top = '10px';
+    manualBox.style.width = 'calc(100vw - 20px)';
+    manualBox.style.height = '180px';
+    manualBox.style.zIndex = '99999';
+    manualBox.style.background = '#ffffff';
+    manualBox.style.color = '#000000';
+    manualBox.style.border = '2px solid #000000';
+    manualBox.style.padding = '12px';
+    document.body.appendChild(manualBox);
+    manualBox.focus();
+    manualBox.select();
+    manualBox.setSelectionRange(0, manualBox.value.length);
+    setTimeout(() => {
+      alert('已自動選取內容，請長按後手動複製。');
+    }, 50);
+    setTimeout(() => {
+      if (manualBox.parentNode) manualBox.parentNode.removeChild(manualBox);
+    }, 15000);
+  }
+
+  function getItemByCopyType(copyType) {
+    if (copyType === 'ai') return lastAI || [];
+    if (copyType === 'anti') return lastAnti || [];
+    if (copyType === 'random') return lastRandom || [];
+    if (copyType === 'candidate') return lastCandidate || [];
+    if (copyType === 'aiRemove') return lastAIRemove || [];
+    if (copyType === 'antiRemove') return lastAntiRemove || [];
+    if (copyType === 'randomRemove') return lastRandomRemove || [];
+    if (copyType === 'candidateRemove') return lastCandidateRemove || [];
+    return [];
+  }
+
+  function getAbsoluteNoDrawNumbers() {
+    if (!lastScoreData || !Array.isArray(lastScoreData.ranking) || !lastScoreData.ranking.length) return [];
+    const select = document.getElementById('compareRemoveCountSelect');
+    const topCount = select ? Number(select.value) : 15;
+    const preferred = lastScoreData.ranking.filter(item => (item.refillRisk || 0) <= 0.18);
+    const pool = preferred.length >= topCount ? preferred : lastScoreData.ranking;
+    return pool
+      .slice(0, topCount)
+      .map(item => item.n);
+  }
+
+  function subtractAbsoluteNoDrawGroups(groups, absoluteNoDrawNumbers) {
+    const removeSet = new Set((absoluteNoDrawNumbers || []).map(Number));
+    return (groups || []).map(group => (group || []).filter(n => !removeSet.has(Number(n))));
+  }
+
+  async function copySingleGroup(items, rawIndex, labelPrefix = '') {
+    const index = Number(rawIndex);
+    if (!Array.isArray(items) || !items.length || !Number.isInteger(index) || index < 0 || index >= items.length) {
+      alert('找不到可複製的這一組。請先重新產生結果後再試一次。');
+      return;
+    }
+    const text = exportText(items[index].groups);
+    await copyTextSmart(text, `第 ${index + 1} 組已複製`);
+  }
+
+  async function copySinglePillar(items, rawIndex, rawPillarIndex) {
+    const index = Number(rawIndex);
+    const pillarIndex = Number(rawPillarIndex);
+    if (!Array.isArray(items) || !items.length || !Number.isInteger(index) || index < 0 || index >= items.length) {
+      alert('找不到可複製的這一組。請先重新產生結果後再試一次。');
+      return;
+    }
+    if (!Number.isInteger(pillarIndex) || pillarIndex < 0 || pillarIndex > 2) {
+      alert('找不到可複製的柱。');
+      return;
+    }
+    const pillar = items[index].groups[pillarIndex] || [];
+    const text = pillar.map(pad2).join(',');
+    await copyTextSmart(text, `第 ${index + 1} 組第 ${pillarIndex + 1} 柱已複製`);
+  }
+
+
+  async function copyAbsoluteRemoveVersion(items, rawIndex) {
+    const index = Number(rawIndex);
+    if (!Array.isArray(items) || !items.length || !Number.isInteger(index) || index < 0 || index >= items.length) {
+      alert('找不到可複製的這一組。請先重新產生結果後再試一次。');
+      return;
+    }
+
+    const absoluteNoDrawNumbers = getAbsoluteNoDrawNumbers();
+    if (!absoluteNoDrawNumbers.length) {
+      alert('目前沒有可扣除的絕對不出號碼。請先輸入百期開獎號碼並重新分析。');
+      return;
+    }
+
+    const groups = subtractAbsoluteNoDrawGroups(items[index].groups, absoluteNoDrawNumbers);
+    const remainCount = groups.reduce((sum, group) => sum + group.length, 0);
+    if (!remainCount) {
+      alert('這一組扣除 AI 判定的絕對不出號碼後已無剩餘號碼。');
+      return;
+    }
+
+    const text = exportText(groups);
+    await copyTextSmart(text, `第 ${index + 1} 組扣除所有絕對不出版本已複製`);
+  }
+
+
+
+  [cmpAI, cmpAnti, cmpRandom, cmpCandidate, cmpMode, cmpScope, extremeAntiMode].forEach(el => {
+    if (!el) return;
+    el.addEventListener('change', () => {
+      renderOverlapComparison();
+    });
+  });
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.single-copy-btn');
+    if (btn) {
+      const items = getItemByCopyType(btn.dataset.copyType);
+      await copySingleGroup(items, btn.dataset.copyIndex, '');
+      return;
+    }
+
+    const pillarBtn = e.target.closest('.single-pillar-copy-btn');
+    if (pillarBtn) {
+      const items = getItemByCopyType(pillarBtn.dataset.copyType);
+      await copySinglePillar(items, pillarBtn.dataset.copyIndex, pillarBtn.dataset.pillarIndex);
+      return;
+    }
+
+    const absoluteRemoveBtn = e.target.closest('.single-absolute-remove-copy-btn');
+    if (absoluteRemoveBtn) {
+      const items = getItemByCopyType(absoluteRemoveBtn.dataset.copyType);
+      await copyAbsoluteRemoveVersion(items, absoluteRemoveBtn.dataset.copyIndex);
+    }
+  });
+})();
+</script>
 </body>
 </html>
