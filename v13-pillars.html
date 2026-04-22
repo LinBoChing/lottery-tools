@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>百期立柱 AI 對照版 v14 極限版</title>
+  <title>百期立柱 AI 對照版 v15 極限版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -331,7 +331,7 @@
       1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
       2. 同時產生相同組數的 <b>大小、單雙平均分配</b> 隨機立柱作對照。<br>
       3. 額外提供候選號碼排行與核心分析，方便你自行判斷。<br>
-      本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。<br>v14 極限版：同資料會合併歷史最佳候選，並用候選池精修，讓速度更快、結果更穩。
+      本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。<br>v15 極限版：同資料會合併歷史最佳候選，並用候選池精修；推薦區改為全柱穿插比對，從高分組中挑出最低穿透率的固定最佳 3 組。
     </div>
 
     <div class="grid">
@@ -354,7 +354,7 @@
           <button class="btn btn-dark" id="sampleBtn">載入範例</button>
         </div>
         <div class="recommend-box">
-          <div class="recommend-title">推薦 3 組低重複率立柱</div>
+          <div class="recommend-title">推薦 3 組低穿透率立柱</div>
           <div id="recommendResult" class="small-note">尚未產生。</div>
         </div>
         <div class="small-note">
@@ -1657,18 +1657,49 @@
     return samePillarOverlapRate(groupsA, groupsB);
   }
 
+  function crossOverlapRate(groupsA, groupsB) {
+    if (!groupsA || !groupsB) return 0;
+    let same = 0;
+    for (let i = 0; i < 3; i++) {
+      const setA = new Set(groupsA[i] || []);
+      for (let j = 0; j < 3; j++) {
+        for (const n of (groupsB[j] || [])) {
+          if (setA.has(n)) same++;
+        }
+      }
+    }
+    return same / 117;
+  }
+
+  function candidateStrengthScore(item) {
+    if (!item || !item.stats) return -Infinity;
+    const stats = item.stats;
+    const sourceBonusMap = { ai: 18, anti: 14, highpass: 12, random: 6 };
+    return (
+      (stats.passRate || 0) * 10000 +
+      (stats.recentRate || 0) * 900 -
+      (stats.failRate || 0) * 250 -
+      (stats.allInOneRate || 0) * 120 -
+      (stats.zeroRisk || 0) * 80 +
+      (stats.highPassScore || 0) * 0.03 +
+      (stats.antiTotalScore || 0) * 0.02 +
+      (stats.score || 0) * 0.08 +
+      (sourceBonusMap[item.sourceType] || 0)
+    );
+  }
+
   function buildRecommendPool(aiItems, antiItems, highPassItems, randomItems) {
     const pool = [];
-    const pushItems = (items, type, labelClass) => {
-      (items || []).forEach((item, idx) => {
-        pool.push({ ...item, sourceType: type, sourceIndex: idx, labelClass });
+    const pushItems = (items, type, labelClass, limit) => {
+      (items || []).slice(0, limit).forEach((item, idx) => {
+        pool.push({ ...item, sourceType: type, sourceIndex: idx, labelClass, strengthScore: candidateStrengthScore({ ...item, sourceType: type }) });
       });
     };
-    pushItems(aiItems, 'ai', 'tag-strong');
-    pushItems(antiItems, 'anti', 'tag-safe');
-    pushItems(highPassItems, 'highpass', 'tag-hot');
-    pushItems(randomItems, 'random', 'tag-random');
-    return pool;
+    pushItems(aiItems, 'ai', 'tag-strong', 3);
+    pushItems(antiItems, 'anti', 'tag-safe', 3);
+    pushItems(highPassItems, 'highpass', 'tag-hot', 3);
+    pushItems(randomItems, 'random', 'tag-random', 1);
+    return pool.sort((a, b) => b.strengthScore - a.strengthScore || a.sourceIndex - b.sourceIndex);
   }
 
   function recommendLowestOverlapSet(aiItems, antiItems, highPassItems, randomItems) {
@@ -1682,20 +1713,50 @@
           const picks = [pool[i], pool[j], pool[k]];
           if (picks.filter(x => x.sourceType === 'random').length > 1) continue;
 
-          const overlaps = [
+          const crossOverlaps = [
+            crossOverlapRate(picks[0].groups, picks[1].groups),
+            crossOverlapRate(picks[0].groups, picks[2].groups),
+            crossOverlapRate(picks[1].groups, picks[2].groups)
+          ];
+          const samePillarOverlaps = [
             pairwiseSamePillarOverlap(picks[0].groups, picks[1].groups),
             pairwiseSamePillarOverlap(picks[0].groups, picks[2].groups),
             pairwiseSamePillarOverlap(picks[1].groups, picks[2].groups)
           ];
-          const avgOverlap = overlaps.reduce((sum, value) => sum + value, 0) / overlaps.length;
-          const maxOverlap = Math.max(...overlaps);
+          const avgCrossOverlap = crossOverlaps.reduce((sum, value) => sum + value, 0) / crossOverlaps.length;
+          const maxCrossOverlap = Math.max(...crossOverlaps);
+          const avgSamePillarOverlap = samePillarOverlaps.reduce((sum, value) => sum + value, 0) / samePillarOverlaps.length;
+          const maxSamePillarOverlap = Math.max(...samePillarOverlaps);
           const avgPassRate = picks.reduce((sum, item) => sum + (item.stats.passRate || 0), 0) / picks.length;
           const avgRecentRate = picks.reduce((sum, item) => sum + (item.stats.recentRate || 0), 0) / picks.length;
           const sourceVariety = new Set(picks.map(x => x.sourceType)).size;
-          const score = avgOverlap * 1000 + maxOverlap * 180 - avgPassRate * 120 - avgRecentRate * 18 - sourceVariety * 6;
-          const candidate = { picks, avgOverlap, maxOverlap, avgPassRate, avgRecentRate, sourceVariety, score };
+          const totalStrength = picks.reduce((sum, item) => sum + (item.strengthScore || 0), 0);
+          const score =
+            avgCrossOverlap * 10000 +
+            maxCrossOverlap * 2500 +
+            avgSamePillarOverlap * 350 +
+            maxSamePillarOverlap * 90 -
+            totalStrength * 0.02 -
+            avgPassRate * 320 -
+            avgRecentRate * 60 -
+            sourceVariety * 12;
+          const candidate = {
+            picks,
+            avgCrossOverlap,
+            maxCrossOverlap,
+            avgSamePillarOverlap,
+            maxSamePillarOverlap,
+            avgPassRate,
+            avgRecentRate,
+            sourceVariety,
+            totalStrength,
+            score
+          };
 
-          if (!best || candidate.score < best.score || (candidate.score === best.score && candidate.avgPassRate > best.avgPassRate)) {
+          if (!best ||
+              candidate.score < best.score ||
+              (candidate.score === best.score && candidate.totalStrength > best.totalStrength) ||
+              (candidate.score === best.score && candidate.totalStrength === best.totalStrength && candidate.avgPassRate > best.avgPassRate)) {
             best = candidate;
           }
         }
@@ -1705,11 +1766,14 @@
     return best ? best.picks.map((item, idx) => ({
       ...item,
       recommendRank: idx + 1,
-      avgOverlap: best.avgOverlap,
-      maxOverlap: best.maxOverlap,
+      avgCrossOverlap: best.avgCrossOverlap,
+      maxCrossOverlap: best.maxCrossOverlap,
+      avgSamePillarOverlap: best.avgSamePillarOverlap,
+      maxSamePillarOverlap: best.maxSamePillarOverlap,
       avgPassRate: best.avgPassRate,
       avgRecentRate: best.avgRecentRate,
-      sourceVariety: best.sourceVariety
+      sourceVariety: best.sourceVariety,
+      totalStrength: best.totalStrength
     })) : [];
   }
 
@@ -1726,10 +1790,11 @@
       recommendResult.innerHTML = '尚未產生。';
       return;
     }
-    const avgOverlap = ((items[0].avgOverlap || 0) * 100).toFixed(2);
-    const maxOverlap = ((items[0].maxOverlap || 0) * 100).toFixed(2);
+    const avgCrossOverlap = ((items[0].avgCrossOverlap || 0) * 100).toFixed(2);
+    const maxCrossOverlap = ((items[0].maxCrossOverlap || 0) * 100).toFixed(2);
+    const avgSamePillarOverlap = ((items[0].avgSamePillarOverlap || 0) * 100).toFixed(2);
     recommendResult.innerHTML = `
-      <div class="small-note">已自動從本次所有生成立柱中，挑出 3 組穿插比對後同柱重複率最低的推薦。隨機平衡立柱最多只會保留 1 組。<br>三組平均同柱重複率：<b>${avgOverlap}%</b>｜最高單對重複率：<b>${maxOverlap}%</b></div>
+      <div class="small-note">已自動從各模式的前段高分組中，挑出 3 組「全柱穿插比對」後穿透率最低的固定最佳推薦。隨機平衡立柱最多只保留 1 組。<br>三組平均全柱穿插重複率：<b>${avgCrossOverlap}%</b>｜最高單對全柱穿插重複率：<b>${maxCrossOverlap}%</b>｜平均同柱重複率：<b>${avgSamePillarOverlap}%</b></div>
       <div class="recommend-list">
         ${items.map(item => `
           <div class="recommend-item">
@@ -1737,7 +1802,7 @@
               <span class="${item.labelClass || ''}">推薦第 ${item.recommendRank} 組｜${sourceTypeLabel(item.sourceType)} 第 ${item.sourceIndex + 1} 組</span>
               <button class="btn btn-secondary single-copy-btn" data-copy-type="${item.sourceType}" data-copy-index="${item.sourceIndex}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
             </div>
-            <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜近20期 ${(item.stats.recentRate * 100).toFixed(2)}%｜格式：${exportText(item.groups)}</div>
+            <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜近20期 ${(item.stats.recentRate * 100).toFixed(2)}%｜強度分數 ${(item.strengthScore || 0).toFixed(2)}｜格式：${exportText(item.groups)}</div>
           </div>
         `).join('')}
       </div>
@@ -1810,13 +1875,13 @@
     log(`已讀取多人分享不出牌 ${shareData.rows} 行。`);
     log(`已讀取多人分享推薦號碼 ${candidateShareData.rows} 行。`);
     log(`本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組防穿透立柱、${wantedGroups} 組高過關爆發立柱、${wantedGroups} 組隨機立柱。`);
-    log('v14 極限版已啟動：先建候選池，再做嚴格雙階段精修，並合併同資料的歷史最佳結果。');
+    log('v15 極限版已啟動：先建候選池，再做嚴格雙階段精修，並合併同資料的歷史最佳結果。');
 
     aiResult.innerHTML = 'AI 計算中...';
     antiResult.innerHTML = '防穿透立柱待產生...';
     highPassResult.innerHTML = '高過關爆發立柱待產生...';
     randomResult.innerHTML = '隨機立柱待產生...';
-    recommendResult.innerHTML = '推薦組合計算中...';
+    recommendResult.innerHTML = 'v15 推薦組合計算中...';
     scoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
     candidateScoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
     antiAnalysisBody.innerHTML = '<tr><td colspan="2">計算中...</td></tr>';
@@ -1856,7 +1921,7 @@
       lastRecommended = recommendLowestOverlapSet(lastAI, lastAnti, lastHighPass, lastRandom);
       renderRecommendedItems(lastRecommended);
       if (lastRecommended.length === 3) {
-        log(`低重複率推薦完成：已挑出 3 組，平均同柱重複率 ${((lastRecommended[0].avgOverlap || 0) * 100).toFixed(2)}%。`);
+        log(`v15 推薦完成：已挑出 3 組固定最佳推薦，平均全柱穿插重複率 ${((lastRecommended[0].avgCrossOverlap || 0) * 100).toFixed(2)}%，平均同柱重複率 ${((lastRecommended[0].avgSamePillarOverlap || 0) * 100).toFixed(2)}%。`);
       } else {
         log('低重複率推薦不足 3 組，暫不顯示推薦結果。');
       }
