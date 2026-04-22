@@ -276,6 +276,47 @@
       cursor:pointer;
     }
     .mode-pill input { transform: scale(1.05); }
+    .recommend-box {
+      margin-top: 14px;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .recommend-title {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .recommend-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .recommend-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.9);
+      padding: 10px 12px;
+    }
+    .recommend-item-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:6px;
+      font-weight:700;
+    }
+    .recommend-meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .tag-strong { color:#86efac; }
+    .tag-safe { color:#7dd3fc; }
+    .tag-hot { color:#fcd34d; }
+    .tag-random { color:#c4b5fd; }
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
       .controls, .stat-grid { grid-template-columns: 1fr; }
@@ -311,6 +352,10 @@
           </select>
           <button class="btn btn-primary" id="runBtn">開始分析並產生多組立柱</button>
           <button class="btn btn-dark" id="sampleBtn">載入範例</button>
+        </div>
+        <div class="recommend-box">
+          <div class="recommend-title">推薦 3 組低重複率立柱</div>
+          <div id="recommendResult" class="small-note">尚未產生。</div>
         </div>
         <div class="small-note">
           規則說明：<br>
@@ -454,6 +499,7 @@
   const antiResult = document.getElementById('antiResult');
   const highPassResult = document.getElementById('highPassResult');
   const randomResult = document.getElementById('randomResult');
+  const recommendResult = document.getElementById('recommendResult');
   const scoreBoardBody = document.getElementById('scoreBoardBody');
   const candidateScoreBoardBody = document.getElementById('candidateScoreBoardBody');
   const antiAnalysisBody = document.getElementById('antiAnalysisBody');
@@ -462,6 +508,7 @@
   let lastAnti = [];
   let lastHighPass = [];
   let lastRandom = [];
+  let lastRecommended = [];
   let lastCandidate = [];
   let lastScoreData = null;
   let lastCandidateScoreData = null;
@@ -1605,6 +1652,98 @@
     return results;
   }
 
+
+  function pairwiseSamePillarOverlap(groupsA, groupsB) {
+    return samePillarOverlapRate(groupsA, groupsB);
+  }
+
+  function buildRecommendPool(aiItems, antiItems, highPassItems, randomItems) {
+    const pool = [];
+    const pushItems = (items, type, labelClass) => {
+      (items || []).forEach((item, idx) => {
+        pool.push({ ...item, sourceType: type, sourceIndex: idx, labelClass });
+      });
+    };
+    pushItems(aiItems, 'ai', 'tag-strong');
+    pushItems(antiItems, 'anti', 'tag-safe');
+    pushItems(highPassItems, 'highpass', 'tag-hot');
+    pushItems(randomItems, 'random', 'tag-random');
+    return pool;
+  }
+
+  function recommendLowestOverlapSet(aiItems, antiItems, highPassItems, randomItems) {
+    const pool = buildRecommendPool(aiItems, antiItems, highPassItems, randomItems);
+    if (pool.length < 3) return [];
+    let best = null;
+
+    for (let i = 0; i < pool.length - 2; i++) {
+      for (let j = i + 1; j < pool.length - 1; j++) {
+        for (let k = j + 1; k < pool.length; k++) {
+          const picks = [pool[i], pool[j], pool[k]];
+          if (picks.filter(x => x.sourceType === 'random').length > 1) continue;
+
+          const overlaps = [
+            pairwiseSamePillarOverlap(picks[0].groups, picks[1].groups),
+            pairwiseSamePillarOverlap(picks[0].groups, picks[2].groups),
+            pairwiseSamePillarOverlap(picks[1].groups, picks[2].groups)
+          ];
+          const avgOverlap = overlaps.reduce((sum, value) => sum + value, 0) / overlaps.length;
+          const maxOverlap = Math.max(...overlaps);
+          const avgPassRate = picks.reduce((sum, item) => sum + (item.stats.passRate || 0), 0) / picks.length;
+          const avgRecentRate = picks.reduce((sum, item) => sum + (item.stats.recentRate || 0), 0) / picks.length;
+          const sourceVariety = new Set(picks.map(x => x.sourceType)).size;
+          const score = avgOverlap * 1000 + maxOverlap * 180 - avgPassRate * 120 - avgRecentRate * 18 - sourceVariety * 6;
+          const candidate = { picks, avgOverlap, maxOverlap, avgPassRate, avgRecentRate, sourceVariety, score };
+
+          if (!best || candidate.score < best.score || (candidate.score === best.score && candidate.avgPassRate > best.avgPassRate)) {
+            best = candidate;
+          }
+        }
+      }
+    }
+
+    return best ? best.picks.map((item, idx) => ({
+      ...item,
+      recommendRank: idx + 1,
+      avgOverlap: best.avgOverlap,
+      maxOverlap: best.maxOverlap,
+      avgPassRate: best.avgPassRate,
+      avgRecentRate: best.avgRecentRate,
+      sourceVariety: best.sourceVariety
+    })) : [];
+  }
+
+  function sourceTypeLabel(type) {
+    if (type === 'ai') return 'AI 最佳立柱';
+    if (type === 'anti') return '防穿透立柱';
+    if (type === 'highpass') return '高過關爆發立柱';
+    if (type === 'random') return '隨機平衡立柱';
+    return '立柱';
+  }
+
+  function renderRecommendedItems(items) {
+    if (!items || items.length < 3) {
+      recommendResult.innerHTML = '尚未產生。';
+      return;
+    }
+    const avgOverlap = ((items[0].avgOverlap || 0) * 100).toFixed(2);
+    const maxOverlap = ((items[0].maxOverlap || 0) * 100).toFixed(2);
+    recommendResult.innerHTML = `
+      <div class="small-note">已自動從本次所有生成立柱中，挑出 3 組穿插比對後同柱重複率最低的推薦。隨機平衡立柱最多只會保留 1 組。<br>三組平均同柱重複率：<b>${avgOverlap}%</b>｜最高單對重複率：<b>${maxOverlap}%</b></div>
+      <div class="recommend-list">
+        ${items.map(item => `
+          <div class="recommend-item">
+            <div class="recommend-item-head">
+              <span class="${item.labelClass || ''}">推薦第 ${item.recommendRank} 組｜${sourceTypeLabel(item.sourceType)} 第 ${item.sourceIndex + 1} 組</span>
+              <button class="btn btn-secondary single-copy-btn" data-copy-type="${item.sourceType}" data-copy-index="${item.sourceIndex}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
+            </div>
+            <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜近20期 ${(item.stats.recentRate * 100).toFixed(2)}%｜格式：${exportText(item.groups)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
   function renderAntiAnalysis(candidateScoreData, aiItems, antiItems) {
     const corePool = corePoolFromCandidateScoreData(candidateScoreData, 18);
     const aiFirst = aiItems && aiItems.length ? aiItems[0] : null;
@@ -1677,6 +1816,7 @@
     antiResult.innerHTML = '防穿透立柱待產生...';
     highPassResult.innerHTML = '高過關爆發立柱待產生...';
     randomResult.innerHTML = '隨機立柱待產生...';
+    recommendResult.innerHTML = '推薦組合計算中...';
     scoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
     candidateScoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
     antiAnalysisBody.innerHTML = '<tr><td colspan="2">計算中...</td></tr>';
@@ -1712,6 +1852,14 @@
       randomResult.innerHTML = buildMultiResultHTML(lastRandom, '隨機平衡立柱', false, 'random');
       log(`隨機平衡立柱完成，共 ${lastRandom.length} 組。最佳整體過關率 ${(lastRandom[0].stats.passRate * 100).toFixed(2)}%。`);
 
+
+      lastRecommended = recommendLowestOverlapSet(lastAI, lastAnti, lastHighPass, lastRandom);
+      renderRecommendedItems(lastRecommended);
+      if (lastRecommended.length === 3) {
+        log(`低重複率推薦完成：已挑出 3 組，平均同柱重複率 ${((lastRecommended[0].avgOverlap || 0) * 100).toFixed(2)}%。`);
+      } else {
+        log('低重複率推薦不足 3 組，暫不顯示推薦結果。');
+      }
 
       const scoreData = buildScoreRanking(draws, shareData.counts);
       lastScoreData = scoreData;
