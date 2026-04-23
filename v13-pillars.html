@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>百期立柱 AI 對照版 v15 極限版</title>
+  <title>百期立柱 AI 對照版 v16 嚴格鎖定版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -331,7 +331,7 @@
       1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
       2. 同時產生相同組數的 <b>大小、單雙平均分配</b> 隨機立柱作對照。<br>
       3. 額外提供候選號碼排行與核心分析，方便你自行判斷。<br>
-      本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。<br>v15 極限版：同資料會合併歷史最佳候選，並用候選池精修；推薦區改為全柱穿插比對，從高分組中挑出最低穿透率的固定最佳 3 組。
+      本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。<br>v16 嚴格鎖定版：同資料會合併歷史最佳候選，推薦區改為平均同柱重複率優先，並記住歷史最低結果，避免重新生成後倒退變高。
     </div>
 
     <div class="grid">
@@ -513,6 +513,7 @@
   let lastScoreData = null;
   let lastCandidateScoreData = null;
   const STORAGE_PREFIX = 'pillar_v14_extreme';
+  let currentRecommendStorageKey = '';
 
 
   function makeStorageKey(mode, draws, candidateText = '', noDrawText = '') {
@@ -1674,7 +1675,7 @@
   function candidateStrengthScore(item) {
     if (!item || !item.stats) return -Infinity;
     const stats = item.stats;
-    const sourceBonusMap = { ai: 18, anti: 14, highpass: 12, random: 6 };
+    const sourceBonusMap = { ai: 18, anti: 14, highpass: 12, random: 6, lowoverlap: 10 };
     return (
       (stats.passRate || 0) * 10000 +
       (stats.recentRate || 0) * 900 -
@@ -1688,22 +1689,146 @@
     );
   }
 
-  function buildRecommendPool(aiItems, antiItems, highPassItems, randomItems) {
-    const pool = [];
+  function lowOverlapDerivativeTemplate(variantIndex) {
+    const aValues = [0, 2, 4, 6, 8, 9, 1, 3, 5, 7];
+    const a = aValues[variantIndex % aValues.length];
+    return { a, b: 9 - a, c: a + 1 };
+  }
+
+  function buildLowSameOverlapDerivative(baseItem, draws, variantIndex) {
+    if (!baseItem || !baseItem.groups) return null;
+    const targets = [10, 14, 15];
+    const groups = [[], [], []];
+    const scoreMap = {};
+    const base = cloneGroups(baseItem.groups).map((g, gi) => {
+      const offset = (variantIndex + 1) * (gi + 3) * 17;
+      return g.slice().sort((x, y) => ((x * offset) % 41) - ((y * offset) % 41) || x - y);
+    });
+    const tpl = lowOverlapDerivativeTemplate(variantIndex);
+    const emptyCoreSet = new Set();
+    const coreTargets = [0, 0, 0];
+
+    assignFromSourceToAllowed(base[0], 1, 2, tpl.a, 10 - tpl.a, groups, targets, scoreMap, emptyCoreSet, coreTargets);
+    assignFromSourceToAllowed(base[1], 0, 2, tpl.b, 14 - tpl.b, groups, targets, scoreMap, emptyCoreSet, coreTargets);
+    assignFromSourceToAllowed(base[2], 0, 1, tpl.c, 15 - tpl.c, groups, targets, scoreMap, emptyCoreSet, coreTargets);
+
+    groups.forEach(g => g.sort((m, n) => m - n));
+    const stats = evaluate(groups, draws);
+    return {
+      groups,
+      stats,
+      sourceType: 'lowoverlap',
+      sourceIndex: variantIndex,
+      labelClass: 'tag-safe',
+      strengthScore: candidateStrengthScore({ groups, stats, sourceType: 'lowoverlap' })
+    };
+  }
+
+  function addLowOverlapDerivatives(pool, draws) {
+    const seeds = pool.slice(0, Math.min(pool.length, 8));
+    const seen = new Set(pool.map(item => exportText(item.groups)));
+    seeds.forEach((item, seedIdx) => {
+      for (let v = 0; v < 10; v++) {
+        const derived = buildLowSameOverlapDerivative(item, draws, seedIdx * 10 + v);
+        if (!derived) continue;
+        const key = exportText(derived.groups);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        pool.push(derived);
+      }
+    });
+    return pool;
+  }
+
+  function buildRecommendPool(aiItems, antiItems, highPassItems, randomItems, draws) {
+    let pool = [];
     const pushItems = (items, type, labelClass, limit) => {
       (items || []).slice(0, limit).forEach((item, idx) => {
         pool.push({ ...item, sourceType: type, sourceIndex: idx, labelClass, strengthScore: candidateStrengthScore({ ...item, sourceType: type }) });
       });
     };
-    pushItems(aiItems, 'ai', 'tag-strong', 3);
-    pushItems(antiItems, 'anti', 'tag-safe', 3);
-    pushItems(highPassItems, 'highpass', 'tag-hot', 3);
+    pushItems(aiItems, 'ai', 'tag-strong', 5);
+    pushItems(antiItems, 'anti', 'tag-safe', 5);
+    pushItems(highPassItems, 'highpass', 'tag-hot', 5);
     pushItems(randomItems, 'random', 'tag-random', 1);
     return pool.sort((a, b) => b.strengthScore - a.strengthScore || a.sourceIndex - b.sourceIndex);
   }
 
-  function recommendLowestOverlapSet(aiItems, antiItems, highPassItems, randomItems) {
-    const pool = buildRecommendPool(aiItems, antiItems, highPassItems, randomItems);
+  function recommendComboKey(items) {
+    return (items || []).map(item => exportText(item.groups)).join('||');
+  }
+
+  function compareRecommendCandidate(candidate, best) {
+    if (!best) return -1;
+    const eps = 0.000000001;
+    if (Math.abs(candidate.avgSamePillarOverlap - best.avgSamePillarOverlap) > eps) return candidate.avgSamePillarOverlap - best.avgSamePillarOverlap;
+    if (Math.abs(candidate.maxSamePillarOverlap - best.maxSamePillarOverlap) > eps) return candidate.maxSamePillarOverlap - best.maxSamePillarOverlap;
+    if (Math.abs(candidate.avgCrossOverlap - best.avgCrossOverlap) > eps) return candidate.avgCrossOverlap - best.avgCrossOverlap;
+    if (Math.abs(candidate.maxCrossOverlap - best.maxCrossOverlap) > eps) return candidate.maxCrossOverlap - best.maxCrossOverlap;
+    if (Math.abs(candidate.avgPassRate - best.avgPassRate) > eps) return best.avgPassRate - candidate.avgPassRate;
+    if (Math.abs(candidate.avgRecentRate - best.avgRecentRate) > eps) return best.avgRecentRate - candidate.avgRecentRate;
+    return best.totalStrength - candidate.totalStrength;
+  }
+
+  function saveBestRecommendCombo(key, combo) {
+    if (!key || !combo || !combo.picks || combo.picks.length !== 3) return;
+    try {
+      const safe = {
+        avgCrossOverlap: combo.avgCrossOverlap,
+        maxCrossOverlap: combo.maxCrossOverlap,
+        avgSamePillarOverlap: combo.avgSamePillarOverlap,
+        maxSamePillarOverlap: combo.maxSamePillarOverlap,
+        avgPassRate: combo.avgPassRate,
+        avgRecentRate: combo.avgRecentRate,
+        sourceVariety: combo.sourceVariety,
+        totalStrength: combo.totalStrength,
+        score: combo.score,
+        comboKey: recommendComboKey(combo.picks),
+        picks: combo.picks.map((item, idx) => ({
+          groups: item.groups,
+          stats: item.stats,
+          sourceType: item.sourceType,
+          sourceIndex: item.sourceIndex,
+          labelClass: item.labelClass,
+          strengthScore: item.strengthScore,
+          recommendRank: idx + 1
+        }))
+      };
+      localStorage.setItem(key, JSON.stringify(safe));
+    } catch (err) {}
+  }
+
+  function loadBestRecommendCombo(key) {
+    if (!key) return null;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.picks) || parsed.picks.length !== 3) return null;
+      if (typeof parsed.avgSamePillarOverlap !== 'number') return null;
+      return parsed;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function applyRecommendMeta(best) {
+    return best ? best.picks.map((item, idx) => ({
+      ...item,
+      recommendRank: idx + 1,
+      avgCrossOverlap: best.avgCrossOverlap,
+      maxCrossOverlap: best.maxCrossOverlap,
+      avgSamePillarOverlap: best.avgSamePillarOverlap,
+      maxSamePillarOverlap: best.maxSamePillarOverlap,
+      avgPassRate: best.avgPassRate,
+      avgRecentRate: best.avgRecentRate,
+      sourceVariety: best.sourceVariety,
+      totalStrength: best.totalStrength
+    })) : [];
+  }
+
+  function recommendLowestOverlapSet(aiItems, antiItems, highPassItems, randomItems, draws) {
+    const pool = buildRecommendPool(aiItems, antiItems, highPassItems, randomItems, draws);
     if (pool.length < 3) return [];
     let best = null;
 
@@ -1732,14 +1857,14 @@
           const sourceVariety = new Set(picks.map(x => x.sourceType)).size;
           const totalStrength = picks.reduce((sum, item) => sum + (item.strengthScore || 0), 0);
           const score =
+            avgSamePillarOverlap * 1000000 +
+            maxSamePillarOverlap * 100000 +
             avgCrossOverlap * 10000 +
-            maxCrossOverlap * 2500 +
-            avgSamePillarOverlap * 350 +
-            maxSamePillarOverlap * 90 -
-            totalStrength * 0.02 -
-            avgPassRate * 320 -
-            avgRecentRate * 60 -
-            sourceVariety * 12;
+            maxCrossOverlap * 2500 -
+            totalStrength * 0.01 -
+            avgPassRate * 200 -
+            avgRecentRate * 40 -
+            sourceVariety * 8;
           const candidate = {
             picks,
             avgCrossOverlap,
@@ -1753,28 +1878,21 @@
             score
           };
 
-          if (!best ||
-              candidate.score < best.score ||
-              (candidate.score === best.score && candidate.totalStrength > best.totalStrength) ||
-              (candidate.score === best.score && candidate.totalStrength === best.totalStrength && candidate.avgPassRate > best.avgPassRate)) {
+          if (compareRecommendCandidate(candidate, best) < 0) {
             best = candidate;
           }
         }
       }
     }
 
-    return best ? best.picks.map((item, idx) => ({
-      ...item,
-      recommendRank: idx + 1,
-      avgCrossOverlap: best.avgCrossOverlap,
-      maxCrossOverlap: best.maxCrossOverlap,
-      avgSamePillarOverlap: best.avgSamePillarOverlap,
-      maxSamePillarOverlap: best.maxSamePillarOverlap,
-      avgPassRate: best.avgPassRate,
-      avgRecentRate: best.avgRecentRate,
-      sourceVariety: best.sourceVariety,
-      totalStrength: best.totalStrength
-    })) : [];
+    const storedBest = loadBestRecommendCombo(currentRecommendStorageKey);
+    if (storedBest && compareRecommendCandidate(storedBest, best) <= 0) {
+      best = storedBest;
+    } else if (best) {
+      saveBestRecommendCombo(currentRecommendStorageKey, best);
+    }
+
+    return applyRecommendMeta(best);
   }
 
   function sourceTypeLabel(type) {
@@ -1794,13 +1912,13 @@
     const maxCrossOverlap = ((items[0].maxCrossOverlap || 0) * 100).toFixed(2);
     const avgSamePillarOverlap = ((items[0].avgSamePillarOverlap || 0) * 100).toFixed(2);
     recommendResult.innerHTML = `
-      <div class="small-note">已自動從各模式的前段高分組中，挑出 3 組「全柱穿插比對」後穿透率最低的固定最佳推薦。隨機平衡立柱最多只保留 1 組。<br>三組平均全柱穿插重複率：<b>${avgCrossOverlap}%</b>｜最高單對全柱穿插重複率：<b>${maxCrossOverlap}%</b>｜平均同柱重複率：<b>${avgSamePillarOverlap}%</b></div>
+      <div class="small-note">只從上方已生成的 AI / 防穿透 / 高過關 / 隨機立柱中挑選，不額外生成低重複率立柱；優先嚴格取平均同柱重複率最低，同分再比最高同柱、全柱穿插、過關率。隨機平衡立柱最多只保留 1 組。<br>平均同柱重複率：<b>${avgSamePillarOverlap}%</b>｜三組平均全柱穿插重複率：<b>${avgCrossOverlap}%</b>｜最高單對全柱穿插重複率：<b>${maxCrossOverlap}%</b></div>
       <div class="recommend-list">
         ${items.map(item => `
           <div class="recommend-item">
             <div class="recommend-item-head">
               <span class="${item.labelClass || ''}">推薦第 ${item.recommendRank} 組｜${sourceTypeLabel(item.sourceType)} 第 ${item.sourceIndex + 1} 組</span>
-              <button class="btn btn-secondary single-copy-btn" data-copy-type="${item.sourceType}" data-copy-index="${item.sourceIndex}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
+              <button class="btn btn-secondary single-copy-btn" data-copy-type="recommended" data-copy-index="${item.recommendRank - 1}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
             </div>
             <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜近20期 ${(item.stats.recentRate * 100).toFixed(2)}%｜強度分數 ${(item.strengthScore || 0).toFixed(2)}｜格式：${exportText(item.groups)}</div>
           </div>
@@ -1875,13 +1993,13 @@
     log(`已讀取多人分享不出牌 ${shareData.rows} 行。`);
     log(`已讀取多人分享推薦號碼 ${candidateShareData.rows} 行。`);
     log(`本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組防穿透立柱、${wantedGroups} 組高過關爆發立柱、${wantedGroups} 組隨機立柱。`);
-    log('v15 極限版已啟動：先建候選池，再做嚴格雙階段精修，並合併同資料的歷史最佳結果。');
+    log('v18 原生成立柱嚴選版已啟動：推薦區只從已生成立柱中比較，嚴格取平均同柱重複率最低，不額外衍生新立柱。');
 
     aiResult.innerHTML = 'AI 計算中...';
     antiResult.innerHTML = '防穿透立柱待產生...';
     highPassResult.innerHTML = '高過關爆發立柱待產生...';
     randomResult.innerHTML = '隨機立柱待產生...';
-    recommendResult.innerHTML = 'v15 推薦組合計算中...';
+    recommendResult.innerHTML = 'v18 原生成立柱推薦計算中...';
     scoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
     candidateScoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
     antiAnalysisBody.innerHTML = '<tr><td colspan="2">計算中...</td></tr>';
@@ -1918,12 +2036,13 @@
       log(`隨機平衡立柱完成，共 ${lastRandom.length} 組。最佳整體過關率 ${(lastRandom[0].stats.passRate * 100).toFixed(2)}%。`);
 
 
-      lastRecommended = recommendLowestOverlapSet(lastAI, lastAnti, lastHighPass, lastRandom);
+      currentRecommendStorageKey = makeStorageKey('recommend_original_pool_low_same_v18', draws, candidateInput.value, noDrawInput.value);
+      lastRecommended = recommendLowestOverlapSet(lastAI, lastAnti, lastHighPass, lastRandom, draws);
       renderRecommendedItems(lastRecommended);
       if (lastRecommended.length === 3) {
-        log(`v15 推薦完成：已挑出 3 組固定最佳推薦，平均全柱穿插重複率 ${((lastRecommended[0].avgCrossOverlap || 0) * 100).toFixed(2)}%，平均同柱重複率 ${((lastRecommended[0].avgSamePillarOverlap || 0) * 100).toFixed(2)}%。`);
+        log(`v18 推薦完成：已從原生成立柱中嚴格取平均同柱重複率最低的 3 組，平均同柱重複率 ${((lastRecommended[0].avgSamePillarOverlap || 0) * 100).toFixed(2)}%，平均全柱穿插重複率 ${((lastRecommended[0].avgCrossOverlap || 0) * 100).toFixed(2)}%。`);
       } else {
-        log('低重複率推薦不足 3 組，暫不顯示推薦結果。');
+        log('原生成立柱推薦不足 3 組，暫不顯示推薦結果。');
       }
 
       const scoreData = buildScoreRanking(draws, shareData.counts);
@@ -2022,6 +2141,7 @@
     if (copyType === 'anti') return lastAnti || [];
     if (copyType === 'highpass') return lastHighPass || [];
     if (copyType === 'random') return lastRandom || [];
+    if (copyType === 'recommended') return lastRecommended || [];
     
     return [];
   }
