@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>百期立柱 AI 對照版 v36 勝率硬鎖延續版</title>
+  <title>百期立柱 AI 對照版 v40 手動移入推薦區版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -317,6 +317,21 @@
     .tag-safe { color:#7dd3fc; }
     .tag-hot { color:#fcd34d; }
     .tag-random { color:#c4b5fd; }
+    .manual-recommend-zone {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+    .manual-recommend-title {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      font-weight:800;
+      color:#fcd34d;
+      margin-bottom:8px;
+    }
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
       .controls, .stat-grid { grid-template-columns: 1fr; }
@@ -511,6 +526,7 @@
   let lastHighPass = [];
   let lastRandom = [];
   let lastRecommended = [];
+  let manualRecommendItems = [];
   let lastCandidate = [];
   let lastScoreData = null;
   let lastCandidateScoreData = null;
@@ -1210,7 +1226,10 @@
         <div class="pillar-title" style="display:flex; flex-direction:column; gap:6px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
             <span>${prefix} 第 ${idx + 1} 組</span>
-            <button class="btn btn-secondary single-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px;">只複製這一組</button>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn btn-primary move-to-recommend-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-source-label="${prefix}" style="padding:6px 10px; font-size:13px; width:auto;">移至推薦區</button>
+              <button class="btn btn-secondary single-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">只複製這一組</button>
+            </div>
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <button class="btn btn-dark single-pillar-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-pillar-index="0" style="padding:6px 10px; font-size:13px;">複製第一柱</button>
@@ -2237,9 +2256,40 @@
     return '立柱';
   }
 
+  function buildManualRecommendHTML() {
+    if (!manualRecommendItems || !manualRecommendItems.length) return '';
+    return `
+      <div class="manual-recommend-zone">
+        <div class="manual-recommend-title">
+          <span>手動移入比較區（${manualRecommendItems.length} 組）</span>
+          <button class="btn btn-dark clear-manual-recommend-btn" style="padding:6px 10px; font-size:13px; width:auto;">清空手動比較</button>
+        </div>
+        <div class="recommend-list">
+          ${manualRecommendItems.map((item, idx) => `
+            <div class="recommend-item">
+              <div class="recommend-item-head">
+                <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${item.sourceIndex + 1} 組</span>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <button class="btn btn-secondary single-copy-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
+                  <button class="btn btn-dark remove-manual-recommend-btn" data-manual-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">移除</button>
+                </div>
+              </div>
+              <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜最新一期 ${item.stats.latestDown ? '倒' : '過關'}｜最新連倒 ${item.stats.latestDownStreak || 0}/4｜近5期倒 ${item.stats.recent5Down || 0}/5｜未過關 ${item.stats.fail} 期｜結構懲罰 ${typeof item.stats.balancePenalty === "number" ? item.stats.balancePenalty.toFixed(2) : "-"}｜格式：${exportText(item.groups)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function refreshRecommendArea() {
+    renderRecommendedItems(lastRecommended || []);
+  }
+
   function renderRecommendedItems(items) {
     if (!items || items.length < 3) {
-      recommendResult.innerHTML = '尚未產生。';
+      const manualHtml = buildManualRecommendHTML();
+      recommendResult.innerHTML = manualHtml || '尚未產生。';
       return;
     }
     const avgCrossOverlap = ((items[0].avgCrossOverlap || 0) * 100).toFixed(2);
@@ -2264,6 +2314,7 @@
           </div>
         `).join('')}
       </div>
+      ${buildManualRecommendHTML()}
     `;
   }
 
@@ -2506,6 +2557,7 @@
     if (copyType === 'highpass') return lastHighPass || [];
     if (copyType === 'random') return lastRandom || [];
     if (copyType === 'recommended') return lastRecommended || [];
+    if (copyType === 'manual') return manualRecommendItems || [];
     
     return [];
   }
@@ -2575,7 +2627,59 @@
     await copyTextSmart(text, `第 ${index + 1} 組扣除所有絕對不出版本已複製`);
   }
 
+  function moveItemToRecommend(copyType, rawIndex, sourceLabel = '') {
+    const items = getItemByCopyType(copyType);
+    const index = Number(rawIndex);
+    if (!Array.isArray(items) || !items.length || !Number.isInteger(index) || index < 0 || index >= items.length) {
+      alert('找不到可移入推薦區的這一組。請先重新產生結果後再試一次。');
+      return;
+    }
+    const sourceItem = items[index];
+    const key = `${copyType}:${index}:${exportText(sourceItem.groups)}`;
+    if (manualRecommendItems.some(item => item.manualKey === key)) {
+      alert('這一組已經在上方手動比較區。');
+      return;
+    }
+    manualRecommendItems.push({
+      ...sourceItem,
+      groups: cloneGroups(sourceItem.groups),
+      stats: { ...sourceItem.stats },
+      sourceType: copyType,
+      sourceIndex: index,
+      sourceLabel: sourceLabel || sourceTypeLabel(copyType),
+      manualKey: key
+    });
+    refreshRecommendArea();
+    log(`已將 ${sourceLabel || sourceTypeLabel(copyType)} 第 ${index + 1} 組移至上方推薦區手動比較。`);
+    recommendResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   document.addEventListener('click', async (e) => {
+    const moveBtn = e.target.closest('.move-to-recommend-btn');
+    if (moveBtn) {
+      moveItemToRecommend(moveBtn.dataset.copyType, moveBtn.dataset.copyIndex, moveBtn.dataset.sourceLabel || '');
+      return;
+    }
+
+    const clearManualBtn = e.target.closest('.clear-manual-recommend-btn');
+    if (clearManualBtn) {
+      manualRecommendItems = [];
+      refreshRecommendArea();
+      log('已清空上方手動比較區。');
+      return;
+    }
+
+    const removeManualBtn = e.target.closest('.remove-manual-recommend-btn');
+    if (removeManualBtn) {
+      const index = Number(removeManualBtn.dataset.manualIndex);
+      if (Number.isInteger(index) && index >= 0 && index < manualRecommendItems.length) {
+        manualRecommendItems.splice(index, 1);
+        refreshRecommendArea();
+        log(`已移除手動比較第 ${index + 1} 組。`);
+      }
+      return;
+    }
+
     const btn = e.target.closest('.single-copy-btn');
     if (btn) {
       const items = getItemByCopyType(btn.dataset.copyType);
