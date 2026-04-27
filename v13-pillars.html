@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>百期立柱 AI 對照版 v40 手動移入推薦區版</title>
+  <title>吸金穩贏 APP v41 彩種資料庫版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -53,7 +53,7 @@
     }
     textarea {
       width: 100%;
-      min-height: 360px;
+      min-height: 180px;
       resize: vertical;
       background: #020617;
       color: #f8fafc;
@@ -332,15 +332,35 @@
       color:#fcd34d;
       margin-bottom:8px;
     }
+
+    .db-panel { background: rgba(2, 6, 23, 0.72); border: 1px solid var(--border); border-radius: 16px; padding: 12px; margin-bottom: 14px; }
+    .db-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: end; margin-top: 10px; }
+    .db-row-compact { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr 0.8fr; gap: 10px; align-items: end; margin-top: 10px; }
+    .field-label { color: var(--muted); font-size: 13px; margin-bottom: 6px; font-weight: 700; }
+    .db-input, .db-select { width: 100%; background: #020617; color: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 11px 12px; font-size: 15px; min-height: 44px; }
+    .db-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .db-actions .btn { width:auto; padding:10px 12px; font-size:13px; }
+    .db-summary { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
+    .db-chip { background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:10px 12px; color:#cbd5e1; font-size:14px; line-height:1.5; }
+    .db-table-wrap { margin-top: 12px; overflow-x:auto; border:1px solid var(--border); border-radius:14px; display:none; }
+    .db-table-wrap.open { display:block; }
+    .db-table { width:100%; border-collapse:collapse; font-size:14px; background:#020617; }
+    .db-table th, .db-table td { border-bottom:1px solid var(--border); padding:8px 6px; text-align:center; white-space:nowrap; }
+    .db-table th { color:var(--muted); background:#0b1220; position:sticky; top:0; }
+    .db-table input { min-width:86px; background:#0b1220; color:#fff; border:1px solid var(--border); border-radius:8px; padding:7px; text-align:center; }
+    .db-table .draw-edit-input { min-width:150px; }
+    .db-mini { color:var(--muted); font-size:12px; line-height:1.5; margin-top:6px; }
+
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
       .controls, .stat-grid { grid-template-columns: 1fr; }
+      .db-row, .db-row-compact, .db-summary { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="title">百期立柱 AI 對照版</div>
+    <div class="title">吸金穩贏 APP｜彩種資料庫版</div>
     <div class="sub">
       貼上近百期開獎號碼後，工具會做兩件事：<br>
       1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
@@ -351,8 +371,31 @@
 
     <div class="grid">
       <div class="card">
-        <div class="section-title">輸入百期開獎號碼</div>
-        <textarea id="drawInput" placeholder="每行 1 期，最上方 = 最新一期。\n可接受：01 07 10 20 26 或 01,07,10,20,26 之類格式\n\n範例：\n01 07 10 20 26\n04 09 16 28 37\n05 11 14 23 39"></textarea>
+        <div class="db-panel">
+          <div class="section-title">彩種資料庫</div>
+          <div class="db-row">
+            <div><div class="field-label">彩種模式</div><select id="gameMode" class="db-select"><option value="539">539</option><option value="dayday">天天樂</option></select></div>
+            <div><div class="field-label">生成立柱參考期數</div><select id="backtestLimit" class="db-select"><option value="50">50期</option><option value="100" selected>100期</option><option value="150">150期</option><option value="200">200期</option><option value="250">250期</option><option value="300">300期</option><option value="all">全部</option></select></div>
+            <div><div class="field-label">新增日期 / 期別備註</div><input id="newDrawDate" class="db-input" placeholder="例：2026/04/27 或 114000001" /></div>
+            <div><div class="field-label">新增開獎號碼</div><input id="newDrawNums" class="db-input" placeholder="例：01 05 06 20 34" /></div>
+          </div>
+          <div class="db-row-compact">
+            <button class="btn btn-primary" id="addDrawBtn" type="button">新增到資料庫最上方</button>
+            <button class="btn btn-secondary" id="importPasteBtn" type="button">把下方貼上資料匯入目前彩種</button>
+            <button class="btn btn-dark" id="toggleDbBtn" type="button">展開資料庫檢查</button>
+            <button class="btn btn-dark" id="clearCurrentDbBtn" type="button">清空目前彩種資料庫</button>
+          </div>
+          <div class="db-summary">
+            <div class="db-chip">目前彩種：<b id="dbGameLabel">539</b></div>
+            <div class="db-chip">資料庫筆數：<b id="dbCount">0</b></div>
+            <div class="db-chip">最新一期：<b id="dbLatest">尚無資料</b></div>
+          </div>
+          <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
+          <div class="db-table-wrap" id="dbTableWrap"><table class="db-table"><thead><tr><th>序</th><th>日期 / 期別</th><th>開獎號碼</th><th>操作</th></tr></thead><tbody id="dbTableBody"><tr><td colspan="4">尚無資料</td></tr></tbody></table></div>
+        </div>
+
+        <div class="section-title">貼上百期開獎號碼（保留，可匯入資料庫）</div>
+        <textarea id="drawInput" placeholder="每行 1 期，最上方 = 最新一期。\n可接受：01 07 10 20 26、日期+號碼、期數+號碼；匯入資料庫後會永久保存\n\n範例：\n01 07 10 20 26\n04 09 16 28 37\n05 11 14 23 39"></textarea>
         <div class="section-title" style="margin-top:12px;">今日多人分享不出牌</div>
         <textarea id="noDrawInput" class="textarea-small" placeholder="每行可貼一組多人分享的不出牌，系統會統計各號碼被提到的次數，再結合百期資料，自動挑出最適合摘掉的一支。&#10;&#10;範例：&#10;01 07 18 22 31&#10;07 18 26 31&#10;04 18 22 31 39"></textarea>
         <div class="section-title" style="margin-top:12px;">今日多人分享推薦號碼</div>
@@ -520,6 +563,19 @@
   const scoreBoardBody = document.getElementById('scoreBoardBody');
   const candidateScoreBoardBody = document.getElementById('candidateScoreBoardBody');
   const antiAnalysisBody = document.getElementById('antiAnalysisBody');
+  const gameMode = document.getElementById('gameMode');
+  const backtestLimit = document.getElementById('backtestLimit');
+  const newDrawDate = document.getElementById('newDrawDate');
+  const newDrawNums = document.getElementById('newDrawNums');
+  const addDrawBtn = document.getElementById('addDrawBtn');
+  const importPasteBtn = document.getElementById('importPasteBtn');
+  const toggleDbBtn = document.getElementById('toggleDbBtn');
+  const clearCurrentDbBtn = document.getElementById('clearCurrentDbBtn');
+  const dbGameLabel = document.getElementById('dbGameLabel');
+  const dbCount = document.getElementById('dbCount');
+  const dbLatest = document.getElementById('dbLatest');
+  const dbTableWrap = document.getElementById('dbTableWrap');
+  const dbTableBody = document.getElementById('dbTableBody');
 
   let lastAI = [];
   let lastAnti = [];
@@ -658,18 +714,22 @@
   }
 
 
+  function parseDrawLineSmart(line) {
+    const nums = (line.match(/\d{1,2}/g) || [])
+      .map(n => Number(n))
+      .filter(n => n >= 1 && n <= 39);
+    if (nums.length < 5) return null;
+    const candidate = nums.length === 5 ? nums : nums.slice(-5);
+    const unique = [...new Set(candidate)];
+    return unique.length === 5 ? unique : null;
+  }
+
   function parseDraws(text) {
     const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const draws = [];
     for (const line of lines) {
-      const nums = (line.match(/\d{1,2}/g) || [])
-        .map(n => Number(n))
-        .filter(n => n >= 1 && n <= 39)
-        .slice(0, 5);
-      if (nums.length === 5) {
-        const unique = [...new Set(nums)];
-        if (unique.length === 5) draws.push(unique);
-      }
+      const nums = parseDrawLineSmart(line);
+      if (nums) draws.push(nums);
     }
     return draws;
   }
@@ -2348,6 +2408,106 @@
     return items.map((item, idx) => `第${idx + 1}組\n${exportText(item.groups)}`).join('\n\n');
   }
 
+
+  const DB_VERSION_KEY = 'pillar_app_active_game_v41';
+  const DB_KEY_PREFIX = 'pillar_app_draw_db_v41_';
+  let dbExpanded = false;
+
+  function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : '539'; }
+  function currentGameMode() { return gameMode ? gameMode.value : '539'; }
+  function dbKey(mode = currentGameMode()) { return DB_KEY_PREFIX + mode; }
+  function escapeHtml(str) { return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+  function extractDrawMetaDate(line) {
+    const matches = [...line.matchAll(/\d{1,2}/g)].filter(m => Number(m[0]) >= 1 && Number(m[0]) <= 39);
+    if (matches.length <= 5) return '';
+    const drawStart = matches[matches.length - 5].index || 0;
+    return line.slice(0, drawStart).trim();
+  }
+
+  function normalizeDrawRecord(record) {
+    if (!record || !Array.isArray(record.nums)) return null;
+    const nums = [...new Set(record.nums.map(Number).filter(n => n >= 1 && n <= 39))];
+    if (nums.length !== 5) return null;
+    return { id: record.id || ('d_' + Date.now() + '_' + Math.random().toString(16).slice(2)), date: String(record.date || '').trim(), nums, createdAt: record.createdAt || Date.now() };
+  }
+  function loadDrawDb(mode = currentGameMode()) {
+    try { const parsed = JSON.parse(localStorage.getItem(dbKey(mode)) || '[]'); return Array.isArray(parsed) ? parsed.map(normalizeDrawRecord).filter(Boolean) : []; } catch (err) { return []; }
+  }
+  function saveDrawDb(records, mode = currentGameMode()) { const clean = (records || []).map(normalizeDrawRecord).filter(Boolean); localStorage.setItem(dbKey(mode), JSON.stringify(clean)); return clean; }
+  function formatDrawLine(record, index = 0) { const tag = record.date ? record.date + ' ' : ''; return `${tag}${formatNums(record.nums)}`.trim() || `第${index + 1}筆 ${formatNums(record.nums)}`; }
+  function syncDbToTextarea() { const records = loadDrawDb(); drawInput.value = records.length ? records.map(formatDrawLine).join('\n') : ''; }
+  function getBacktestDraws() { const rawDraws = parseDraws(drawInput.value); const selected = backtestLimit.value; if (selected === 'all') return rawDraws; return rawDraws.slice(0, Number(selected) || 100); }
+
+  function renderDrawDb() {
+    const mode = currentGameMode();
+    const records = loadDrawDb(mode);
+    dbGameLabel.textContent = gameLabel(mode);
+    dbCount.textContent = records.length;
+    dbLatest.textContent = records.length ? formatDrawLine(records[0]) : '尚無資料';
+    countDraws.textContent = getBacktestDraws().length;
+    if (!records.length) { dbTableBody.innerHTML = '<tr><td colspan="4">尚無資料。可以先貼在下方欄位，再按「匯入目前彩種」。</td></tr>'; return; }
+    dbTableBody.innerHTML = records.map((record, idx) => `
+      <tr data-db-index="${idx}">
+        <td>${idx + 1}</td>
+        <td><input class="db-date-input" value="${escapeHtml(record.date || '')}" placeholder="日期/期別"></td>
+        <td><input class="draw-edit-input db-nums-input" value="${formatNums(record.nums)}" placeholder="01 02 03 04 05"></td>
+        <td><div class="db-actions" style="justify-content:center;"><button class="btn btn-primary save-db-row-btn" type="button" data-index="${idx}">儲存</button><button class="btn btn-dark move-db-top-btn" type="button" data-index="${idx}">置頂</button><button class="btn btn-dark delete-db-row-btn" type="button" data-index="${idx}">刪除</button></div></td>
+      </tr>`).join('');
+  }
+
+  function addRecordToDb(nums, dateText = '', mode = currentGameMode(), toTop = true) {
+    const record = normalizeDrawRecord({ nums, date: dateText, createdAt: Date.now() });
+    if (!record) throw new Error('號碼格式不正確，請輸入 5 個 01~39 且不可重複。');
+    let records = loadDrawDb(mode);
+    const key = record.nums.slice().sort((a,b)=>a-b).join('-') + '|' + (record.date || '');
+    records = records.filter(r => (r.nums.slice().sort((a,b)=>a-b).join('-') + '|' + (r.date || '')) !== key);
+    saveDrawDb(toTop ? [record].concat(records) : records.concat(record), mode);
+  }
+
+  function applyGameMode(mode) {
+    gameMode.value = mode === 'dayday' ? 'dayday' : '539';
+    localStorage.setItem(DB_VERSION_KEY, gameMode.value);
+    syncDbToTextarea();
+    renderDrawDb();
+    resetLog();
+    log(`已切換到 ${gameLabel(gameMode.value)}，並自動載入資料庫 ${loadDrawDb().length} 筆。`);
+  }
+
+  function importTextareaToCurrentDb() {
+    const lines = drawInput.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    if (!lines.length) { alert('下方貼上欄位目前沒有資料。'); return; }
+    const imported = [];
+    lines.forEach((line, idx) => {
+      const nums = parseDrawLineSmart(line);
+      if (!nums) return;
+      const datePart = extractDrawMetaDate(line);
+      imported.push({ id: 'imp_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2), date: datePart, nums, createdAt: Date.now() - idx });
+    });
+    if (!imported.length) { alert('沒有辨識到可匯入的開獎資料。'); return; }
+    saveDrawDb(imported, currentGameMode());
+    syncDbToTextarea();
+    renderDrawDb();
+    alert(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫。`);
+    log(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫，最新一期位於最上方。`);
+  }
+
+  gameMode.addEventListener('change', () => applyGameMode(gameMode.value));
+  backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; log(`已切換生成立柱參考期數：${backtestLimit.value === 'all' ? '全部' : backtestLimit.value + '期'}，目前可用 ${getBacktestDraws().length} 期。`); });
+  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error('請輸入 5 個 01~39 的號碼。'); addRecordToDb(nums, newDrawDate.value, currentGameMode(), true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
+  importPasteBtn.addEventListener('click', importTextareaToCurrentDb);
+  toggleDbBtn.addEventListener('click', () => { dbExpanded = !dbExpanded; dbTableWrap.classList.toggle('open', dbExpanded); toggleDbBtn.textContent = dbExpanded ? '收起資料庫檢查' : '展開資料庫檢查'; renderDrawDb(); });
+  clearCurrentDbBtn.addEventListener('click', () => { if (!confirm(`確定清空 ${gameLabel(currentGameMode())} 的資料庫嗎？此動作不會清除另一個彩種。`)) return; saveDrawDb([], currentGameMode()); syncDbToTextarea(); renderDrawDb(); log(`已清空 ${gameLabel(currentGameMode())} 資料庫。`); });
+  dbTableBody.addEventListener('click', (e) => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    const index = Number(btn.dataset.index); const records = loadDrawDb(); if (!Number.isInteger(index) || index < 0 || index >= records.length) return;
+    const row = btn.closest('tr');
+    if (btn.classList.contains('save-db-row-btn')) { const nums = parseDrawLineSmart(row.querySelector('.db-nums-input').value); if (!nums) { alert('此筆號碼格式不正確，請輸入 5 個 01~39 且不可重複。'); return; } records[index].date = row.querySelector('.db-date-input').value.trim(); records[index].nums = nums; saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); log(`已儲存第 ${index + 1} 筆資料。`); }
+    if (btn.classList.contains('move-db-top-btn')) { const [item] = records.splice(index, 1); records.unshift(item); saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); log(`已將第 ${index + 1} 筆移到最新一期位置。`); }
+    if (btn.classList.contains('delete-db-row-btn')) { if (!confirm(`確定刪除第 ${index + 1} 筆嗎？`)) return; records.splice(index, 1); saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); log(`已刪除第 ${index + 1} 筆資料。`); }
+  });
+  drawInput.addEventListener('input', () => { countDraws.textContent = getBacktestDraws().length; });
+  function initDrawDatabase() { const savedMode = localStorage.getItem(DB_VERSION_KEY) || '539'; applyGameMode(savedMode); dbTableWrap.classList.toggle('open', dbExpanded); }
+
   sampleBtn.addEventListener('click', () => {
     drawInput.value = [
       '01 07 10 20 26','04 09 16 28 37','05 11 14 23 39','02 08 15 18 31','06 12 17 27 34',
@@ -2365,13 +2525,14 @@
   });
 
   async function run() {
-    const draws = parseDraws(drawInput.value);
+    const allDraws = parseDraws(drawInput.value);
+    const draws = getBacktestDraws();
     const shareData = parseNoDrawShares(noDrawInput.value);
     const candidateShareData = parseCandidateShares(candidateInput.value);
     const wantedGroups = Math.max(1, Math.min(5, Number(groupCount.value) || 2));
     countDraws.textContent = draws.length;
-    if (!draws.length) {
-      alert('請先貼上有效的開獎號碼，每行需能辨識出 5 個 01~39 號碼。');
+    if (!allDraws.length) {
+      alert('請先在資料庫或下方貼上欄位加入有效開獎號碼，每行需能辨識出 5 個 01~39 號碼。');
       return;
     }
 
@@ -2380,7 +2541,7 @@
     currentRunSignature = seedText;
     setRunSeed(seedText);
     resetLog();
-    log(`已讀取 ${draws.length} 期資料。`);
+    log(`目前彩種：${gameLabel(currentGameMode())}。資料庫/欄位共 ${allDraws.length} 期，本次生成立柱參考 ${draws.length} 期。`);
     log('本次啟用 v30 深度固定搜尋：同一份資料會用固定種子逐類深度分析，清除鎖定後重新生成也會回到同一套嚴格結果。');
     log(`已讀取多人分享不出牌 ${shareData.rows} 行。`);
     log(`已讀取多人分享推薦號碼 ${candidateShareData.rows} 行。`);
@@ -2477,7 +2638,7 @@
   }
 
   clearLockBtn.addEventListener('click', () => {
-    const draws = parseDraws(drawInput.value);
+    const draws = getBacktestDraws();
     if (!draws.length) {
       alert('請先貼上有效的開獎號碼，才能清除這份資料對應的鎖定最佳。');
       return;
@@ -2489,6 +2650,7 @@
   });
 
   runBtn.addEventListener('click', run);
+  initDrawDatabase();
 
   function legacyCopyText(text) {
     const ta = document.createElement('textarea');
