@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v41 彩種資料庫版</title>
+  <title>吸金穩贏 APP v42 彩種資料庫防誤匯入版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -360,9 +360,9 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜彩種資料庫版</div>
+    <div class="title">吸金穩贏 APP｜彩種資料庫防誤匯入版</div>
     <div class="sub">
-      貼上近百期開獎號碼後，工具會做兩件事：<br>
+      貼上近百期開獎號碼或使用彩種資料庫後，工具會做兩件事：<br>
       1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
       2. 同時產生相同組數的 <b>大小、單雙平均分配</b> 隨機立柱作對照。<br>
       3. 額外提供候選號碼排行與核心分析，方便你自行判斷。<br>
@@ -715,11 +715,11 @@
 
 
   function parseDrawLineSmart(line) {
-    const nums = (line.match(/\d{1,2}/g) || [])
-      .map(n => Number(n))
-      .filter(n => n >= 1 && n <= 39);
+    // 只判讀獨立的雙位數 01~39；001~999 這種三位數期數不會被拆成開獎號碼。
+    const nums = (line.match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || [])
+      .map(n => Number(n));
     if (nums.length < 5) return null;
-    const candidate = nums.length === 5 ? nums : nums.slice(-5);
+    const candidate = nums.slice(0, 5);
     const unique = [...new Set(candidate)];
     return unique.length === 5 ? unique : null;
   }
@@ -2435,8 +2435,18 @@
   }
   function saveDrawDb(records, mode = currentGameMode()) { const clean = (records || []).map(normalizeDrawRecord).filter(Boolean); localStorage.setItem(dbKey(mode), JSON.stringify(clean)); return clean; }
   function formatDrawLine(record, index = 0) { const tag = record.date ? record.date + ' ' : ''; return `${tag}${formatNums(record.nums)}`.trim() || `第${index + 1}筆 ${formatNums(record.nums)}`; }
-  function syncDbToTextarea() { const records = loadDrawDb(); drawInput.value = records.length ? records.map(formatDrawLine).join('\n') : ''; }
-  function getBacktestDraws() { const rawDraws = parseDraws(drawInput.value); const selected = backtestLimit.value; if (selected === 'all') return rawDraws; return rawDraws.slice(0, Number(selected) || 100); }
+  function getActiveDrawText() {
+    const pastedText = drawInput.value.trim();
+    if (pastedText) return drawInput.value;
+    const records = loadDrawDb();
+    return records.length ? records.map(formatDrawLine).join('\n') : '';
+  }
+  function syncDbToTextarea() {
+    // v42：貼上百期欄位只作為「暫時匯入區」，重新開啟或切換彩種後不再自動塞回資料庫內容。
+    // 生成與回測仍會在欄位空白時自動讀取目前彩種資料庫，避免誤按「匯入」覆蓋資料庫。
+    drawInput.value = '';
+  }
+  function getBacktestDraws() { const rawDraws = parseDraws(getActiveDrawText()); const selected = backtestLimit.value; if (selected === 'all') return rawDraws; return rawDraws.slice(0, Number(selected) || 100); }
 
   function renderDrawDb() {
     const mode = currentGameMode();
@@ -2487,8 +2497,8 @@
     saveDrawDb(imported, currentGameMode());
     syncDbToTextarea();
     renderDrawDb();
-    alert(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫。`);
-    log(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫，最新一期位於最上方。`);
+    alert(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫，貼上欄位已自動清空。`);
+    log(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫，貼上欄位已自動清空，最新一期位於最上方。`);
   }
 
   gameMode.addEventListener('change', () => applyGameMode(gameMode.value));
@@ -2525,7 +2535,8 @@
   });
 
   async function run() {
-    const allDraws = parseDraws(drawInput.value);
+    const activeDrawText = getActiveDrawText();
+    const allDraws = parseDraws(activeDrawText);
     const draws = getBacktestDraws();
     const shareData = parseNoDrawShares(noDrawInput.value);
     const candidateShareData = parseCandidateShares(candidateInput.value);
@@ -2537,7 +2548,7 @@
     }
 
     runBtn.disabled = true;
-    const seedText = [drawInput.value, noDrawInput.value, candidateInput.value, String(wantedGroups)].join('\n---\n');
+    const seedText = [activeDrawText, noDrawInput.value, candidateInput.value, String(wantedGroups)].join('\n---\n');
     currentRunSignature = seedText;
     setRunSeed(seedText);
     resetLog();
