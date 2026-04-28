@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v42 彩種資料庫防誤匯入版</title>
+  <title>吸金穩贏 APP v44 反指標連倒不封頂版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -317,6 +317,7 @@
     .tag-safe { color:#7dd3fc; }
     .tag-hot { color:#fcd34d; }
     .tag-random { color:#c4b5fd; }
+    .tag-reverse { color:#fb7185; }
     .manual-recommend-zone {
       margin-top: 12px;
       border-top: 1px solid var(--border);
@@ -350,6 +351,8 @@
     .db-table input { min-width:86px; background:#0b1220; color:#fff; border:1px solid var(--border); border-radius:8px; padding:7px; text-align:center; }
     .db-table .draw-edit-input { min-width:150px; }
     .db-mini { color:var(--muted); font-size:12px; line-height:1.5; margin-top:6px; }
+    .db-backup-area { margin-top:10px; }
+    .db-backup-textarea { width:100%; min-height:88px; margin-top:8px; font-size:13px; line-height:1.5; }
 
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
@@ -360,12 +363,13 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜彩種資料庫防誤匯入版</div>
+    <div class="title">吸金穩贏 APP｜反指標連倒不封頂版</div>
     <div class="sub">
       貼上近百期開獎號碼或使用彩種資料庫後，工具會做兩件事：<br>
       1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
       2. 同時產生相同組數的 <b>大小、單雙平均分配</b> 隨機立柱作對照。<br>
-      3. 額外提供候選號碼排行與核心分析，方便你自行判斷。<br>
+      3. 額外新增 <b>反指標排行立柱</b>：不看勝率，只排行「連續倒」，最新一期必須倒，且連倒期數不設上限。<br>
+      4. 額外提供候選號碼排行與核心分析，方便你自行判斷。<br>
       本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。<br>v36 勝率硬鎖延續版：以你提供的 v34 為底稿修改。AI最佳 / 防穿透在推薦區先強制篩選百期未過關 ≤3，若無才放寬 ≤4，再無才放寬 ≤5；在合格池內再套用四期倒覆蓋、近5期倒數、低重複率與結構平衡懲罰。高過關爆發完全隔離，不套用 AI / 防穿透的新條件。
     </div>
 
@@ -382,6 +386,8 @@
           <div class="db-row-compact">
             <button class="btn btn-primary" id="addDrawBtn" type="button">新增到資料庫最上方</button>
             <button class="btn btn-secondary" id="importPasteBtn" type="button">把下方貼上資料匯入目前彩種</button>
+            <button class="btn btn-secondary" id="copyDbBackupBtn" type="button">複製目前彩種百期格式</button>
+            <button class="btn btn-primary" id="restoreDbBackupBtn" type="button">貼上備份還原</button>
             <button class="btn btn-dark" id="toggleDbBtn" type="button">展開資料庫檢查</button>
             <button class="btn btn-dark" id="clearCurrentDbBtn" type="button">清空目前彩種資料庫</button>
           </div>
@@ -391,6 +397,11 @@
             <div class="db-chip">最新一期：<b id="dbLatest">尚無資料</b></div>
           </div>
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
+          <div class="db-backup-area">
+            <div class="field-label">資料庫備份貼上區</div>
+            <textarea id="dbBackupText" class="db-backup-textarea" placeholder="按「複製目前彩種百期格式」會輸出像百期開獎號碼一樣的純文字；可先貼到 LINE 備份，日後複製回新版的百期欄位，再按「把下方貼上資料匯入目前彩種」。"></textarea>
+            <div class="db-mini">備份格式改為純文字：每行 5 個開獎號碼，第 1 行仍是最新一期；貼到 LINE 不會像亂碼。要備份 539 與天天樂時，請先切換彩種後各複製一次。</div>
+          </div>
           <div class="db-table-wrap" id="dbTableWrap"><table class="db-table"><thead><tr><th>序</th><th>日期 / 期別</th><th>開獎號碼</th><th>操作</th></tr></thead><tbody id="dbTableBody"><tr><td colspan="4">尚無資料</td></tr></tbody></table></div>
         </div>
 
@@ -413,7 +424,7 @@
           <button class="btn btn-dark" id="clearLockBtn">清除鎖定最佳</button>
         </div>
         <div class="recommend-box">
-          <div class="recommend-title">推薦 3 組低穿透率立柱</div>
+          <div class="recommend-title">推薦 4 組低穿透率立柱</div>
           <div id="recommendResult" class="small-note">尚未產生。</div>
         </div>
         <div class="small-note">
@@ -467,6 +478,10 @@
       <div class="card" id="highPassCard">
         <div class="result-title">高過關爆發立柱 <span class="badge badge-ai">HIGH PASS</span></div>
         <div id="highPassResult">尚未產生。</div>
+      </div>
+      <div class="card" id="reverseCard">
+        <div class="result-title">反指標排行立柱 <span class="badge badge-random">REVERSE</span></div>
+        <div id="reverseResult">尚未產生。</div>
       </div>
       <div class="card" id="randomCard">
         <div class="result-title">隨機平衡立柱 <span class="badge badge-random">RANDOM</span></div>
@@ -559,6 +574,7 @@
   const antiResult = document.getElementById('antiResult');
   const highPassResult = document.getElementById('highPassResult');
   const randomResult = document.getElementById('randomResult');
+  const reverseResult = document.getElementById('reverseResult');
   const recommendResult = document.getElementById('recommendResult');
   const scoreBoardBody = document.getElementById('scoreBoardBody');
   const candidateScoreBoardBody = document.getElementById('candidateScoreBoardBody');
@@ -569,6 +585,9 @@
   const newDrawNums = document.getElementById('newDrawNums');
   const addDrawBtn = document.getElementById('addDrawBtn');
   const importPasteBtn = document.getElementById('importPasteBtn');
+  const copyDbBackupBtn = document.getElementById('copyDbBackupBtn');
+  const restoreDbBackupBtn = document.getElementById('restoreDbBackupBtn');
+  const dbBackupText = document.getElementById('dbBackupText');
   const toggleDbBtn = document.getElementById('toggleDbBtn');
   const clearCurrentDbBtn = document.getElementById('clearCurrentDbBtn');
   const dbGameLabel = document.getElementById('dbGameLabel');
@@ -581,6 +600,7 @@
   let lastAnti = [];
   let lastHighPass = [];
   let lastRandom = [];
+  let lastReverse = [];
   let lastRecommended = [];
   let manualRecommendItems = [];
   let lastCandidate = [];
@@ -1128,7 +1148,8 @@
         if (ok) recent5Pass++; else recent5Down++;
         recentDownFlags[i] = !ok;
       }
-      if (i < 4 && !ok && latestDownStreak === i) {
+      // v44：連倒統計不封頂；從最新一期開始一路往舊期數累計，直到遇到過關才停止。
+      if (!ok && latestDownStreak === i) {
         latestDownStreak++;
       }
     }
@@ -1165,7 +1186,8 @@
       allInOneRate: allInOne / total,
       balancePenalty,
       score,
-      patterns
+      patterns,
+      totalDraws: draws.length
     };
   }
 
@@ -1248,7 +1270,7 @@
           <tr><th>預估省下成本</th><td>${removeInfo.saveCost.toLocaleString()} 元</td></tr>
           <tr><th>絕對不出分數</th><td>${removeInfo.removedScore.toFixed(2)}</td></tr>
           <tr><th>整體過關率下降</th><td>${removeInfo.passLoss.toFixed(2)}%</td></tr>
-          <tr><th>最新連倒期數</th><td>${removeInfo.stats && typeof removeInfo.stats.latestDownStreak === 'number' ? removeInfo.stats.latestDownStreak + ' / 4' : '-'}</td></tr>
+          <tr><th>最新連倒期數</th><td>${removeInfo.stats && typeof removeInfo.stats.latestDownStreak === 'number' ? removeInfo.stats.latestDownStreak + ' / ' + (removeInfo.stats.totalDraws || '') : '-'}</td></tr>
         </table>
       ` : ''}
       <div class="pillars">
@@ -1264,12 +1286,14 @@
         ${typeof stats.zeroRisk === 'number' ? `<tr><th>危險型態率</th><td>${(stats.zeroRisk * 100).toFixed(2)}%</td></tr>` : ''}
         ${typeof stats.antiTotalScore === 'number' ? `<tr><th>防穿透主評分</th><td>${stats.antiTotalScore.toFixed(2)}</td></tr>` : ''}
         ${typeof stats.highPassScore === 'number' ? `<tr><th>高過關型評分</th><td>${stats.highPassScore.toFixed(2)}</td></tr>` : ''}
+        ${typeof stats.reverseScore === 'number' ? `<tr><th>反指標分數</th><td>${stats.reverseScore.toFixed(2)}</td></tr>` : ''}
+        ${typeof stats.recent10Down === 'number' ? `<tr><th>近10期倒次數</th><td>${stats.recent10Down} / ${Math.min(10, stats.pass + stats.fail)}</td></tr>` : ''}
         ${typeof stats.highPassScore === 'number' ? `<tr><th>連續20期過關率</th><td>${(stats.recentRate * 100).toFixed(2)}%${stats.recentRate >= 1 ? '（符合）' : '（不符合）'}</td></tr>` : ''}
         ${typeof stats.fiveZeroZeroCount === 'number' ? `<tr><th>5-0-0 次數</th><td>${stats.fiveZeroZeroCount} 期</td></tr>` : ''}
         <tr><th>過關期數</th><td>${stats.pass} 期</td></tr>
         <tr><th>未過關期數</th><td>${stats.fail} 期</td></tr>
         <tr><th>最新一期狀態</th><td>${stats.latestDown ? '倒' : '過關'}${stats.latestPattern ? '（' + stats.latestPattern + '）' : ''}</td></tr>
-        <tr><th>最新連倒期數</th><td>${stats.latestDownStreak || 0} / 4</td></tr>
+        <tr><th>最新連倒期數</th><td>${stats.latestDownStreak || 0} / ${stats.totalDraws || ''}</td></tr>
         <tr><th>近5期倒次數</th><td>${stats.recent5Down || 0} / 5</td></tr>
         <tr><th>5號集中同一柱次數</th><td>${stats.allInOne} 期</td></tr>
         <tr><th>結構平衡懲罰</th><td>${stats.balancePenalty.toFixed(2)}</td></tr>
@@ -1507,6 +1531,7 @@
       makeStorageKey('locked_type_ai_v30', draws, candidateText, noDrawText),
       makeStorageKey('locked_type_anti_v30', draws, candidateText, noDrawText),
       makeStorageKey('locked_type_highpass_v30', draws, candidateText, noDrawText),
+      makeStorageKey('reverse_v44_unlimited_latest_down_rank', draws, candidateText, noDrawText),
       makeStorageKey('recommend_original_pool_v38_structure_priority', draws, candidateText, noDrawText)
     ];
     keys.forEach(key => {
@@ -1550,6 +1575,93 @@
     }
     const finalItems = finalizeTopItems(pool, totalWanted, compareAiItems);
     saveStoredItems(storageKey, finalizeTopItems(pool, Math.min(20, keepSize), compareAiItems));
+    return finalItems;
+  }
+
+  function reverseIndicatorScore(groups, draws) {
+    const stats = evaluate(groups, draws);
+    const recent10Down = Math.min(10, draws.length) - stats.recentPass;
+    const topPatterns = Object.entries(stats.patterns || {}).sort((a, b) => b[1] - a[1]).slice(0, 5).map(x => x[0]);
+    return {
+      ...stats,
+      recent10Down,
+      reverseScore:
+        (stats.latestDown ? 100000000 : -100000000) +
+        (stats.latestDownStreak || 0) * 1000000 +
+        (stats.recent5Down || 0) * 100000 +
+        recent10Down * 12000 +
+        (stats.fail || 0) * 180 -
+        (stats.balancePenalty || 0) * 2 +
+        (topPatterns.includes('5-0-0') ? 500 : 0)
+    };
+  }
+
+  function compareReverseItems(a, b) {
+    const as = (a && a.stats) || {};
+    const bs = (b && b.stats) || {};
+    if (Number(!!bs.latestDown) !== Number(!!as.latestDown)) return Number(!!bs.latestDown) - Number(!!as.latestDown);
+    if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
+    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
+    if ((bs.recent10Down || 0) !== (as.recent10Down || 0)) return (bs.recent10Down || 0) - (as.recent10Down || 0);
+    if ((bs.fail || 0) !== (as.fail || 0)) return (bs.fail || 0) - (as.fail || 0);
+    if ((bs.reverseScore || 0) !== (as.reverseScore || 0)) return (bs.reverseScore || 0) - (as.reverseScore || 0);
+    return ((as.balancePenalty || 0) - (bs.balancePenalty || 0));
+  }
+
+  function reverseItemFromGroups(groups, draws) {
+    return { groups: cloneGroups(groups), stats: reverseIndicatorScore(groups, draws) };
+  }
+
+  async function buildTopReverseGroups(draws, totalWanted) {
+    seedForType('reverse');
+    const storageKey = makeStorageKey('reverse_v44_unlimited_latest_down_rank', draws);
+    let pool = [];
+    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
+    const seedCount = Math.max(1200, totalWanted * 360);
+
+    for (let i = 0; i < seedCount; i++) {
+      const groups = buildBalancedRandomPillar();
+      const item = reverseItemFromGroups(groups, draws);
+      if (item.stats.latestDown) pool = addUniqueSorted(pool, item, keepSize, compareReverseItems);
+    }
+
+    const baseSeeds = [
+      ...(lastAI || []),
+      ...(lastAnti || []),
+      ...(lastHighPass || []),
+      ...(lastRandom || [])
+    ].filter(Boolean);
+    for (const seed of baseSeeds) {
+      for (let i = 0; i < 30; i++) {
+        const groups = mutateByTimes(seed.groups, 1 + (i % 4));
+        const item = reverseItemFromGroups(groups, draws);
+        if (item.stats.latestDown) pool = addUniqueSorted(pool, item, keepSize, compareReverseItems);
+      }
+    }
+
+    if (!pool.length) {
+      for (let i = 0; i < seedCount; i++) {
+        const groups = buildBalancedRandomPillar();
+        pool = addUniqueSorted(pool, reverseItemFromGroups(groups, draws), keepSize, compareReverseItems);
+      }
+    }
+
+    const refineRounds = Math.min(pool.length, Math.max(36, totalWanted * 14));
+    for (let i = 0; i < refineRounds; i++) {
+      let current = pool[i % pool.length];
+      let best = current;
+      for (let step = 0; step < 260; step++) {
+        const candidate = reverseItemFromGroups(randomSwap(current.groups), draws);
+        const candidateOk = candidate.stats.latestDown;
+        if (candidateOk && (compareReverseItems(candidate, current) < 0 || rand() < 0.015)) current = candidate;
+        if (candidateOk && compareReverseItems(candidate, best) < 0) best = candidate;
+      }
+      if (best.stats.latestDown) pool = addUniqueSorted(pool, best, keepSize, compareReverseItems);
+      if (i % 8 === 7) await new Promise(requestAnimationFrame);
+    }
+
+    const finalItems = finalizeTopItems(pool.filter(item => item.stats && item.stats.latestDown), totalWanted, compareReverseItems);
+    saveStoredItems(storageKey, finalizeTopItems(pool, Math.min(28, keepSize), compareReverseItems));
     return finalItems;
   }
 
@@ -2044,6 +2156,17 @@
     return (b.strengthScore || 0) - (a.strengthScore || 0) || a.sourceIndex - b.sourceIndex;
   }
 
+  function compareReverseRecommendItems(a, b) {
+    const as = (a && a.stats) || {};
+    const bs = (b && b.stats) || {};
+    if (Number(!!bs.latestDown) !== Number(!!as.latestDown)) return Number(!!bs.latestDown) - Number(!!as.latestDown);
+    if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
+    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
+    if ((bs.recent10Down || 0) !== (as.recent10Down || 0)) return (bs.recent10Down || 0) - (as.recent10Down || 0);
+    if ((bs.fail || 0) !== (as.fail || 0)) return (bs.fail || 0) - (as.fail || 0);
+    return (b.strengthScore || 0) - (a.strengthScore || 0) || a.sourceIndex - b.sourceIndex;
+  }
+
   function compareHighPassRecommendItems(a, b) {
     // v32：只用於推薦區的高爆發代表組挑選。
     // 順序：總過關率 > 連續20期過關率100% > 5-0-0次數 > 高爆發分數。
@@ -2068,7 +2191,7 @@
     return (a.sourceIndex || 0) - (b.sourceIndex || 0);
   }
 
-  function buildRecommendPool(aiItems, antiItems, highPassItems, randomItems, draws) {
+  function buildRecommendPool(aiItems, antiItems, highPassItems, reverseItems, randomItems, draws) {
     let pool = [];
     const pickBestOne = (items, type, labelClass, limit) => {
       const mapped = (items || []).slice(0, Math.max(limit || 0, (items || []).length)).map((item, idx) => {
@@ -2082,6 +2205,12 @@
         };
       });
       if (!mapped.length) return;
+
+      if (type === 'reverse') {
+        const candidates = mapped.filter(item => item.stats && item.stats.latestDown).sort(compareReverseRecommendItems);
+        if (candidates.length) pool.push(candidates[0]);
+        return;
+      }
 
       if (type === 'highpass') {
         // v32：高爆發在推薦區仍完全隔離，不套用最新連倒；只調整代表組挑選順序：總過關率 > 20期100% > 5-0-0次數。
@@ -2100,11 +2229,12 @@
       }
     };
 
-    // v30：推薦區只允許 AI / 防穿透 / 高過關爆發，各類最多 1 組；完全排除隨機平衡。
-    // AI / 防穿透套用過關率守門 + 最新連倒；高爆發完全隔離，只取原始高爆發最佳。
+    // v44：推薦區允許 AI / 防穿透 / 高過關爆發 / 反指標，各類最多 1 組；完全排除隨機平衡。
+    // 反指標不看勝率，只挑「最新一期必須倒」且連續倒排行最高的代表組。
     pickBestOne(aiItems, 'ai', 'tag-strong', 5);
     pickBestOne(antiItems, 'anti', 'tag-safe', 5);
     pickBestOne(highPassItems, 'highpass', 'tag-hot', 5);
+    pickBestOne(reverseItems, 'reverse', 'tag-reverse', 5);
     return pool.sort(compareSingleRecommendItem);
   }
 
@@ -2147,7 +2277,7 @@
   }
 
   function saveBestRecommendCombo(key, combo) {
-    if (!key || !combo || !combo.picks || combo.picks.length !== 3) return;
+    if (!key || !combo || !combo.picks || combo.picks.length !== 4) return;
     try {
       const safe = {
         avgCrossOverlap: combo.avgCrossOverlap,
@@ -2186,8 +2316,8 @@
       const raw = localStorage.getItem(key);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.picks) || parsed.picks.length !== 3) return null;
-      if (parsed.picks.some(item => !['ai', 'anti', 'highpass'].includes(item.sourceType))) return null;
+      if (!parsed || !Array.isArray(parsed.picks) || parsed.picks.length !== 4) return null;
+      if (parsed.picks.some(item => !['ai', 'anti', 'highpass', 'reverse'].includes(item.sourceType))) return null;
       if (new Set(parsed.picks.map(item => item.sourceType)).size !== 3) return null;
       if (typeof parsed.avgSamePillarOverlap !== 'number') return null;
       return parsed;
@@ -2229,27 +2359,26 @@
     }));
   }
 
-  function recommendLowestOverlapSet(aiItems, antiItems, highPassItems, randomItems, draws) {
-    const pool = buildRecommendPool(aiItems, antiItems, highPassItems, randomItems, draws);
-    if (pool.length < 3) return [];
+  function recommendLowestOverlapSet(aiItems, antiItems, highPassItems, reverseItems, randomItems, draws) {
+    const pool = buildRecommendPool(aiItems, antiItems, highPassItems, reverseItems, randomItems, draws);
+    if (pool.length < 4) return [];
     let best = null;
 
-    for (let i = 0; i < pool.length - 2; i++) {
-      for (let j = i + 1; j < pool.length - 1; j++) {
-        for (let k = j + 1; k < pool.length; k++) {
-          const picks = [pool[i], pool[j], pool[k]];
+    for (let i = 0; i < pool.length - 3; i++) {
+      for (let j = i + 1; j < pool.length - 2; j++) {
+        for (let k = j + 1; k < pool.length - 1; k++) {
+          for (let m = k + 1; m < pool.length; m++) {
+          const picks = [pool[i], pool[j], pool[k], pool[m]];
           if (new Set(picks.map(x => x.sourceType)).size !== picks.length) continue;
 
-          const crossOverlaps = [
-            crossOverlapRate(picks[0].groups, picks[1].groups),
-            crossOverlapRate(picks[0].groups, picks[2].groups),
-            crossOverlapRate(picks[1].groups, picks[2].groups)
-          ];
-          const samePillarOverlaps = [
-            pairwiseSamePillarOverlap(picks[0].groups, picks[1].groups),
-            pairwiseSamePillarOverlap(picks[0].groups, picks[2].groups),
-            pairwiseSamePillarOverlap(picks[1].groups, picks[2].groups)
-          ];
+          const crossOverlaps = [];
+          const samePillarOverlaps = [];
+          for (let a = 0; a < picks.length - 1; a++) {
+            for (let b = a + 1; b < picks.length; b++) {
+              crossOverlaps.push(crossOverlapRate(picks[a].groups, picks[b].groups));
+              samePillarOverlaps.push(pairwiseSamePillarOverlap(picks[a].groups, picks[b].groups));
+            }
+          }
           const avgCrossOverlap = crossOverlaps.reduce((sum, value) => sum + value, 0) / crossOverlaps.length;
           const maxCrossOverlap = Math.max(...crossOverlaps);
           const avgSamePillarOverlap = samePillarOverlaps.reduce((sum, value) => sum + value, 0) / samePillarOverlaps.length;
@@ -2301,6 +2430,7 @@
           if (compareRecommendCandidate(candidate, best) < 0) {
             best = candidate;
           }
+          }
         }
       }
     }
@@ -2313,6 +2443,7 @@
     if (type === 'ai') return 'AI 最佳立柱';
     if (type === 'anti') return '防穿透立柱';
     if (type === 'highpass') return '高過關爆發立柱';
+    if (type === 'reverse') return '反指標排行立柱';
     return '立柱';
   }
 
@@ -2347,7 +2478,7 @@
   }
 
   function renderRecommendedItems(items) {
-    if (!items || items.length < 3) {
+    if (!items || items.length < 4) {
       const manualHtml = buildManualRecommendHTML();
       recommendResult.innerHTML = manualHtml || '尚未產生。';
       return;
@@ -2362,7 +2493,7 @@
     const comboDownCoverage4 = items[0].comboDownCoverage4 || 0;
     const totalRecent5Down = items[0].totalRecent5Down || 0;
     recommendResult.innerHTML = `
-      <div class="small-note">只從 AI最佳 / 防穿透 / 高過關爆發 的歷史鎖定池中挑選，完全排除隨機平衡；v36：AI / 防穿透先強制篩選未過關≤3，若無才≤4，再無才≤5，合格後才比總體勝率與倒的條件。若推薦三組合併後最新四期每一期都有至少一組倒，優先順序為：總體勝率 ＞ 近5期合計倒數；高爆發完全隔離，排序維持：總過關率 ＞ 20期100% ＞ 5-0-0次數。<br>四期倒覆蓋：<b>${comboDownCoverage4}/4</b>｜三組共同最新連倒：<b>${comboAllDownStreak}/4</b>｜連倒分布：<b>4連${streakProfile[0] || 0}組 / 3連${streakProfile[1] || 0}組 / 2連${streakProfile[2] || 0}組 / 1連${streakProfile[3] || 0}組</b>｜近5期合計倒數：<b>${totalRecent5Down}/15</b>｜平均同柱重複率：<b>${avgSamePillarOverlap}%</b>｜三組平均全柱穿插重複率：<b>${avgCrossOverlap}%</b>｜最高單對全柱穿插重複率：<b>${maxCrossOverlap}%</b>｜最新一期倒：<b>${latestDownCount}/3</b>｜平均最新連倒：<b>${avgLatestDownStreak}/4</b></div>
+      <div class="small-note">只從 AI最佳 / 防穿透 / 高過關爆發 / 反指標排行 中挑選，完全排除隨機平衡；v43：反指標不看勝率，只看連續倒排行，且最新一期必須倒。AI / 防穿透仍先強制篩選未過關≤3，若無才≤4，再無才≤5；高爆發完全隔離。<br>四期倒覆蓋：<b>${comboDownCoverage4}/4</b>｜三組共同最新連倒：<b>${comboAllDownStreak}/4</b>｜連倒分布：<b>4連${streakProfile[0] || 0}組 / 3連${streakProfile[1] || 0}組 / 2連${streakProfile[2] || 0}組 / 1連${streakProfile[3] || 0}組</b>｜近5期合計倒數：<b>${totalRecent5Down}/20</b>｜平均同柱重複率：<b>${avgSamePillarOverlap}%</b>｜三組平均全柱穿插重複率：<b>${avgCrossOverlap}%</b>｜最高單對全柱穿插重複率：<b>${maxCrossOverlap}%</b>｜最新一期倒：<b>${latestDownCount}/4</b>｜平均最新連倒：<b>${avgLatestDownStreak}/4</b></div>
       <div class="recommend-list">
         ${items.map(item => `
           <div class="recommend-item">
@@ -2501,10 +2632,121 @@
     log(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫，貼上欄位已自動清空，最新一期位於最上方。`);
   }
 
+  function buildDbBackupPayload() {
+    // v47：改成可直接貼到 LINE 的「百期純文字格式」。
+    // 每行只放 5 個雙位數號碼，避免日期或 JSON 符號被百期匯入區誤判。
+    // 順序完全照目前彩種資料庫：第 1 行 = 最新一期。
+    const records = loadDrawDb(currentGameMode());
+    return records.map(r => formatNums(r.nums)).join('\n');
+  }
+
+  function buildDbBackupHeader() {
+    return `${gameLabel(currentGameMode())} 資料庫備份｜第1行最新｜共 ${loadDrawDb(currentGameMode()).length} 筆`;
+  }
+
+  function fallbackCopyText(text) {
+    dbBackupText.value = text;
+    dbBackupText.focus();
+    dbBackupText.select();
+    try { document.execCommand('copy'); return true; } catch (err) { return false; }
+  }
+
+  async function copyTextToClipboard(text) {
+    dbBackupText.value = text;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (err) {}
+    return fallbackCopyText(text);
+  }
+
+  function normalizeBackupRecordList(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map((r, idx) => normalizeDrawRecord({
+      id: 'bak_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2),
+      date: r && typeof r === 'object' ? String(r.date || '').trim() : '',
+      nums: r && typeof r === 'object' ? r.nums : null,
+      createdAt: Date.now() - idx
+    })).filter(Boolean);
+  }
+
+  function parseDbBackupText(text) {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) throw new Error('請先貼上資料庫備份內容。');
+
+    // 兼容 v45/v46 舊 JSON 備份格式。
+    if (trimmed.startsWith('{')) {
+      let parsed;
+      try { parsed = JSON.parse(trimmed); } catch (err) { throw new Error('備份格式不是有效 JSON。'); }
+      if (!parsed || !parsed.games || typeof parsed.games !== 'object') throw new Error('備份內容缺少 games 資料，無法還原。');
+      return {
+        mode: 'json',
+        activeGame: parsed.activeGame === 'dayday' ? 'dayday' : '539',
+        games: {
+          '539': normalizeBackupRecordList(parsed.games['539']),
+          'dayday': normalizeBackupRecordList(parsed.games['dayday'])
+        }
+      };
+    }
+
+    // v47 新格式：每行 5 個 01~39，直接還原到目前彩種。
+    const lines = trimmed.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const records = [];
+    lines.forEach((line, idx) => {
+      const nums = parseDrawLineSmart(line);
+      if (!nums) return;
+      records.push({ id: 'bak_plain_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2), date: '', nums, createdAt: Date.now() - idx });
+    });
+    if (!records.length) throw new Error('沒有辨識到可還原的開獎號碼。');
+    return { mode: 'plain', activeGame: currentGameMode(), records: records.map(normalizeDrawRecord).filter(Boolean) };
+  }
+
+  async function copyDatabaseBackup() {
+    const text = buildDbBackupPayload();
+    const ok = await copyTextToClipboard(text);
+    const count = loadDrawDb(currentGameMode()).length;
+    const header = buildDbBackupHeader();
+    alert(ok ? `已複製 ${gameLabel(currentGameMode())} 百期格式備份：${count} 筆。\n可直接貼到 LINE 保存。` : '已產生百期格式備份，若沒有自動複製，請手動全選複製備份貼上區。');
+    log(`${header}；順序保持最新一期在最上方。`);
+  }
+
+  function restoreDatabaseBackup() {
+    try {
+      const backup = parseDbBackupText(dbBackupText.value);
+      if (backup.mode === 'json') {
+        const count539 = backup.games['539'].length;
+        const countDayday = backup.games['dayday'].length;
+        if (!confirm(`確定用舊版備份還原資料庫嗎？\n539：${count539} 筆\n天天樂：${countDayday} 筆\n\n會覆蓋目前兩個彩種的資料庫。`)) return;
+        saveDrawDb(backup.games['539'], '539');
+        saveDrawDb(backup.games['dayday'], 'dayday');
+        applyGameMode(backup.activeGame);
+        dbBackupText.value = '';
+        alert(`已還原完成：539 ${count539} 筆、天天樂 ${countDayday} 筆。`);
+        log(`已從舊版備份還原資料庫：539 ${count539} 筆、天天樂 ${countDayday} 筆。`);
+        return;
+      }
+
+      const count = backup.records.length;
+      if (!confirm(`確定把這份純文字備份還原到「${gameLabel(currentGameMode())}」嗎？\n共 ${count} 筆，會覆蓋目前彩種資料庫。\n\n第 1 行會保留為最新一期。`)) return;
+      saveDrawDb(backup.records, currentGameMode());
+      syncDbToTextarea();
+      renderDrawDb();
+      dbBackupText.value = '';
+      alert(`已還原到 ${gameLabel(currentGameMode())}：${count} 筆。`);
+      log(`已從純文字備份還原 ${gameLabel(currentGameMode())}：${count} 筆；第 1 筆仍為最新一期。`);
+    } catch (err) {
+      alert(err.message || '備份還原失敗。');
+    }
+  }
+
   gameMode.addEventListener('change', () => applyGameMode(gameMode.value));
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; log(`已切換生成立柱參考期數：${backtestLimit.value === 'all' ? '全部' : backtestLimit.value + '期'}，目前可用 ${getBacktestDraws().length} 期。`); });
   addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error('請輸入 5 個 01~39 的號碼。'); addRecordToDb(nums, newDrawDate.value, currentGameMode(), true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', importTextareaToCurrentDb);
+  copyDbBackupBtn.addEventListener('click', copyDatabaseBackup);
+  restoreDbBackupBtn.addEventListener('click', restoreDatabaseBackup);
   toggleDbBtn.addEventListener('click', () => { dbExpanded = !dbExpanded; dbTableWrap.classList.toggle('open', dbExpanded); toggleDbBtn.textContent = dbExpanded ? '收起資料庫檢查' : '展開資料庫檢查'; renderDrawDb(); });
   clearCurrentDbBtn.addEventListener('click', () => { if (!confirm(`確定清空 ${gameLabel(currentGameMode())} 的資料庫嗎？此動作不會清除另一個彩種。`)) return; saveDrawDb([], currentGameMode()); syncDbToTextarea(); renderDrawDb(); log(`已清空 ${gameLabel(currentGameMode())} 資料庫。`); });
   dbTableBody.addEventListener('click', (e) => {
@@ -2556,14 +2798,15 @@
     log('本次啟用 v30 深度固定搜尋：同一份資料會用固定種子逐類深度分析，清除鎖定後重新生成也會回到同一套嚴格結果。');
     log(`已讀取多人分享不出牌 ${shareData.rows} 行。`);
     log(`已讀取多人分享推薦號碼 ${candidateShareData.rows} 行。`);
-    log(`本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組防穿透立柱、${wantedGroups} 組高過關爆發立柱、${wantedGroups} 組隨機立柱。`);
+    log(`本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組防穿透立柱、${wantedGroups} 組高過關爆發立柱、${wantedGroups} 組反指標排行立柱、${wantedGroups} 組隨機立柱。`);
     log('v30 深度固定搜尋版已啟動：AI / 防穿透會繼續搜尋並和舊鎖定池合併；高爆發完全使用原始高爆發排序隔離鎖定，不套用連倒條件。');
 
     aiResult.innerHTML = 'AI 計算中...';
     antiResult.innerHTML = '防穿透立柱待產生...';
     highPassResult.innerHTML = '高過關爆發立柱待產生...';
+    reverseResult.innerHTML = '反指標排行立柱待產生...';
     randomResult.innerHTML = '隨機立柱待產生...';
-    recommendResult.innerHTML = 'v38 本次生成結構優先版計算中...';
+    recommendResult.innerHTML = 'v43 四組推薦計算中...';
     scoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
     candidateScoreBoardBody.innerHTML = '<tr><td colspan="7">計算中...</td></tr>';
     antiAnalysisBody.innerHTML = '<tr><td colspan="2">計算中...</td></tr>';
@@ -2604,6 +2847,16 @@
         log('高過關爆發立柱未產生：本次搜尋未找到常見分布前5名內包含 5-0-0 的合格結果。');
       }
 
+      log('開始產生反指標排行立柱（不看勝率，最新一期必須倒，依連續倒排行）...');
+      lastReverse = await buildTopReverseGroups(draws, wantedGroups);
+      if (lastReverse.length) {
+        reverseResult.innerHTML = buildMultiResultHTML(lastReverse, '反指標排行立柱', false, 'reverse');
+        log(`反指標排行立柱完成，共 ${lastReverse.length} 組。最高連倒 ${lastReverse[0].stats.latestDownStreak || 0} 期，近5期倒 ${lastReverse[0].stats.recent5Down || 0}/5。`);
+      } else {
+        reverseResult.innerHTML = '<div class="pillar"><div class="pillar-title">未找到合格反指標</div><div class="nums">本次沒有找到「最新一期倒」的反指標立柱。</div></div>';
+        log('反指標排行立柱未產生：本次沒有找到最新一期倒的結果。');
+      }
+
       log('開始產生隨機平衡立柱...');
       lastRandom = buildTopRandomGroups(draws, wantedGroups);
       randomResult.innerHTML = buildMultiResultHTML(lastRandom, '隨機平衡立柱', false, 'random');
@@ -2612,12 +2865,12 @@
 
       currentRecommendStorageKey = '';
       // v38：推薦區只從本次畫面已顯示的 AI / 防穿透 / 高爆發各 1~5 組裡挑代表組，讓推薦結果可直接用下方生成結果驗證。
-      lastRecommended = recommendLowestOverlapSet(lastAI, lastAnti, lastHighPass, lastRandom, draws);
+      lastRecommended = recommendLowestOverlapSet(lastAI, lastAnti, lastHighPass, lastReverse, lastRandom, draws);
       renderRecommendedItems(lastRecommended);
-      if (lastRecommended.length === 3) {
-        log(`v36 推薦完成：已排除隨機且各類使用歷史鎖定池，先守未過關≤3/≤4/≤5門檻，再依總體勝率與倒條件排序，平均同柱重複率 ${((lastRecommended[0].avgSamePillarOverlap || 0) * 100).toFixed(2)}%，最新一期倒 ${lastRecommended[0].latestDownCount || 0}/3，平均最新連倒 ${(lastRecommended[0].avgLatestDownStreak || 0).toFixed(2)}/4。`);
+      if (lastRecommended.length === 4) {
+        log(`v36 推薦完成：已排除隨機且各類使用歷史鎖定池，先守未過關≤3/≤4/≤5門檻，再依總體勝率與倒條件排序，平均同柱重複率 ${((lastRecommended[0].avgSamePillarOverlap || 0) * 100).toFixed(2)}%，最新一期倒 ${lastRecommended[0].latestDownCount || 0}/4，平均最新連倒 ${(lastRecommended[0].avgLatestDownStreak || 0).toFixed(2)}/4。`);
       } else {
-        log('原生成立柱推薦不足 3 組，暫不顯示推薦結果。');
+        log('原生成立柱推薦不足 4 組，暫不顯示推薦結果。');
       }
 
       const scoreData = buildScoreRanking(draws, shareData.counts);
@@ -2654,7 +2907,7 @@
       alert('請先貼上有效的開獎號碼，才能清除這份資料對應的鎖定最佳。');
       return;
     }
-    if (!confirm('確定要清除目前這份資料的 AI / 防穿透 / 高過關爆發鎖定最佳嗎？清除後下一次生成會重新探索。')) return;
+    if (!confirm('確定要清除目前這份資料的 AI / 防穿透 / 高過關爆發 / 反指標鎖定最佳嗎？清除後下一次生成會重新探索。')) return;
     clearAllLockedBestForCurrentInputs(draws, candidateInput.value, noDrawInput.value);
     alert('已清除目前這份資料的鎖定最佳。下一次按生成會重新探索。');
     log('已手動清除目前資料的鎖定最佳。');
@@ -2729,6 +2982,7 @@
     if (copyType === 'anti') return lastAnti || [];
     if (copyType === 'highpass') return lastHighPass || [];
     if (copyType === 'random') return lastRandom || [];
+    if (copyType === 'reverse') return lastReverse || [];
     if (copyType === 'recommended') return lastRecommended || [];
     if (copyType === 'manual') return manualRecommendItems || [];
     
