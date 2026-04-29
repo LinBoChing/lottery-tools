@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v44 反指標連倒不封頂版</title>
+  <title>吸金穩贏 APP v49 結構優化不卡版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -354,6 +354,62 @@
     .db-backup-area { margin-top:10px; }
     .db-backup-textarea { width:100%; min-height:88px; margin-top:8px; font-size:13px; line-height:1.5; }
 
+
+    .probability-panel {
+      margin-top: 10px;
+      background: rgba(2, 6, 23, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      color: #cbd5e1;
+      line-height: 1.65;
+      font-size: 13px;
+    }
+    .probability-panel b { color: #f8fafc; }
+    .probability-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    .probability-table th, .probability-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 7px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .probability-table th { color: var(--muted); font-weight: 700; }
+    .probability-good { color:#86efac; font-weight:800; }
+    .probability-warn { color:#fde68a; font-weight:800; }
+    .probability-bad { color:#fca5a5; font-weight:800; }
+    .manual-num-chip {
+      display:inline-block;
+      min-width:30px;
+      text-align:center;
+      margin:2px 3px 2px 0;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid transparent;
+    }
+    .manual-num-chip.tune-target {
+      background:rgba(245,158,11,.18);
+      border-color:rgba(245,158,11,.55);
+      color:#fcd34d;
+      font-weight:900;
+    }
+    .manual-num-chip.tuned-num {
+      background:rgba(34,197,94,.18);
+      border-color:rgba(34,197,94,.55);
+      color:#86efac;
+      font-weight:900;
+    }
+    .manual-num-chip.structure-risk {
+      background:rgba(245,158,11,.18);
+      border-color:rgba(245,158,11,.45);
+      color:#fcd34d;
+      font-weight:900;
+    }
+
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
       .controls, .stat-grid { grid-template-columns: 1fr; }
@@ -363,7 +419,7 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜反指標連倒不封頂版</div>
+    <div class="title">吸金穩贏 APP｜結構優化不卡版</div>
     <div class="sub">
       貼上近百期開獎號碼或使用彩種資料庫後，工具會做兩件事：<br>
       1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
@@ -603,6 +659,11 @@
   let lastReverse = [];
   let lastRecommended = [];
   let manualRecommendItems = [];
+  let manualProbabilityAnalysisHTML = '';
+  let bestComboAnalysisHTML = '';
+  let manualTuneSuggestion = null;
+  let manualTuneActive = false;
+  let manualTuneStatus = '';
   let lastCandidate = [];
   let lastScoreData = null;
   let lastCandidateScoreData = null;
@@ -2444,34 +2505,645 @@
     if (type === 'anti') return '防穿透立柱';
     if (type === 'highpass') return '高過關爆發立柱';
     if (type === 'reverse') return '反指標排行立柱';
+    if (type === 'random') return '隨機平衡立柱';
+    if (type === 'recommended') return '推薦區';
     return '立柱';
+  }
+
+
+  const DRAW_COMBO_TOTAL = 575757;
+  let probabilityDrawCombosCache = null;
+
+  function getProbabilityDrawCombos() {
+    if (probabilityDrawCombosCache) return probabilityDrawCombosCache;
+    const combos = [];
+    for (let a = 1; a <= 35; a++) {
+      for (let b = a + 1; b <= 36; b++) {
+        for (let c = b + 1; c <= 37; c++) {
+          for (let d = c + 1; d <= 38; d++) {
+            for (let e = d + 1; e <= 39; e++) {
+              combos.push([a, b, c, d, e]);
+            }
+          }
+        }
+      }
+    }
+    probabilityDrawCombosCache = combos;
+    return probabilityDrawCombosCache;
+  }
+
+  function popcount32(v) {
+    v = v - ((v >>> 1) & 0x55555555);
+    v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
+    return (((v + (v >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+  }
+
+  function itemDisplayName(item, fallbackIndex = 0) {
+    const label = item.sourceLabel || sourceTypeLabel(item.sourceType) || '立柱';
+    const sourceIndex = Number.isInteger(Number(item.sourceIndex)) ? Number(item.sourceIndex) + 1 : fallbackIndex + 1;
+    return `${label} 第 ${sourceIndex} 組`;
+  }
+
+  function isDrawPassGroups(groups, draw) {
+    return groups.every(pillar => pillar.some(n => draw.includes(n)));
+  }
+
+  function buildPassMaskForGroups(groups) {
+    const combos = getProbabilityDrawCombos();
+    const words = Math.ceil(combos.length / 32);
+    const mask = new Uint32Array(words);
+    const normalized = (groups || []).map(g => (g || []).map(Number));
+    for (let i = 0; i < combos.length; i++) {
+      if (isDrawPassGroups(normalized, combos[i])) {
+        mask[i >>> 5] |= (1 << (i & 31));
+      }
+    }
+    return mask;
+  }
+
+  function countBitsInMask(mask) {
+    let total = 0;
+    for (let i = 0; i < mask.length; i++) total += popcount32(mask[i]);
+    return total;
+  }
+
+  function percentText(count, total = DRAW_COMBO_TOTAL) {
+    return `${((count / total) * 100).toFixed(4)}%`;
+  }
+
+  function calcSinglePatternCounts(groups) {
+    const combos = getProbabilityDrawCombos();
+    const patterns = {};
+    const normalized = (groups || []).map(g => (g || []).map(Number));
+    for (const draw of combos) {
+      const counts = normalized.map(pillar => pillar.reduce((sum, n) => sum + (draw.includes(n) ? 1 : 0), 0));
+      const key = counts.slice().sort((a, b) => b - a).join('-');
+      patterns[key] = (patterns[key] || 0) + 1;
+    }
+    return patterns;
+  }
+
+  function calcMultiPassStats(items) {
+    const usable = (items || []).filter(item => item && Array.isArray(item.groups) && item.groups.length === 3);
+    if (usable.length < 2) return null;
+    const masks = usable.map(item => buildPassMaskForGroups(item.groups));
+    const singleWinCounts = masks.map(mask => countBitsInMask(mask));
+    const words = masks[0].length;
+    let allWin = 0;
+    let anyWin = 0;
+    const exactWins = new Array(usable.length + 1).fill(0);
+
+    for (let w = 0; w < words; w++) {
+      let andMask = 0xffffffff;
+      let orMask = 0;
+      for (let i = 0; i < masks.length; i++) {
+        andMask &= masks[i][w];
+        orMask |= masks[i][w];
+      }
+      allWin += popcount32(andMask);
+      anyWin += popcount32(orMask);
+
+      for (let bit = 0; bit < 32; bit++) {
+        const comboIndex = (w << 5) + bit;
+        if (comboIndex >= DRAW_COMBO_TOTAL) break;
+        let winCount = 0;
+        const bitMask = 1 << bit;
+        for (let i = 0; i < masks.length; i++) {
+          if (masks[i][w] & bitMask) winCount++;
+        }
+        exactWins[winCount]++;
+      }
+    }
+
+    return {
+      items: usable,
+      masks,
+      singleWinCounts,
+      allWin,
+      anyWin,
+      allLose: DRAW_COMBO_TOTAL - anyWin,
+      exactWins,
+      total: DRAW_COMBO_TOTAL
+    };
+  }
+
+  function calcThreeComboStats(items) {
+    if (!items || items.length !== 3) return null;
+    const masks = items.map(item => item.passMask || buildPassMaskForGroups(item.groups));
+    const words = masks[0].length;
+    let allWin = 0;
+    let anyWin = 0;
+    let exactlyOne = 0;
+    let exactlyTwo = 0;
+    for (let w = 0; w < words; w++) {
+      const a = masks[0][w], b = masks[1][w], c = masks[2][w];
+      allWin += popcount32(a & b & c);
+      anyWin += popcount32(a | b | c);
+      exactlyOne += popcount32((a & ~b & ~c) | (~a & b & ~c) | (~a & ~b & c));
+      exactlyTwo += popcount32((a & b & ~c) | (a & ~b & c) | (~a & b & c));
+    }
+    return {
+      allWin,
+      allLose: DRAW_COMBO_TOTAL - anyWin,
+      oneWin: exactlyOne,
+      twoWin: exactlyTwo,
+      atLeastOne: anyWin,
+      total: DRAW_COMBO_TOTAL
+    };
+  }
+
+  function renderProbabilityPanel(title, stats, names) {
+    const exactRows = stats.exactWins.map((count, idx) => `<tr><th>剛好過 ${idx} 組</th><td>${count.toLocaleString()} 組合｜<b>${percentText(count, stats.total)}</b></td></tr>`).join('');
+    const singleRows = stats.singleWinCounts.map((count, idx) => `<tr><th>${names[idx] || `第 ${idx + 1} 組`} 單獨過關</th><td>${count.toLocaleString()} 組合｜<b>${percentText(count, stats.total)}</b></td></tr>`).join('');
+    const firstPatterns = stats.items && stats.items[0] ? calcSinglePatternCounts(stats.items[0].groups) : null;
+    const patternText = firstPatterns ? `3-1-1：${percentText(firstPatterns['3-1-1'] || 0)}｜2-2-1：${percentText(firstPatterns['2-2-1'] || 0)}｜3-2-0：${percentText(firstPatterns['3-2-0'] || 0)}｜4-1-0：${percentText(firstPatterns['4-1-0'] || 0)}｜5-0-0：${percentText(firstPatterns['5-0-0'] || 0)}` : '';
+    return `
+      <div class="probability-panel">
+        <b>${title}</b><br>
+        精算基準：C(39,5)=575,757；三柱都有中至少 1 支＝過，任一柱 0 支＝倒。
+        <table class="probability-table">
+          <tr><th>全部都過</th><td class="probability-good">${stats.allWin.toLocaleString()} 組合｜${percentText(stats.allWin, stats.total)}</td></tr>
+          <tr><th>全部都倒</th><td class="probability-bad">${stats.allLose.toLocaleString()} 組合｜${percentText(stats.allLose, stats.total)}</td></tr>
+          <tr><th>至少過 1 組</th><td>${stats.anyWin.toLocaleString()} 組合｜<b>${percentText(stats.anyWin, stats.total)}</b></td></tr>
+          ${exactRows}
+          ${singleRows}
+        </table>
+        ${patternText ? `<div style="margin-top:8px;color:var(--muted);">第一組分布參考｜${patternText}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function buildPatternMasksForGroups(groups) {
+    const combos = getProbabilityDrawCombos();
+    const words = Math.ceil(combos.length / 32);
+    const passMask = new Uint32Array(words);
+    const twoTwoOneMask = new Uint32Array(words);
+    const normalized = (groups || []).map(g => (g || []).map(Number));
+    for (let i = 0; i < combos.length; i++) {
+      const draw = combos[i];
+      const counts = normalized.map(pillar => pillar.reduce((sum, n) => sum + (draw.includes(n) ? 1 : 0), 0));
+      const pass = counts.every(v => v >= 1);
+      if (!pass) continue;
+      const bit = 1 << (i & 31);
+      const word = i >>> 5;
+      passMask[word] |= bit;
+      const pattern = counts.slice().sort((a, b) => b - a).join('-');
+      if (pattern === '2-2-1') twoTwoOneMask[word] |= bit;
+    }
+    return { passMask, twoTwoOneMask };
+  }
+
+  function calcThreeNoLoseStatsFromMasks(maskItems) {
+    if (!maskItems || maskItems.length !== 3) return null;
+    const p0 = maskItems[0].passMask, p1 = maskItems[1].passMask, p2 = maskItems[2].passMask;
+    const t0 = maskItems[0].twoTwoOneMask, t1 = maskItems[1].twoTwoOneMask, t2 = maskItems[2].twoTwoOneMask;
+    const words = p0.length;
+    let allWin = 0, allLose = 0, oneWin = 0, twoWin = 0, noLose = 0, twoTwoOneHit = 0;
+    for (let w = 0; w < words; w++) {
+      const a = p0[w], b = p1[w], c = p2[w];
+      const ta = t0[w], tb = t1[w], tc = t2[w];
+      const any = a | b | c;
+      const all = a & b & c;
+      const exactlyOne = (a & ~b & ~c) | (~a & b & ~c) | (~a & ~b & c);
+      const exactlyTwo = (a & b & ~c) | (a & ~b & c) | (~a & b & c);
+      const twoTwoOneAny = ta | tb | tc;
+      const noLoseMask = ((ta & (b | c)) | (tb & (a | c)) | (tc & (a | b)));
+      allWin += popcount32(all);
+      allLose += popcount32(~any);
+      oneWin += popcount32(exactlyOne);
+      twoWin += popcount32(exactlyTwo);
+      noLose += popcount32(noLoseMask);
+      twoTwoOneHit += popcount32(twoTwoOneAny);
+    }
+    return { allWin, allLose, oneWin, twoWin, noLose, twoTwoOneHit, total: DRAW_COMBO_TOTAL };
+  }
+
+  function calcThreeNoLoseStats(items) {
+    if (!items || items.length < 3) return null;
+    const selected = items.slice(0, 3);
+    const masks = selected.map(item => buildPatternMasksForGroups(item.groups));
+    return calcThreeNoLoseStatsFromMasks(masks);
+  }
+
+  function compareNoLoseStats(a, b) {
+    if (!b) return 1;
+    if (a.noLose !== b.noLose) return a.noLose - b.noLose;
+    if (a.allLose !== b.allLose) return b.allLose - a.allLose;
+    if (a.twoWin !== b.twoWin) return a.twoWin - b.twoWin;
+    if (a.allWin !== b.allWin) return a.allWin - b.allWin;
+    return 0;
+  }
+
+  function getPillarIndexForNumber(groups, n) {
+    for (let i = 0; i < 3; i++) if ((groups[i] || []).includes(n)) return i;
+    return -1;
+  }
+
+  function swapWithinItemGroups(groups, n1, n2) {
+    const g = cloneGroups(groups);
+    const p1 = getPillarIndexForNumber(g, n1);
+    const p2 = getPillarIndexForNumber(g, n2);
+    if (p1 < 0 || p2 < 0 || p1 === p2) return g;
+    g[p1] = g[p1].map(n => n === n1 ? n2 : n).sort((a, b) => a - b);
+    g[p2] = g[p2].map(n => n === n2 ? n1 : n).sort((a, b) => a - b);
+    return g;
+  }
+
+  function manualSignatureRisk(items) {
+    const selected = (items || []).slice(0, 3);
+    const details = range39().map(n => {
+      const pillars = selected.map(item => getPillarIndexForNumber(item.groups, n));
+      let samePairs = 0;
+      if (pillars[0] >= 0 && pillars[0] === pillars[1]) samePairs++;
+      if (pillars[0] >= 0 && pillars[0] === pillars[2]) samePairs++;
+      if (pillars[1] >= 0 && pillars[1] === pillars[2]) samePairs++;
+      const counts = [0, 0, 0];
+      pillars.forEach(p => { if (p >= 0) counts[p]++; });
+      const maxSame = Math.max(...counts);
+      return { n, pillars, maxSame, samePairs };
+    });
+    const samePairTotal = details.reduce((sum, x) => sum + x.samePairs, 0);
+    const tripleSame = details.filter(x => x.maxSame === 3).length;
+    const pairSame = details.filter(x => x.maxSame === 2).length;
+    const riskScore = samePairTotal + tripleSame * 1.4 + pairSame * 0.25;
+    details.sort((a, b) => b.samePairs - a.samePairs || b.maxSame - a.maxSame || a.n - b.n);
+    return { details, samePairTotal, tripleSame, pairSame, riskScore };
+  }
+
+  function getManualStructureTuneLimit(risk) {
+    const pairTotal = risk ? risk.samePairTotal : 0;
+    const triple = risk ? risk.tripleSame : 0;
+    if (pairTotal >= 52 || triple >= 9) return 5;
+    if (pairTotal >= 47 || triple >= 6) return 4;
+    if (pairTotal >= 42 || triple >= 4) return 3;
+    if (pairTotal >= 36 || triple >= 2) return 2;
+    return 1;
+  }
+
+  function calcStructureScore(items) {
+    const risk = manualSignatureRisk(items);
+    return risk.riskScore;
+  }
+
+  function compareTuneCandidate(a, b) {
+    if (!b) return 1;
+    if (a.noLoseGain !== b.noLoseGain) return a.noLoseGain - b.noLoseGain;
+    if (a.structureGain !== b.structureGain) return a.structureGain - b.structureGain;
+    if (a.allLoseGain !== b.allLoseGain) return a.allLoseGain - b.allLoseGain;
+    if (a.twoWinGain !== b.twoWinGain) return a.twoWinGain - b.twoWinGain;
+    if (a.allWinGain !== b.allWinGain) return a.allWinGain - b.allWinGain;
+    return 0;
+  }
+
+  function buildManualTuneCandidates(items, usedNumbers = new Set()) {
+    const selected = items.slice(0, 3);
+    const riskInfo = manualSignatureRisk(selected);
+    const risky = riskInfo.details
+      .filter(x => x.samePairs > 0 && !usedNumbers.has(x.n))
+      .slice(0, 18);
+    const candidates = [];
+    const seen = new Set();
+    risky.forEach(r => {
+      for (let itemIndex = 0; itemIndex < 3; itemIndex++) {
+        const groups = selected[itemIndex].groups;
+        const fromP = getPillarIndexForNumber(groups, r.n);
+        if (fromP < 0) continue;
+        for (let toP = 0; toP < 3; toP++) {
+          if (toP === fromP) continue;
+          const partners = (groups[toP] || [])
+            .filter(n => n !== r.n && !usedNumbers.has(n))
+            .sort((a, b) => {
+              const da = riskInfo.details.find(x => x.n === a) || { samePairs: 0, maxSame: 0 };
+              const db = riskInfo.details.find(x => x.n === b) || { samePairs: 0, maxSame: 0 };
+              return da.samePairs - db.samePairs || da.maxSame - db.maxSame || a - b;
+            })
+            .slice(0, 6);
+          partners.forEach(partner => {
+            const key = `${itemIndex}:${r.n}:${partner}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            candidates.push({ itemIndex, n1: r.n, n2: partner });
+          });
+        }
+      }
+    });
+    return candidates.slice(0, 150);
+  }
+
+  function makeTunePreviewItems(items, ops) {
+    const preview = (items || []).slice(0, 3).map(item => ({
+      ...item,
+      groups: cloneGroups(item.groups),
+      stats: { ...(item.stats || {}) }
+    }));
+    applyTuneOps(preview, ops || [], false);
+    return preview;
+  }
+
+  function tuneNoLoseSummaryText(suggestion, applied = false) {
+    if (!suggestion) return '';
+    if (!suggestion.baseNoLoseStats) return suggestion.message || '';
+    const base = suggestion.baseNoLoseStats;
+    const tuned = suggestion.tunedNoLoseStats || base;
+    const baseRate = (base.noLose / base.total) * 100;
+    const tunedRate = (tuned.noLose / tuned.total) * 100;
+    const diff = tunedRate - baseRate;
+    const diffText = (diff >= 0 ? '+' : '') + diff.toFixed(2) + '%';
+    const label = applied ? '已微調' : (suggestion.needed ? '建議微調' : '不需微調');
+    const countText = suggestion.ops && suggestion.ops.length ? `｜${label} ${suggestion.ops.length} 組號碼` : `｜${label}`;
+    return `不輸率：${baseRate.toFixed(2)}% → ${tunedRate.toFixed(2)}%（${diffText}）${countText}`;
+  }
+
+  function findManualTuneSuggestion() {
+    if (!manualRecommendItems || manualRecommendItems.length < 3) return null;
+
+    // v49：手機不卡版。
+    // 只做結構優化判斷，不再對每個候選調整重算 575,757 種組合，避免按下分析或微調時卡住。
+    const baseItems = manualRecommendItems.slice(0, 3).map(item => ({
+      ...item,
+      groups: cloneGroups(item.groups),
+      stats: { ...(item.stats || {}) }
+    }));
+
+    const baseRisk = manualSignatureRisk(baseItems);
+    const maxOps = getManualStructureTuneLimit(baseRisk);
+    let workingItems = baseItems.map(item => ({ ...item, groups: cloneGroups(item.groups), stats: { ...(item.stats || {}) } }));
+    let workingStructure = calcStructureScore(workingItems);
+    const ops = [];
+    const usedNumbers = new Set();
+
+    for (let round = 0; round < maxOps; round++) {
+      const candidates = buildManualTuneCandidates(workingItems, usedNumbers).slice(0, 60);
+      let best = null;
+
+      for (const op of candidates) {
+        const candidateItems = workingItems.map((item, idx) => ({
+          ...item,
+          groups: idx === op.itemIndex ? swapWithinItemGroups(item.groups, op.n1, op.n2) : cloneGroups(item.groups),
+          stats: { ...(item.stats || {}) }
+        }));
+        const structure = calcStructureScore(candidateItems);
+        const structureGain = workingStructure - structure;
+        if (structureGain <= 0) continue;
+
+        const score = { op, structure, structureGain, items: candidateItems };
+        if (!best || score.structureGain > best.structureGain ||
+            (score.structureGain === best.structureGain && score.structure < best.structure)) {
+          best = score;
+        }
+      }
+
+      if (!best) break;
+      ops.push(best.op);
+      usedNumbers.add(best.op.n1);
+      usedNumbers.add(best.op.n2);
+      workingItems = best.items;
+      workingStructure = best.structure;
+    }
+
+    const baseNoLoseStats = calcThreeNoLoseStats(baseItems);
+
+    if (!ops.length || workingStructure >= baseRisk.riskScore) {
+      return {
+        needed: false,
+        baseStructure: baseRisk.riskScore,
+        bestStructure: baseRisk.riskScore,
+        ops: [],
+        op: null,
+        baseNoLoseStats,
+        tunedNoLoseStats: baseNoLoseStats,
+        message: '分析完成：目前結構已接近穩定，不需要微調。'
+      };
+    }
+
+    const tunedItems = makeTunePreviewItems(baseItems, ops);
+    const tunedNoLoseStats = calcThreeNoLoseStats(tunedItems);
+
+    return {
+      needed: true,
+      baseStructure: baseRisk.riskScore,
+      bestStructure: workingStructure,
+      ops,
+      op: ops[0],
+      baseNoLoseStats,
+      tunedNoLoseStats,
+      message: `已標出 ${ops.length} 組結構微調號碼。`
+    };
+  }
+
+  function analyzeManualProbability() {
+    if (!manualRecommendItems || manualRecommendItems.length < 3) {
+      alert('請先至少移入 3 組立柱到手動比較區。');
+      return;
+    }
+    if (manualTuneActive) {
+      manualTuneStatus = '目前已套用微調；如要重新分析，請先按「恢復微調」。';
+      refreshRecommendArea();
+      return;
+    }
+    manualTuneSuggestion = findManualTuneSuggestion();
+    manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, false) || '分析完成。';
+    refreshRecommendArea();
+    log(`已完成手動比較區結構分析：${manualTuneStatus}`);
+  }
+
+  function applyTuneOps(items, ops, reverse = false) {
+    const order = reverse ? (ops || []).slice().reverse() : (ops || []);
+    order.forEach(op => {
+      if (!op || !items[op.itemIndex]) return;
+      items[op.itemIndex].groups = swapWithinItemGroups(items[op.itemIndex].groups, op.n1, op.n2);
+      items[op.itemIndex].stats = evaluate(items[op.itemIndex].groups, parseDraws(drawInput.value));
+    });
+  }
+
+  function toggleManualTune() {
+    if (!manualRecommendItems || manualRecommendItems.length < 3) {
+      alert('請先至少移入 3 組立柱到手動比較區。');
+      return;
+    }
+    if (manualTuneActive) {
+      if (manualTuneSuggestion && manualTuneSuggestion.ops && manualTuneSuggestion.ops.length) {
+        applyTuneOps(manualRecommendItems, manualTuneSuggestion.ops, true);
+      }
+      manualTuneActive = false;
+      manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, false) || '已恢復微調前號碼。';
+      refreshRecommendArea();
+      return;
+    }
+    if (!manualTuneSuggestion || !manualTuneSuggestion.needed) {
+      manualTuneSuggestion = findManualTuneSuggestion();
+    }
+    if (!manualTuneSuggestion || !manualTuneSuggestion.needed || !manualTuneSuggestion.ops || !manualTuneSuggestion.ops.length) {
+      manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, false) || '目前結構已接近穩定，不需要微調。';
+      refreshRecommendArea();
+      return;
+    }
+    applyTuneOps(manualRecommendItems, manualTuneSuggestion.ops, false);
+    manualTuneActive = true;
+    manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, true) || `已套用結構微調，共調整 ${manualTuneSuggestion.ops.length} 組號碼。`; 
+    refreshRecommendArea();
+  }
+
+  function renderManualNums(item, itemIndex) {
+    const ops = manualTuneSuggestion && manualTuneSuggestion.needed ? (manualTuneSuggestion.ops || []) : [];
+    const targets = new Set();
+    ops.forEach(op => {
+      if (op.itemIndex === itemIndex) {
+        targets.add(Number(op.n1));
+        targets.add(Number(op.n2));
+      }
+    });
+    const names = ['第一柱（10支）', '第二柱（14支）', '第三柱（15支）'];
+    return `<div class="pillars">${item.groups.map((pillar, pIdx) => `
+      <div class="pillar">
+        <div class="pillar-title">${names[pIdx]}</div>
+        <div class="nums">${pillar.map(n => {
+          const isTarget = targets.has(Number(n));
+          const cls = isTarget ? (manualTuneActive ? 'manual-num-chip tuned-num' : 'manual-num-chip tune-target') : 'manual-num-chip';
+          return `<span class="${cls}">${pad2(n)}</span>`;
+        }).join('')}</div>
+      </div>`).join('')}</div>`;
+  }
+
+
+  function getAllGeneratedItemsForBestCombo() {
+    const sources = [
+      { type: 'ai', label: 'AI 最佳立柱', items: lastAI || [] },
+      { type: 'anti', label: '防穿透立柱', items: lastAnti || [] },
+      { type: 'highpass', label: '高過關爆發立柱', items: lastHighPass || [] },
+      { type: 'reverse', label: '反指標排行立柱', items: lastReverse || [] },
+      { type: 'random', label: '隨機平衡立柱', items: lastRandom || [] }
+    ];
+    const seen = new Set();
+    const out = [];
+    sources.forEach(source => {
+      (source.items || []).forEach((item, idx) => {
+        if (!item || !Array.isArray(item.groups) || item.groups.length !== 3) return;
+        const key = exportText(item.groups);
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({
+          ...item,
+          groups: cloneGroups(item.groups),
+          stats: { ...(item.stats || {}) },
+          sourceType: source.type,
+          sourceLabel: source.label,
+          sourceIndex: idx,
+          passMask: buildPassMaskForGroups(item.groups)
+        });
+      });
+    });
+    return out;
+  }
+
+  function compareBestThreeCombo(a, b) {
+    if (!b) return -1;
+    const eps = 1e-12;
+    if (Math.abs(a.stats.allLose - b.stats.allLose) > eps) return a.stats.allLose - b.stats.allLose;
+    if (Math.abs(a.stats.atLeastOne - b.stats.atLeastOne) > eps) return b.stats.atLeastOne - a.stats.atLeastOne;
+    if (Math.abs(a.stats.twoWin - b.stats.twoWin) > eps) return b.stats.twoWin - a.stats.twoWin;
+    if (Math.abs(a.stats.allWin - b.stats.allWin) > eps) return b.stats.allWin - a.stats.allWin;
+    const aAvgPass = a.items.reduce((s, item) => s + ((item.stats && item.stats.passRate) || 0), 0) / 3;
+    const bAvgPass = b.items.reduce((s, item) => s + ((item.stats && item.stats.passRate) || 0), 0) / 3;
+    return bAvgPass - aAvgPass;
+  }
+
+  function analyzeBestThreeCombo() {
+    const pool = getAllGeneratedItemsForBestCombo();
+    if (pool.length < 3) {
+      alert('下方生成的立柱不足 3 組，請先按「開始分析並產生多組立柱」。');
+      return;
+    }
+    let best = null;
+    let checked = 0;
+    for (let i = 0; i < pool.length - 2; i++) {
+      for (let j = i + 1; j < pool.length - 1; j++) {
+        for (let k = j + 1; k < pool.length; k++) {
+          checked++;
+          const picks = [pool[i], pool[j], pool[k]];
+          const stats = calcThreeComboStats(picks);
+          const candidate = { items: picks, stats };
+          if (compareBestThreeCombo(candidate, best) < 0) best = candidate;
+        }
+      }
+    }
+    if (!best) {
+      alert('沒有找到可分析的三組立柱。');
+      return;
+    }
+    const rows = best.items.map((item, idx) => `
+      <tr>
+        <th>推薦第 ${idx + 1} 組</th>
+        <td><b>${itemDisplayName(item, idx)}</b><br>${exportText(item.groups)}</td>
+      </tr>
+    `).join('');
+    bestComboAnalysisHTML = `
+      <div class="probability-panel">
+        <b>最佳三組組合推薦（從下方已生成 ${pool.length} 組中挑選）</b><br>
+        排序優先：全倒率最低 → 至少過一組最高 → 過兩組最高 → 三組全過最高。已檢查 ${checked.toLocaleString()} 種三組組合。
+        <table class="probability-table">
+          <tr><th>三組全倒</th><td class="probability-good">${best.stats.allLose.toLocaleString()} 組合｜${percentText(best.stats.allLose, best.stats.total)}</td></tr>
+          <tr><th>至少過 1 組</th><td>${best.stats.atLeastOne.toLocaleString()} 組合｜<b>${percentText(best.stats.atLeastOne, best.stats.total)}</b></td></tr>
+          <tr><th>只過 1 組</th><td>${best.stats.oneWin.toLocaleString()} 組合｜${percentText(best.stats.oneWin, best.stats.total)}</td></tr>
+          <tr><th>過 2 組、倒 1 組</th><td class="probability-warn">${best.stats.twoWin.toLocaleString()} 組合｜${percentText(best.stats.twoWin, best.stats.total)}</td></tr>
+          <tr><th>三組全過</th><td class="probability-good">${best.stats.allWin.toLocaleString()} 組合｜${percentText(best.stats.allWin, best.stats.total)}</td></tr>
+          ${rows}
+        </table>
+      </div>
+    `;
+    const alreadyKeys = new Set((manualRecommendItems || []).map(item => exportText(item.groups)));
+    manualTuneSuggestion = null;
+    manualTuneActive = false;
+    manualTuneStatus = '';
+    best.items.forEach(item => {
+      const key = exportText(item.groups);
+      if (alreadyKeys.has(key)) return;
+      manualRecommendItems.push({
+        ...item,
+        groups: cloneGroups(item.groups),
+        stats: { ...(item.stats || {}) },
+        manualKey: `bestcombo:${item.sourceType}:${item.sourceIndex}:${key}`
+      });
+      alreadyKeys.add(key);
+    });
+    refreshRecommendArea();
+    log(`已完成最佳三組組合推薦：從 ${pool.length} 組中檢查 ${checked} 種組合，全倒率 ${percentText(best.stats.allLose, best.stats.total)}。`);
   }
 
   function buildManualRecommendHTML() {
     if (!manualRecommendItems || !manualRecommendItems.length) return '';
+    const tuneBtnText = manualTuneActive ? '恢復微調' : '微調（自動判斷）';
+    const statusHtml = manualTuneStatus ? `<div class="small-note" style="margin:8px 0;color:#fcd34d;">${manualTuneStatus}</div>` : '';
     return `
       <div class="manual-recommend-zone">
         <div class="manual-recommend-title">
           <span>手動移入比較區（${manualRecommendItems.length} 組）</span>
-          <button class="btn btn-dark clear-manual-recommend-btn" style="padding:6px 10px; font-size:13px; width:auto;">清空手動比較</button>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-primary analyze-manual-probability-btn" style="padding:6px 10px; font-size:13px; width:auto;">分析</button>
+            <button class="btn btn-secondary manual-tune-toggle-btn" style="padding:6px 10px; font-size:13px; width:auto;">${tuneBtnText}</button>
+            <button class="btn btn-secondary best-three-combo-btn" style="padding:6px 10px; font-size:13px; width:auto;">最佳三組組合推薦</button>
+            <button class="btn btn-dark clear-manual-recommend-btn" style="padding:6px 10px; font-size:13px; width:auto;">清空手動比較</button>
+          </div>
         </div>
+        ${statusHtml}
         <div class="recommend-list">
           ${manualRecommendItems.map((item, idx) => `
             <div class="recommend-item">
               <div class="recommend-item-head">
-                <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${item.sourceIndex + 1} 組</span>
+                <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${Number(item.sourceIndex) + 1} 組</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <button class="btn btn-secondary single-copy-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
                   <button class="btn btn-dark remove-manual-recommend-btn" data-manual-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">移除</button>
                 </div>
               </div>
-              <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜最新一期 ${item.stats.latestDown ? '倒' : '過關'}｜最新連倒 ${item.stats.latestDownStreak || 0}/4｜近5期倒 ${item.stats.recent5Down || 0}/5｜未過關 ${item.stats.fail} 期｜結構懲罰 ${typeof item.stats.balancePenalty === "number" ? item.stats.balancePenalty.toFixed(2) : "-"}｜格式：${exportText(item.groups)}</div>
+              ${renderManualNums(item, idx)}
             </div>
           `).join('')}
         </div>
       </div>
     `;
   }
+
 
   function refreshRecommendArea() {
     renderRecommendedItems(lastRecommended || []);
@@ -2499,7 +3171,10 @@
           <div class="recommend-item">
             <div class="recommend-item-head">
               <span class="${item.labelClass || ''}">推薦第 ${item.recommendRank} 組｜${sourceTypeLabel(item.sourceType)} 第 ${item.sourceIndex + 1} 組</span>
-              <button class="btn btn-secondary single-copy-btn" data-copy-type="recommended" data-copy-index="${item.recommendRank - 1}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button class="btn btn-primary move-to-recommend-btn" data-copy-type="recommended" data-copy-index="${item.recommendRank - 1}" data-source-label="推薦區" style="padding:6px 10px; font-size:13px; width:auto;">移入手動比較</button>
+                <button class="btn btn-secondary single-copy-btn" data-copy-type="recommended" data-copy-index="${item.recommendRank - 1}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
+              </div>
             </div>
             <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜最新一期 ${item.stats.latestDown ? '倒' : '過關'}｜最新連倒 ${item.stats.latestDownStreak || 0}/4｜近5期倒 ${item.stats.recent5Down || 0}/5｜未過關 ${item.stats.fail} 期${item.failLimitUsed ? `（門檻≤${item.failLimitUsed}）` : ""}｜結構懲罰 ${typeof item.stats.balancePenalty === "number" ? item.stats.balancePenalty.toFixed(2) : "-"}｜強度分數 ${(item.strengthScore || 0).toFixed(2)}｜格式：${exportText(item.groups)}</div>
           </div>
@@ -3067,6 +3742,11 @@
       alert('這一組已經在上方手動比較區。');
       return;
     }
+    manualProbabilityAnalysisHTML = '';
+    bestComboAnalysisHTML = '';
+    manualTuneSuggestion = null;
+    manualTuneActive = false;
+    manualTuneStatus = '';
     manualRecommendItems.push({
       ...sourceItem,
       groups: cloneGroups(sourceItem.groups),
@@ -3088,9 +3768,32 @@
       return;
     }
 
+    const analyzeManualBtn = e.target.closest('.analyze-manual-probability-btn');
+    if (analyzeManualBtn) {
+      analyzeManualProbability();
+      return;
+    }
+
+    const manualTuneBtn = e.target.closest('.manual-tune-toggle-btn');
+    if (manualTuneBtn) {
+      toggleManualTune();
+      return;
+    }
+
+    const bestThreeBtn = e.target.closest('.best-three-combo-btn');
+    if (bestThreeBtn) {
+      analyzeBestThreeCombo();
+      return;
+    }
+
     const clearManualBtn = e.target.closest('.clear-manual-recommend-btn');
     if (clearManualBtn) {
       manualRecommendItems = [];
+      manualProbabilityAnalysisHTML = '';
+      bestComboAnalysisHTML = '';
+      manualTuneSuggestion = null;
+      manualTuneActive = false;
+      manualTuneStatus = '';
       refreshRecommendArea();
       log('已清空上方手動比較區。');
       return;
@@ -3101,6 +3804,11 @@
       const index = Number(removeManualBtn.dataset.manualIndex);
       if (Number.isInteger(index) && index >= 0 && index < manualRecommendItems.length) {
         manualRecommendItems.splice(index, 1);
+        manualProbabilityAnalysisHTML = '';
+        bestComboAnalysisHTML = '';
+        manualTuneSuggestion = null;
+        manualTuneActive = false;
+        manualTuneStatus = '';
         refreshRecommendArea();
         log(`已移除手動比較第 ${index + 1} 組。`);
       }
