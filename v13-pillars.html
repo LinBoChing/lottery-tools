@@ -3012,6 +3012,7 @@
       { type: 'anti', label: '防穿透立柱', items: lastAnti || [] },
       { type: 'highpass', label: '高過關爆發立柱', items: lastHighPass || [] },
       { type: 'reverse', label: '反指標排行立柱', items: lastReverse || [] },
+      { type: 'recommended', label: '推薦區', items: lastRecommended || [] },
       { type: 'random', label: '隨機平衡立柱', items: lastRandom || [] }
     ];
     const seen = new Set();
@@ -3071,43 +3072,25 @@
       alert('沒有找到可分析的三組立柱。');
       return;
     }
-    const rows = best.items.map((item, idx) => `
-      <tr>
-        <th>推薦第 ${idx + 1} 組</th>
-        <td><b>${itemDisplayName(item, idx)}</b><br>${exportText(item.groups)}</td>
-      </tr>
-    `).join('');
-    bestComboAnalysisHTML = `
-      <div class="probability-panel">
-        <b>最佳三組組合推薦（從下方已生成 ${pool.length} 組中挑選）</b><br>
-        排序優先：全倒率最低 → 至少過一組最高 → 過兩組最高 → 三組全過最高。已檢查 ${checked.toLocaleString()} 種三組組合。
-        <table class="probability-table">
-          <tr><th>三組全倒</th><td class="probability-good">${best.stats.allLose.toLocaleString()} 組合｜${percentText(best.stats.allLose, best.stats.total)}</td></tr>
-          <tr><th>至少過 1 組</th><td>${best.stats.atLeastOne.toLocaleString()} 組合｜<b>${percentText(best.stats.atLeastOne, best.stats.total)}</b></td></tr>
-          <tr><th>只過 1 組</th><td>${best.stats.oneWin.toLocaleString()} 組合｜${percentText(best.stats.oneWin, best.stats.total)}</td></tr>
-          <tr><th>過 2 組、倒 1 組</th><td class="probability-warn">${best.stats.twoWin.toLocaleString()} 組合｜${percentText(best.stats.twoWin, best.stats.total)}</td></tr>
-          <tr><th>三組全過</th><td class="probability-good">${best.stats.allWin.toLocaleString()} 組合｜${percentText(best.stats.allWin, best.stats.total)}</td></tr>
-          ${rows}
-        </table>
-      </div>
-    `;
-    const alreadyKeys = new Set((manualRecommendItems || []).map(item => exportText(item.groups)));
+
+    // v51：一鍵挑選後，直接放到手動移入比較區，方便接著分析與微調。
+    manualRecommendItems = best.items.map((item, idx) => ({
+      ...item,
+      groups: cloneGroups(item.groups),
+      stats: { ...(item.stats || {}) },
+      sourceType: item.sourceType,
+      sourceIndex: item.sourceIndex,
+      sourceLabel: item.sourceLabel || sourceTypeLabel(item.sourceType),
+      manualKey: `bestcombo:${item.sourceType}:${item.sourceIndex}:${exportText(item.groups)}`
+    }));
+    manualProbabilityAnalysisHTML = '';
+    bestComboAnalysisHTML = '';
     manualTuneSuggestion = null;
     manualTuneActive = false;
-    manualTuneStatus = '';
-    best.items.forEach(item => {
-      const key = exportText(item.groups);
-      if (alreadyKeys.has(key)) return;
-      manualRecommendItems.push({
-        ...item,
-        groups: cloneGroups(item.groups),
-        stats: { ...(item.stats || {}) },
-        manualKey: `bestcombo:${item.sourceType}:${item.sourceIndex}:${key}`
-      });
-      alreadyKeys.add(key);
-    });
+    manualTuneStatus = `已自動挑入最佳三組｜全倒率 ${percentText(best.stats.allLose, best.stats.total)}｜過2倒1 ${percentText(best.stats.twoWin, best.stats.total)}｜三組全過 ${percentText(best.stats.allWin, best.stats.total)}`;
     refreshRecommendArea();
-    log(`已完成最佳三組組合推薦：從 ${pool.length} 組中檢查 ${checked} 種組合，全倒率 ${percentText(best.stats.allLose, best.stats.total)}。`);
+    log(`已自動挑入最佳三組：從 ${pool.length} 組中檢查 ${checked} 種組合，全倒率 ${percentText(best.stats.allLose, best.stats.total)}。`);
+    recommendResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function buildManualRecommendHTML() {
@@ -3121,7 +3104,6 @@
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <button class="btn btn-primary analyze-manual-probability-btn" style="padding:6px 10px; font-size:13px; width:auto;">分析</button>
             <button class="btn btn-secondary manual-tune-toggle-btn" style="padding:6px 10px; font-size:13px; width:auto;">${tuneBtnText}</button>
-            <button class="btn btn-secondary best-three-combo-btn" style="padding:6px 10px; font-size:13px; width:auto;">最佳三組組合推薦</button>
             <button class="btn btn-dark clear-manual-recommend-btn" style="padding:6px 10px; font-size:13px; width:auto;">清空手動比較</button>
           </div>
         </div>
@@ -3150,9 +3132,14 @@
   }
 
   function renderRecommendedItems(items) {
+    const bestComboButtonHTML = `
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+        <button class="btn btn-secondary best-three-combo-btn" style="padding:8px 12px; font-size:13px; width:auto;">一鍵挑最佳三組到手動區</button>
+      </div>
+    `;
     if (!items || items.length < 4) {
       const manualHtml = buildManualRecommendHTML();
-      recommendResult.innerHTML = manualHtml || '尚未產生。';
+      recommendResult.innerHTML = bestComboButtonHTML + (manualHtml || '<div class="small-note">尚未產生。請先生成下方立柱，再按一鍵挑最佳三組。</div>');
       return;
     }
     const avgCrossOverlap = ((items[0].avgCrossOverlap || 0) * 100).toFixed(2);
@@ -3165,6 +3152,7 @@
     const comboDownCoverage4 = items[0].comboDownCoverage4 || 0;
     const totalRecent5Down = items[0].totalRecent5Down || 0;
     recommendResult.innerHTML = `
+      ${bestComboButtonHTML}
       <div class="small-note">只從 AI最佳 / 防穿透 / 高過關爆發 / 反指標排行 中挑選，完全排除隨機平衡；v43：反指標不看勝率，只看連續倒排行，且最新一期必須倒。AI / 防穿透仍先強制篩選未過關≤3，若無才≤4，再無才≤5；高爆發完全隔離。<br>四期倒覆蓋：<b>${comboDownCoverage4}/4</b>｜三組共同最新連倒：<b>${comboAllDownStreak}/4</b>｜連倒分布：<b>4連${streakProfile[0] || 0}組 / 3連${streakProfile[1] || 0}組 / 2連${streakProfile[2] || 0}組 / 1連${streakProfile[3] || 0}組</b>｜近5期合計倒數：<b>${totalRecent5Down}/20</b>｜平均同柱重複率：<b>${avgSamePillarOverlap}%</b>｜三組平均全柱穿插重複率：<b>${avgCrossOverlap}%</b>｜最高單對全柱穿插重複率：<b>${maxCrossOverlap}%</b>｜最新一期倒：<b>${latestDownCount}/4</b>｜平均最新連倒：<b>${avgLatestDownStreak}/4</b></div>
       <div class="recommend-list">
         ${items.map(item => `
