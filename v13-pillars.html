@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v49 結構優化不卡版</title>
+  <title>吸金穩贏 APP v51 分欄致命倒牌分析版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -410,6 +410,34 @@
       font-weight:900;
     }
 
+
+    .manual-risk-panel {
+      margin-top: 12px;
+      background: rgba(2, 6, 23, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      color: #cbd5e1;
+      line-height: 1.65;
+      font-size: 13px;
+    }
+    .manual-risk-title { font-weight:900; color:#fcd34d; margin-bottom:6px; }
+    .manual-risk-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border); padding:8px 0; }
+    .manual-risk-row:first-child { border-top:none; }
+    .manual-risk-nums { word-break:break-word; flex:1; min-width:220px; }
+    .manual-risk-copy-btn { width:auto; padding:5px 9px; font-size:12px; border-radius:9px; }
+    .manual-risk-combo-box { margin-top:8px; border:1px solid var(--border); border-radius:12px; padding:10px; background:rgba(15,23,42,.75); }
+    .manual-risk-combo-list { max-height:360px; overflow:auto; margin-top:8px; padding-right:4px; }
+    .manual-risk-body { display:none; margin-top:8px; }
+    .manual-risk-panel.open .manual-risk-body { display:block; }
+    .manual-risk-toggle-btn { width:auto; padding:6px 10px; font-size:13px; }
+    .manual-analysis-split { display:grid; gap:12px; margin:10px 0 12px; }
+    .manual-tune-panel { margin-top:10px; background:rgba(2,6,23,.88); border:1px solid rgba(56,189,248,.42); border-radius:14px; padding:12px; line-height:1.65; font-size:13px; }
+    .manual-tune-title { font-weight:900; color:#7dd3fc; margin-bottom:6px; }
+    .manual-panel-head { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .manual-op-list { margin-top:8px; display:grid; gap:6px; }
+    .manual-op-item { border-top:1px solid var(--border); padding-top:6px; color:#cbd5e1; }
+
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
       .controls, .stat-grid { grid-template-columns: 1fr; }
@@ -419,7 +447,7 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜結構優化不卡版</div>
+    <div class="title">吸金穩贏 APP｜結構優化不卡版＋分欄致命倒牌分析</div>
     <div class="sub">
       貼上近百期開獎號碼或使用彩種資料庫後，工具會做兩件事：<br>
       1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
@@ -480,7 +508,7 @@
           <button class="btn btn-dark" id="clearLockBtn">清除鎖定最佳</button>
         </div>
         <div class="recommend-box">
-          <div class="recommend-title">推薦 4 組發財密碼立柱</div>
+          <div class="recommend-title">推薦 4 組低穿透率立柱</div>
           <div id="recommendResult" class="small-note">尚未產生。</div>
         </div>
         <div class="small-note">
@@ -660,6 +688,8 @@
   let lastRecommended = [];
   let manualRecommendItems = [];
   let manualProbabilityAnalysisHTML = '';
+  let manualFatalRiskAnalysisHTML = '';
+  let manualRiskCopyPayloads = {};
   let bestComboAnalysisHTML = '';
   let manualTuneSuggestion = null;
   let manualTuneActive = false;
@@ -2931,20 +2961,120 @@
     };
   }
 
+
+  function buildManualTuneAnalysisHTML(suggestion, applied = false) {
+    const summary = tuneNoLoseSummaryText(suggestion, applied) || (applied ? '已套用微調。' : '尚未產生微調分析。');
+    const ops = suggestion && suggestion.ops ? suggestion.ops : [];
+    const opHtml = ops.length ? `<div class="manual-op-list">${ops.map((op, idx) => `
+      <div class="manual-op-item">${idx + 1}. 手動第 ${op.itemIndex + 1} 組：${pad2(op.n1)} ↔ ${pad2(op.n2)}</div>
+    `).join('')}</div>` : '<div class="small-note">目前沒有需要調整的號碼。</div>';
+    const base = suggestion && suggestion.baseNoLoseStats ? suggestion.baseNoLoseStats : null;
+    const tuned = suggestion && suggestion.tunedNoLoseStats ? suggestion.tunedNoLoseStats : base;
+    const metricsHtml = base ? `
+      <table class="metrics">
+        <tr><th>微調前不輸率</th><td>${((base.noLose / base.total) * 100).toFixed(2)}%</td></tr>
+        <tr><th>微調後不輸率</th><td>${((tuned.noLose / tuned.total) * 100).toFixed(2)}%</td></tr>
+        <tr><th>微調前全倒率</th><td>${((base.allLose / base.total) * 100).toFixed(2)}%</td></tr>
+        <tr><th>微調後全倒率</th><td>${((tuned.allLose / tuned.total) * 100).toFixed(2)}%</td></tr>
+      </table>` : '';
+    return `
+      <div class="manual-tune-panel">
+        <div class="manual-panel-head">
+          <div class="manual-tune-title">上方欄位｜微調分析結果</div>
+          <button class="btn btn-secondary manual-tune-toggle-btn" style="padding:6px 10px; font-size:13px; width:auto;">${manualTuneActive ? '恢復微調' : '微調（自動判斷）'}</button>
+        </div>
+        <div class="small-note" style="margin:0;color:#fcd34d;">${summary}</div>
+        ${metricsHtml}
+        ${opHtml}
+      </div>`;
+  }
+
+  function generateFiveCombos(nums) {
+    const arr = (nums || []).slice().sort((a,b) => a-b);
+    const out = [];
+    for (let a = 0; a < arr.length - 4; a++) for (let b = a + 1; b < arr.length - 3; b++) for (let c = b + 1; c < arr.length - 2; c++) for (let d = c + 1; d < arr.length - 1; d++) for (let e = d + 1; e < arr.length; e++) out.push([arr[a], arr[b], arr[c], arr[d], arr[e]]);
+    return out;
+  }
+
+  function registerManualRiskCopy(text) {
+    const id = 'mr_' + Object.keys(manualRiskCopyPayloads).length + '_' + hashString(text + Date.now());
+    manualRiskCopyPayloads[id] = text;
+    return id;
+  }
+
+  function copyBtnHTML(text, label = '複製') {
+    const id = registerManualRiskCopy(text);
+    return `<button type="button" class="btn btn-secondary manual-risk-copy-btn" data-risk-copy-id="${id}">${label}</button>`;
+  }
+
+  function calcManualFatalRiskAnalysis(items) {
+    const validItems = (items || []).filter(item => item && Array.isArray(item.groups) && item.groups.length === 3);
+    const firstUnion = new Set();
+    validItems.forEach(item => (item.groups[0] || []).forEach(n => firstUnion.add(Number(n))));
+    const fatalNums = range39().filter(n => !firstUnion.has(n));
+    const fatalSet = new Set(fatalNums);
+    const blocks = [];
+    validItems.forEach((item, itemIndex) => {
+      [1, 2].forEach(pillarIndex => {
+        const pool = (item.groups[pillarIndex] || []).filter(n => fatalSet.has(Number(n))).sort((a,b)=>a-b);
+        if (pool.length >= 5) {
+          const combos = generateFiveCombos(pool);
+          blocks.push({ itemIndex, pillarIndex, pool, combos, count: combos.length });
+        }
+      });
+    });
+    return { fatalNums, blocks, totalCombos: blocks.reduce((sum, block) => sum + block.count, 0) };
+  }
+
+  function buildManualFatalRiskHTML(items) {
+    manualRiskCopyPayloads = {};
+    const analysis = calcManualFatalRiskAnalysis(items);
+    const fatalText = analysis.fatalNums.map(pad2).join(' ');
+    const allCombosText = analysis.blocks.map(block => {
+      const title = `手動第${block.itemIndex + 1}組第${block.pillarIndex + 1}柱｜${block.count}種`;
+      return title + '\n' + block.combos.map(c => c.map(pad2).join(' ')).join('\n');
+    }).filter(Boolean).join('\n\n');
+    const fullCopyText = `共同第一柱掛零號碼（${analysis.fatalNums.length}支）\n${fatalText}\n\n完整極端同柱組合（${analysis.totalCombos}種）\n${allCombosText || '無'}`;
+    return `
+      <div class="manual-risk-panel">
+        <div class="manual-panel-head">
+          <div class="manual-risk-title">下方欄位｜極端倒牌組合分析</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-dark manual-risk-toggle-btn">展開</button>
+            <button class="btn btn-primary analyze-manual-probability-btn" style="padding:6px 10px; font-size:13px; width:auto;">重新分析極端組合</button>
+          </div>
+        </div>
+        <div class="small-note" style="margin:0;color:#fcd34d;">已完成分析：共同第一柱掛零號碼 ${analysis.fatalNums.length} 支，完整極端同柱組合 ${analysis.totalCombos} 種。點「展開」查看明細。</div>
+        <div class="manual-risk-body">
+          <div class="small-note" style="margin:0 0 8px 0;">說明：下方 X 支號碼代表所有手動組別的第一柱共同掛零區；只要該期 5 顆都落在這區，手動區立柱會同時進入 0-X-X 高風險倒牌。完整 Y 種則是其中某一組的第二柱或第三柱直接吃滿 5 顆，形成 0-5-0 或 0-0-5。微調後再按「重新分析極端組合」，會用微調後的號碼重新計算。</div>
+          <div class="manual-risk-row"><div class="manual-risk-nums"><b>共同第一柱掛零號碼：${analysis.fatalNums.length} 支</b><br>${fatalText || '無'}</div>${copyBtnHTML(fatalText, '複製X支')}</div>
+          <div class="manual-risk-row"><div class="manual-risk-nums"><b>完整極端同柱組合：${analysis.totalCombos} 種</b></div>${copyBtnHTML(fullCopyText, '複製全部')}</div>
+          ${analysis.blocks.length ? analysis.blocks.map(block => {
+            const blockTitle = `手動第 ${block.itemIndex + 1} 組｜第 ${block.pillarIndex + 1} 柱觸發 ${block.pillarIndex === 1 ? '0-5-0' : '0-0-5'}`;
+            const poolText = block.pool.map(pad2).join(' ');
+            const blockText = block.combos.map(c => c.map(pad2).join(' ')).join('\n');
+            return `<div class="manual-risk-combo-box"><div class="manual-risk-row"><div class="manual-risk-nums"><b>${blockTitle}</b><br>可觸發母池：${poolText}<br>完整列舉：${block.count} 種</div>${copyBtnHTML(blockText, '複製本類')}</div><div class="manual-risk-combo-list">${block.combos.map((combo, comboIndex) => { const comboText = combo.map(pad2).join(' '); return `<div class="manual-risk-row"><div class="manual-risk-nums">${comboIndex + 1}. ${comboText}</div>${copyBtnHTML(comboText, '複製')}</div>`; }).join('')}</div></div>`;
+          }).join('') : '<div class="small-note">目前沒有任一組第二柱或第三柱能在共同掛零區內湊滿 5 顆，所以沒有極端同柱組合。</div>'}
+        </div>
+      </div>`;
+
+  }
+
   function analyzeManualProbability() {
     if (!manualRecommendItems || manualRecommendItems.length < 3) {
       alert('請先至少移入 3 組立柱到手動比較區。');
       return;
     }
-    if (manualTuneActive) {
-      manualTuneStatus = '目前已套用微調；如要重新分析，請先按「恢復微調」。';
-      refreshRecommendArea();
-      return;
+    if (!manualTuneActive) {
+      manualTuneSuggestion = findManualTuneSuggestion();
+      manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, false) || '分析完成。';
+    } else {
+      manualTuneStatus = '已套用微調；下方極端組合已用微調後號碼重新分析。';
     }
-    manualTuneSuggestion = findManualTuneSuggestion();
-    manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, false) || '分析完成。';
+    manualProbabilityAnalysisHTML = buildManualTuneAnalysisHTML(manualTuneSuggestion, manualTuneActive);
+    manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(manualRecommendItems.slice(0, 3));
     refreshRecommendArea();
-    log(`已完成手動比較區結構分析：${manualTuneStatus}`);
+    log(`已完成手動比較區分欄分析：${manualTuneStatus}`);
   }
 
   function applyTuneOps(items, ops, reverse = false) {
@@ -2967,6 +3097,8 @@
       }
       manualTuneActive = false;
       manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, false) || '已恢復微調前號碼。';
+      manualProbabilityAnalysisHTML = buildManualTuneAnalysisHTML(manualTuneSuggestion, false);
+      manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(manualRecommendItems.slice(0, 3));
       refreshRecommendArea();
       return;
     }
@@ -2981,6 +3113,8 @@
     applyTuneOps(manualRecommendItems, manualTuneSuggestion.ops, false);
     manualTuneActive = true;
     manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, true) || `已套用結構微調，共調整 ${manualTuneSuggestion.ops.length} 組號碼。`; 
+    manualProbabilityAnalysisHTML = buildManualTuneAnalysisHTML(manualTuneSuggestion, true);
+    manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(manualRecommendItems.slice(0, 3));
     refreshRecommendArea();
   }
 
@@ -3084,6 +3218,7 @@
       manualKey: `bestcombo:${item.sourceType}:${item.sourceIndex}:${exportText(item.groups)}`
     }));
     manualProbabilityAnalysisHTML = '';
+    manualFatalRiskAnalysisHTML = '';
     bestComboAnalysisHTML = '';
     manualTuneSuggestion = null;
     manualTuneActive = false;
@@ -3095,19 +3230,18 @@
 
   function buildManualRecommendHTML() {
     if (!manualRecommendItems || !manualRecommendItems.length) return '';
-    const tuneBtnText = manualTuneActive ? '恢復微調' : '微調（自動判斷）';
-    const statusHtml = manualTuneStatus ? `<div class="small-note" style="margin:8px 0;color:#fcd34d;">${manualTuneStatus}</div>` : '';
+    const statusHtml = manualTuneStatus && !manualProbabilityAnalysisHTML ? `<div class="small-note" style="margin:8px 0;color:#fcd34d;">${manualTuneStatus}</div>` : '';
     return `
       <div class="manual-recommend-zone">
         <div class="manual-recommend-title">
           <span>手動移入比較區（${manualRecommendItems.length} 組）</span>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <button class="btn btn-primary analyze-manual-probability-btn" style="padding:6px 10px; font-size:13px; width:auto;">分析</button>
-            <button class="btn btn-secondary manual-tune-toggle-btn" style="padding:6px 10px; font-size:13px; width:auto;">${tuneBtnText}</button>
             <button class="btn btn-dark clear-manual-recommend-btn" style="padding:6px 10px; font-size:13px; width:auto;">清空手動比較</button>
           </div>
         </div>
         ${statusHtml}
+        ${(manualProbabilityAnalysisHTML || manualFatalRiskAnalysisHTML) ? `<div class="manual-analysis-split">${manualProbabilityAnalysisHTML || ''}${manualFatalRiskAnalysisHTML || ''}</div>` : ''}
         <div class="recommend-list">
           ${manualRecommendItems.map((item, idx) => `
             <div class="recommend-item">
@@ -3731,6 +3865,7 @@
       return;
     }
     manualProbabilityAnalysisHTML = '';
+    manualFatalRiskAnalysisHTML = '';
     bestComboAnalysisHTML = '';
     manualTuneSuggestion = null;
     manualTuneActive = false;
@@ -3793,6 +3928,7 @@
       if (Number.isInteger(index) && index >= 0 && index < manualRecommendItems.length) {
         manualRecommendItems.splice(index, 1);
         manualProbabilityAnalysisHTML = '';
+        manualFatalRiskAnalysisHTML = '';
         bestComboAnalysisHTML = '';
         manualTuneSuggestion = null;
         manualTuneActive = false;
@@ -3800,6 +3936,24 @@
         refreshRecommendArea();
         log(`已移除手動比較第 ${index + 1} 組。`);
       }
+      return;
+    }
+
+    const riskToggleBtn = e.target.closest('.manual-risk-toggle-btn');
+    if (riskToggleBtn) {
+      const panel = riskToggleBtn.closest('.manual-risk-panel');
+      if (panel) {
+        const open = panel.classList.toggle('open');
+        riskToggleBtn.textContent = open ? '收起' : '展開';
+      }
+      return;
+    }
+
+    const riskCopyBtn = e.target.closest('.manual-risk-copy-btn');
+    if (riskCopyBtn) {
+      const text = manualRiskCopyPayloads[riskCopyBtn.dataset.riskCopyId] || '';
+      if (!text) { alert('找不到可複製的內容，請重新按一次分析。'); return; }
+      await copyTextSmart(text, '致命倒牌分析已複製');
       return;
     }
 
