@@ -3238,49 +3238,208 @@
     return bAvgPass - aAvgPass;
   }
 
-  function analyzeBestThreeCombo() {
-    const pool = getAllGeneratedItemsForBestCombo();
-    if (pool.length < 3) {
-      alert('下方生成的立柱不足 3 組，請先按「開始分析並產生多組立柱」。');
-      return;
+  function calcThreeComboBacktestStats(items, draws) {
+    const safeDraws = (draws || []).filter(draw => Array.isArray(draw) && draw.length === 5);
+    const total = safeDraws.length || 1;
+    let allWin = 0;
+    let allLose = 0;
+    let oneWin = 0;
+    let twoWin = 0;
+    let atLeastOne = 0;
+    for (const draw of safeDraws) {
+      const wins = items.reduce((sum, item) => sum + (isDrawPassGroups(item.groups, draw) ? 1 : 0), 0);
+      if (wins === 0) allLose++;
+      if (wins >= 1) atLeastOne++;
+      if (wins === 1) oneWin++;
+      if (wins === 2) twoWin++;
+      if (wins === 3) allWin++;
     }
+    const crossOverlaps = [];
+    const samePillarOverlaps = [];
+    for (let a = 0; a < items.length - 1; a++) {
+      for (let b = a + 1; b < items.length; b++) {
+        crossOverlaps.push(crossOverlapRate(items[a].groups, items[b].groups));
+        samePillarOverlaps.push(pairwiseSamePillarOverlap(items[a].groups, items[b].groups));
+      }
+    }
+    const avgCrossOverlap = crossOverlaps.length ? crossOverlaps.reduce((sum, value) => sum + value, 0) / crossOverlaps.length : 0;
+    const maxCrossOverlap = crossOverlaps.length ? Math.max(...crossOverlaps) : 0;
+    const avgSamePillarOverlap = samePillarOverlaps.length ? samePillarOverlaps.reduce((sum, value) => sum + value, 0) / samePillarOverlaps.length : 0;
+    const totalRecent5Down = items.reduce((sum, item) => sum + ((item.stats && item.stats.recent5Down) || 0), 0);
+    const latestDownCount = items.reduce((sum, item) => sum + ((item.stats && item.stats.latestDown) ? 1 : 0), 0);
+    const sourceVariety = new Set(items.map(item => item.sourceType)).size;
+    return {
+      total,
+      allWin,
+      allLose,
+      oneWin,
+      twoWin,
+      atLeastOne,
+      noLoseRate: atLeastOne / total,
+      allDownRate: allLose / total,
+      avgCrossOverlap,
+      maxCrossOverlap,
+      avgSamePillarOverlap,
+      totalRecent5Down,
+      latestDownCount,
+      sourceVariety
+    };
+  }
+
+  function compareStrongBestThreeCombo(a, b) {
+    if (!b) return -1;
+    const aQualified = a.stats.noLoseRate >= 0.62 && a.stats.allDownRate <= 0.04;
+    const bQualified = b.stats.noLoseRate >= 0.62 && b.stats.allDownRate <= 0.04;
+    if (aQualified !== bQualified) return aQualified ? -1 : 1;
+    const eps = 1e-12;
+    if (Math.abs(a.stats.noLoseRate - b.stats.noLoseRate) > eps) return b.stats.noLoseRate - a.stats.noLoseRate;
+    if (Math.abs(a.stats.allDownRate - b.stats.allDownRate) > eps) return a.stats.allDownRate - b.stats.allDownRate;
+    if ((a.stats.totalRecent5Down || 0) !== (b.stats.totalRecent5Down || 0)) return (b.stats.totalRecent5Down || 0) - (a.stats.totalRecent5Down || 0);
+    if ((a.stats.latestDownCount || 0) !== (b.stats.latestDownCount || 0)) return (b.stats.latestDownCount || 0) - (a.stats.latestDownCount || 0);
+    if ((a.stats.sourceVariety || 0) !== (b.stats.sourceVariety || 0)) return (b.stats.sourceVariety || 0) - (a.stats.sourceVariety || 0);
+    if (Math.abs(a.stats.avgCrossOverlap - b.stats.avgCrossOverlap) > eps) return a.stats.avgCrossOverlap - b.stats.avgCrossOverlap;
+    const aAvgPass = a.items.reduce((sum, item) => sum + ((item.stats && item.stats.passRate) || 0), 0) / 3;
+    const bAvgPass = b.items.reduce((sum, item) => sum + ((item.stats && item.stats.passRate) || 0), 0) / 3;
+    return bAvgPass - aAvgPass;
+  }
+
+  function normalizeBest3PoolItem(item, sourceType, sourceLabel, sourceIndex, backtestMode) {
+    return {
+      ...item,
+      groups: cloneGroups(item.groups),
+      stats: { ...(item.stats || {}) },
+      sourceType,
+      sourceLabel: `${sourceLabel}｜回測${backtestMode}期`,
+      sourceIndex,
+      backtestMode,
+      manualKey: `best3:${sourceType}:${backtestMode}:${sourceIndex}:${exportText(item.groups)}`
+    };
+  }
+
+  function appendUniqueBest3Items(pool, items, sourceType, sourceLabel, backtestMode, seen) {
+    (items || []).forEach((item, idx) => {
+      if (!item || !Array.isArray(item.groups) || item.groups.length !== 3) return;
+      const key = exportText(item.groups);
+      if (seen.has(key)) return;
+      seen.add(key);
+      pool.push(normalizeBest3PoolItem(item, sourceType, sourceLabel, idx, backtestMode));
+    });
+  }
+
+  async function buildStrongBest3Pool(allDraws) {
+    const modes = [50, 100, 150];
+    const pool = [];
+    const seen = new Set();
+    const candidateShareData = parseCandidateShares(candidateInput.value);
+    for (const mode of modes) {
+      const modeDraws = allDraws.slice(0, Math.min(mode, allDraws.length));
+      if (modeDraws.length < 10) continue;
+      currentRunSignature = [getActiveDrawText(), noDrawInput.value, candidateInput.value, 'BEST3_STRONG', String(mode)].join('\n---\n');
+      setRunSeed(currentRunSignature);
+      log(`一鍵最佳三組：開始生成回測 ${modeDraws.length} 期候選（AI/防穿透/高過關/反指標，各 5 組，排除隨機）。`);
+
+      const candidateScoreData = buildCandidateScoreRanking(modeDraws, candidateShareData.counts);
+      const aiItems = await buildTopAiGroups(modeDraws, 5);
+      appendUniqueBest3Items(pool, aiItems, 'ai', 'AI 最佳立柱', modeDraws.length, seen);
+      await new Promise(requestAnimationFrame);
+
+      const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, 5);
+      appendUniqueBest3Items(pool, antiItems, 'anti', '防穿透立柱', modeDraws.length, seen);
+      await new Promise(requestAnimationFrame);
+
+      const highPassItems = await buildTopHighPassGroups(modeDraws, 5, aiItems);
+      appendUniqueBest3Items(pool, highPassItems, 'highpass', '高過關爆發立柱', modeDraws.length, seen);
+      await new Promise(requestAnimationFrame);
+
+      const reverseItems = await buildTopReverseGroups(modeDraws, 5);
+      appendUniqueBest3Items(pool, reverseItems, 'reverse', '反指標排行立柱', modeDraws.length, seen);
+      log(`一鍵最佳三組：回測 ${modeDraws.length} 期完成，目前候選共 ${pool.length} 組。`);
+      await new Promise(requestAnimationFrame);
+    }
+    return pool;
+  }
+
+  function chooseStrongBestThree(pool, judgeDraws) {
     let best = null;
     let checked = 0;
+    let qualified = 0;
     for (let i = 0; i < pool.length - 2; i++) {
       for (let j = i + 1; j < pool.length - 1; j++) {
         for (let k = j + 1; k < pool.length; k++) {
           checked++;
           const picks = [pool[i], pool[j], pool[k]];
-          const stats = calcThreeComboStats(picks);
+          const stats = calcThreeComboBacktestStats(picks, judgeDraws);
           const candidate = { items: picks, stats };
-          if (compareBestThreeCombo(candidate, best) < 0) best = candidate;
+          if (stats.noLoseRate >= 0.62 && stats.allDownRate <= 0.04) qualified++;
+          if (compareStrongBestThreeCombo(candidate, best) < 0) best = candidate;
         }
       }
     }
-    if (!best) {
-      alert('沒有找到可分析的三組立柱。');
+    if (best) {
+      best.checked = checked;
+      best.qualified = qualified;
+      best.isQualified = best.stats.noLoseRate >= 0.62 && best.stats.allDownRate <= 0.04;
+    }
+    return best;
+  }
+
+  async function analyzeBestThreeCombo(buttonEl) {
+    const allDraws = parseDraws(getActiveDrawText());
+    if (!allDraws.length) {
+      alert('請先在資料庫或下方貼上欄位加入有效開獎號碼。');
       return;
     }
-
-    // v51：一鍵挑選後，直接放到手動移入比較區，方便接著分析與微調。
-    manualRecommendItems = best.items.map((item, idx) => ({
-      ...item,
-      groups: cloneGroups(item.groups),
-      stats: { ...(item.stats || {}) },
-      sourceType: item.sourceType,
-      sourceIndex: item.sourceIndex,
-      sourceLabel: item.sourceLabel || sourceTypeLabel(item.sourceType),
-      manualKey: `bestcombo:${item.sourceType}:${item.sourceIndex}:${exportText(item.groups)}`
-    }));
-    manualProbabilityAnalysisHTML = '';
-    manualFatalRiskAnalysisHTML = '';
-    bestComboAnalysisHTML = '';
-    manualTuneSuggestion = null;
-    manualTuneActive = false;
-    manualTuneStatus = `已自動挑入最佳三組｜全倒率 ${percentText(best.stats.allLose, best.stats.total)}｜過2倒1 ${percentText(best.stats.twoWin, best.stats.total)}｜三組全過 ${percentText(best.stats.allWin, best.stats.total)}`;
+    const originalText = buttonEl ? buttonEl.textContent : '';
+    if (buttonEl) {
+      buttonEl.disabled = true;
+      buttonEl.textContent = '強條件挑選中...';
+    }
+    manualTuneStatus = '正在生成 50/100/150 期候選並篩選，不含隨機平衡立柱...';
     refreshRecommendArea();
-    log(`已自動挑入最佳三組：從 ${pool.length} 組中檢查 ${checked} 種組合，全倒率 ${percentText(best.stats.allLose, best.stats.total)}。`);
-    recommendResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+      const judgeLimit = backtestLimit.value === 'all' ? allDraws.length : Math.min(Number(backtestLimit.value) || 100, allDraws.length);
+      const judgeDraws = allDraws.slice(0, judgeLimit);
+      const pool = await buildStrongBest3Pool(allDraws);
+      if (pool.length < 3) {
+        alert('候選立柱不足 3 組，請確認資料期數是否足夠。');
+        return;
+      }
+      log(`一鍵最佳三組：開始從 ${pool.length} 組候選中挑選三組；判斷基準使用目前選單的 ${judgeDraws.length} 期。`);
+      const best = chooseStrongBestThree(pool, judgeDraws);
+      if (!best) {
+        alert('沒有找到可分析的三組立柱。');
+        return;
+      }
+
+      manualRecommendItems = best.items.map((item, idx) => ({
+        ...item,
+        groups: cloneGroups(item.groups),
+        stats: { ...(item.stats || {}) },
+        sourceType: item.sourceType,
+        sourceIndex: item.sourceIndex,
+        sourceLabel: item.sourceLabel || sourceTypeLabel(item.sourceType),
+        manualKey: item.manualKey || `best3:${idx}:${exportText(item.groups)}`
+      }));
+      manualProbabilityAnalysisHTML = '';
+      manualFatalRiskAnalysisHTML = '';
+      bestComboAnalysisHTML = '';
+      manualTuneSuggestion = null;
+      manualTuneActive = false;
+      const qualifyText = best.isQualified ? '✅ 達標' : '⚠ 未完全達標，已用最接近條件補上';
+      manualTuneStatus = `一鍵最佳三組完成｜${qualifyText}｜不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%｜全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%｜近5期倒合計 ${best.stats.totalRecent5Down}/15｜最新一期倒 ${best.stats.latestDownCount}/3｜平均穿插重複率 ${(best.stats.avgCrossOverlap * 100).toFixed(2)}%｜從 ${pool.length} 組檢查 ${best.checked} 種組合，其中達標 ${best.qualified} 種。`;
+      refreshRecommendArea();
+      log(`一鍵最佳三組完成：${qualifyText}。不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%，全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%，達標組合 ${best.qualified}/${best.checked}。`);
+      recommendResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      console.error(err);
+      alert('一鍵最佳三組執行時發生錯誤：' + (err && err.message ? err.message : err));
+      log('一鍵最佳三組錯誤：' + (err && err.message ? err.message : err));
+    } finally {
+      if (buttonEl) {
+        buttonEl.disabled = false;
+        buttonEl.textContent = originalText || '一鍵挑選最佳三組（50/100/150）';
+      }
+    }
   }
 
   function buildManualRecommendHTML() {
@@ -3324,7 +3483,7 @@
   function renderRecommendedItems(items) {
     const bestComboButtonHTML = `
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-        <button class="btn btn-secondary best-three-combo-btn" style="padding:8px 12px; font-size:13px; width:auto;">一鍵挑最佳三組到手動區</button>
+        <button class="btn btn-secondary best-three-combo-btn" style="padding:8px 12px; font-size:13px; width:auto;">一鍵挑選最佳三組（50/100/150）</button>
       </div>
     `;
     if (!items || items.length < 4) {
@@ -3974,7 +4133,7 @@
 
     const bestThreeBtn = e.target.closest('.best-three-combo-btn');
     if (bestThreeBtn) {
-      analyzeBestThreeCombo();
+      await analyzeBestThreeCombo(bestThreeBtn);
       return;
     }
 
