@@ -3249,6 +3249,7 @@
                 <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${Number(item.sourceIndex) + 1} 組</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <button class="btn btn-secondary single-copy-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
+                  <button class="btn btn-dark move-manual-up-btn" data-manual-index="${idx}" ${idx === 0 ? 'disabled' : ''} style="padding:6px 10px; font-size:13px; width:auto;">順序上調</button>
                   <button class="btn btn-dark remove-manual-recommend-btn" data-manual-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">移除</button>
                 </div>
               </div>
@@ -3919,6 +3920,23 @@
       manualTuneStatus = '';
       refreshRecommendArea();
       log('已清空上方手動比較區。');
+      return;
+    }
+
+    const moveManualUpBtn = e.target.closest('.move-manual-up-btn');
+    if (moveManualUpBtn) {
+      const index = Number(moveManualUpBtn.dataset.manualIndex);
+      if (Number.isInteger(index) && index > 0 && index < manualRecommendItems.length) {
+        [manualRecommendItems[index - 1], manualRecommendItems[index]] = [manualRecommendItems[index], manualRecommendItems[index - 1]];
+        manualProbabilityAnalysisHTML = '';
+        manualFatalRiskAnalysisHTML = '';
+        bestComboAnalysisHTML = '';
+        manualTuneSuggestion = null;
+        manualTuneActive = false;
+        manualTuneStatus = `已將手動比較第 ${index + 1} 組上調為第 ${index} 組。`;
+        refreshRecommendArea();
+        log(`已將手動比較第 ${index + 1} 組上調為第 ${index} 組。`);
+      }
       return;
     }
 
