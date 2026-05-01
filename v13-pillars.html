@@ -438,6 +438,34 @@
     .manual-op-list { margin-top:8px; display:grid; gap:6px; }
     .manual-op-item { border-top:1px solid var(--border); padding-top:6px; color:#cbd5e1; }
 
+
+    .input-collapse-box {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(2, 6, 23, 0.42);
+      overflow: hidden;
+    }
+    .input-collapse-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .input-collapse-head .section-title { margin: 0; }
+    .input-collapse-toggle {
+      width: auto;
+      padding: 7px 11px;
+      font-size: 13px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    .input-collapse-body { padding: 0 12px 12px; }
+    .input-collapse-body.collapsed { display: none; }
+
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
       .controls, .stat-grid { grid-template-columns: 1fr; }
@@ -489,12 +517,39 @@
           <div class="db-table-wrap" id="dbTableWrap"><table class="db-table"><thead><tr><th>序</th><th>日期 / 期別</th><th>開獎號碼</th><th>操作</th></tr></thead><tbody id="dbTableBody"><tr><td colspan="4">尚無資料</td></tr></tbody></table></div>
         </div>
 
-        <div class="section-title">貼上百期開獎號碼（保留，可匯入資料庫）</div>
-        <textarea id="drawInput" placeholder="每行 1 期，最上方 = 最新一期。\n可接受：01 07 10 20 26、日期+號碼、期數+號碼；匯入資料庫後會永久保存\n\n範例：\n01 07 10 20 26\n04 09 16 28 37\n05 11 14 23 39"></textarea>
-        <div class="section-title" style="margin-top:12px;">今日多人分享不出牌</div>
-        <textarea id="noDrawInput" class="textarea-small" placeholder="每行可貼一組多人分享的不出牌，系統會統計各號碼被提到的次數，再結合百期資料，自動挑出最適合摘掉的一支。&#10;&#10;範例：&#10;01 07 18 22 31&#10;07 18 26 31&#10;04 18 22 31 39"></textarea>
-        <div class="section-title" style="margin-top:12px;">今日多人分享推薦號碼</div>
-        <textarea id="candidateInput" class="textarea-small" placeholder="每行可貼一組別人分享的推薦號碼，系統會統計各號碼被提到的次數，再結合百期資料，列出各號碼的候選分數供你自己篩選。&#10;&#10;範例：&#10;03 11 17 28 35&#10;11 17 22 28 31&#10;03 17 28 31 39"></textarea>
+        <div class="input-collapse-box">
+          <div class="input-collapse-head" data-collapse-target="drawInputBody">
+            <div class="section-title">貼上百期開獎號碼（保留，可匯入資料庫）</div>
+            <button class="btn btn-dark input-collapse-toggle" type="button" data-collapse-target="drawInputBody">展開</button>
+          </div>
+          <div id="drawInputBody" class="input-collapse-body collapsed">
+            <textarea id="drawInput" placeholder="每行 1 期，最上方 = 最新一期。
+可接受：01 07 10 20 26、日期+號碼、期數+號碼；匯入資料庫後會永久保存
+
+範例：
+01 07 10 20 26
+04 09 16 28 37
+05 11 14 23 39"></textarea>
+          </div>
+        </div>
+        <div class="input-collapse-box">
+          <div class="input-collapse-head" data-collapse-target="noDrawInputBody">
+            <div class="section-title">今日多人分享不出牌</div>
+            <button class="btn btn-dark input-collapse-toggle" type="button" data-collapse-target="noDrawInputBody">展開</button>
+          </div>
+          <div id="noDrawInputBody" class="input-collapse-body collapsed">
+            <textarea id="noDrawInput" class="textarea-small" placeholder="每行可貼一組多人分享的不出牌，系統會統計各號碼被提到的次數，再結合百期資料，自動挑出最適合摘掉的一支。&#10;&#10;範例：&#10;01 07 18 22 31&#10;07 18 26 31&#10;04 18 22 31 39"></textarea>
+          </div>
+        </div>
+        <div class="input-collapse-box">
+          <div class="input-collapse-head" data-collapse-target="candidateInputBody">
+            <div class="section-title">今日多人分享推薦號碼</div>
+            <button class="btn btn-dark input-collapse-toggle" type="button" data-collapse-target="candidateInputBody">展開</button>
+          </div>
+          <div id="candidateInputBody" class="input-collapse-body collapsed">
+            <textarea id="candidateInput" class="textarea-small" placeholder="每行可貼一組別人分享的推薦號碼，系統會統計各號碼被提到的次數，再結合百期資料，列出各號碼的候選分數供你自己篩選。&#10;&#10;範例：&#10;03 11 17 28 35&#10;11 17 22 28 31&#10;03 17 28 31 39"></textarea>
+          </div>
+        </div>
         <div class="controls">
           <select id="groupCount" class="btn btn-dark" style="text-align:center; appearance:auto;">
             <option value="1">一次生成 1 組</option>
@@ -3886,6 +3941,19 @@
   }
 
   document.addEventListener('click', async (e) => {
+    const collapseTargetEl = e.target.closest('[data-collapse-target]');
+    if (collapseTargetEl) {
+      const targetId = collapseTargetEl.dataset.collapseTarget;
+      const body = document.getElementById(targetId);
+      if (body && body.classList.contains('input-collapse-body')) {
+        const collapsed = body.classList.toggle('collapsed');
+        document.querySelectorAll('.input-collapse-toggle[data-collapse-target="' + targetId + '"]').forEach(btn => {
+          btn.textContent = collapsed ? '展開' : '收起';
+        });
+      }
+      return;
+    }
+
     const moveBtn = e.target.closest('.move-to-recommend-btn');
     if (moveBtn) {
       moveItemToRecommend(moveBtn.dataset.copyType, moveBtn.dataset.copyIndex, moveBtn.dataset.sourceLabel || '');
