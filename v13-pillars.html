@@ -391,6 +391,33 @@
       border-radius:8px;
       border:1px solid transparent;
     }
+    .latest-draw-num {
+      display:inline-block;
+      min-width:30px;
+      text-align:center;
+      margin:2px 3px 2px 0;
+      padding:2px 6px;
+      border-radius:8px;
+      background:rgba(239,68,68,.24);
+      border:1px solid rgba(239,68,68,.78);
+      color:#fecaca;
+      font-weight:900;
+      box-shadow:0 0 0 1px rgba(254,202,202,.18) inset;
+    }
+    .manual-num-chip.latest-draw-num,
+    .latest-draw-num.tune-target,
+    .latest-draw-num.tuned-num {
+      background:linear-gradient(135deg, rgba(239,68,68,.30), rgba(245,158,11,.24));
+      border-color:rgba(248,113,113,.95);
+      color:#fff7ed;
+    }
+    .latest-draw-legend {
+      display:inline-block;
+      margin:6px 0 2px;
+      color:#fecaca;
+      font-size:13px;
+      font-weight:800;
+    }
     .manual-num-chip.tune-target {
       background:rgba(245,158,11,.18);
       border-color:rgba(245,158,11,.55);
@@ -401,6 +428,16 @@
       background:rgba(34,197,94,.18);
       border-color:rgba(34,197,94,.55);
       color:#86efac;
+      font-weight:900;
+    }
+    .manual-num-chip.latest-draw-num,
+    .manual-num-chip.latest-draw-num.tune-target,
+    .manual-num-chip.latest-draw-num.tuned-num,
+    .latest-draw-num.tune-target,
+    .latest-draw-num.tuned-num {
+      background:linear-gradient(135deg, rgba(239,68,68,.34), rgba(245,158,11,.26));
+      border-color:rgba(248,113,113,.98);
+      color:#fff7ed;
       font-weight:900;
     }
     .manual-num-chip.structure-risk {
@@ -858,6 +895,38 @@
 
   function formatNums(arr) {
     return arr.map(pad2).join(' ');
+  }
+
+  function getLatestDrawNumbers() {
+    const draws = parseDraws(getActiveDrawText());
+    return draws && draws.length ? draws[0].map(Number) : [];
+  }
+
+  function isLatestDrawNumber(n) {
+    return getLatestDrawNumbers().includes(Number(n));
+  }
+
+  function latestDrawLegendHTML() {
+    const nums = getLatestDrawNumbers();
+    if (!nums.length) return '';
+    return `<div class="latest-draw-legend">紅色標記＝最新一期開獎號碼：${nums.map(pad2).join(' ')}</div>`;
+  }
+
+  function formatNumsHighlighted(arr) {
+    const latestSet = new Set(getLatestDrawNumbers());
+    return arr.map(n => {
+      const cls = latestSet.has(Number(n)) ? 'latest-draw-num' : 'manual-num-chip';
+      return `<span class="${cls}">${pad2(n)}</span>`;
+    }).join('');
+  }
+
+  function renderGroupsHighlighted(groups) {
+    const names = ['第一柱（10支）', '第二柱（14支）', '第三柱（15支）'];
+    return `<div class="pillars">${groups.map((pillar, pIdx) => `
+      <div class="pillar">
+        <div class="pillar-title">${names[pIdx]}</div>
+        <div class="nums">${formatNumsHighlighted(pillar)}</div>
+      </div>`).join('')}</div>`;
   }
   let rngState = 1;
 
@@ -1419,11 +1488,12 @@
           <tr><th>最新連倒期數</th><td>${removeInfo.stats && typeof removeInfo.stats.latestDownStreak === 'number' ? removeInfo.stats.latestDownStreak + ' / ' + (removeInfo.stats.totalDraws || '') : '-'}</td></tr>
         </table>
       ` : ''}
+      ${latestDrawLegendHTML()}
       <div class="pillars">
         ${groups.map((g, i) => `
           <div class="pillar">
             <div class="pillar-title">${pillarNames[i]}</div>
-            <div class="nums">${formatNums(g)}</div>
+            <div class="nums">${formatNumsHighlighted(g)}</div>
           </div>
         `).join('')}
       </div>
@@ -3188,7 +3258,12 @@
         <div class="pillar-title">${names[pIdx]}</div>
         <div class="nums">${pillar.map(n => {
           const isTarget = targets.has(Number(n));
-          const cls = isTarget ? (manualTuneActive ? 'manual-num-chip tuned-num' : 'manual-num-chip tune-target') : 'manual-num-chip';
+          const isLatest = isLatestDrawNumber(n);
+          const cls = [
+            'manual-num-chip',
+            isTarget ? (manualTuneActive ? 'tuned-num' : 'tune-target') : '',
+            isLatest ? 'latest-draw-num' : ''
+          ].filter(Boolean).join(' ');
           return `<span class="${cls}">${pad2(n)}</span>`;
         }).join('')}</div>
       </div>`).join('')}</div>`;
@@ -3366,8 +3441,12 @@
     for (let i = 0; i < pool.length - 2; i++) {
       for (let j = i + 1; j < pool.length - 1; j++) {
         for (let k = j + 1; k < pool.length; k++) {
-          checked++;
           const picks = [pool[i], pool[j], pool[k]];
+          const sourceTypes = picks.map(item => item.sourceType);
+          // v52：一鍵挑選最佳三組時，同類型最多取一組。
+          // 例如 AI / 防穿透 / 高過關 / 反指標，三組不能出現兩組都來自同一類。
+          if (new Set(sourceTypes).size !== picks.length) continue;
+          checked++;
           const stats = calcThreeComboBacktestStats(picks, judgeDraws);
           const candidate = { items: picks, stats };
           if (stats.noLoseRate >= 0.62 && stats.allDownRate <= 0.04) qualified++;
@@ -3404,7 +3483,7 @@
         alert('候選立柱不足 3 組，請確認資料期數是否足夠。');
         return;
       }
-      log(`一鍵最佳三組：開始從 ${pool.length} 組候選中挑選三組；判斷基準使用目前選單的 ${judgeDraws.length} 期。`);
+      log(`一鍵最佳三組：開始從 ${pool.length} 組候選中挑選三組；判斷基準使用目前選單的 ${judgeDraws.length} 期；同類型最多取一組。`);
       const best = chooseStrongBestThree(pool, judgeDraws);
       if (!best) {
         alert('沒有找到可分析的三組立柱。');
@@ -3426,9 +3505,9 @@
       manualTuneSuggestion = null;
       manualTuneActive = false;
       const qualifyText = best.isQualified ? '✅ 達標' : '⚠ 未完全達標，已用最接近條件補上';
-      manualTuneStatus = `一鍵最佳三組完成｜${qualifyText}｜不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%｜全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%｜近5期倒合計 ${best.stats.totalRecent5Down}/15｜最新一期倒 ${best.stats.latestDownCount}/3｜平均穿插重複率 ${(best.stats.avgCrossOverlap * 100).toFixed(2)}%｜從 ${pool.length} 組檢查 ${best.checked} 種組合，其中達標 ${best.qualified} 種。`;
+      manualTuneStatus = `一鍵最佳三組完成｜同類型最多取一組｜${qualifyText}｜不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%｜全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%｜近5期倒合計 ${best.stats.totalRecent5Down}/15｜最新一期倒 ${best.stats.latestDownCount}/3｜平均穿插重複率 ${(best.stats.avgCrossOverlap * 100).toFixed(2)}%｜從 ${pool.length} 組檢查 ${best.checked} 種有效組合，其中達標 ${best.qualified} 種。`;
       refreshRecommendArea();
-      log(`一鍵最佳三組完成：${qualifyText}。不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%，全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%，達標組合 ${best.qualified}/${best.checked}。`);
+      log(`一鍵最佳三組完成：同類型最多取一組，${qualifyText}。不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%，全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%，達標組合 ${best.qualified}/${best.checked}。`);
       recommendResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
       console.error(err);
@@ -3454,6 +3533,7 @@
             <button class="btn btn-dark clear-manual-recommend-btn" style="padding:6px 10px; font-size:13px; width:auto;">清空手動比較</button>
           </div>
         </div>
+        ${latestDrawLegendHTML()}
         ${statusHtml}
         ${(manualProbabilityAnalysisHTML || manualFatalRiskAnalysisHTML) ? `<div class="manual-analysis-split">${manualProbabilityAnalysisHTML || ''}${manualFatalRiskAnalysisHTML || ''}</div>` : ''}
         <div class="recommend-list">
@@ -3503,6 +3583,7 @@
     recommendResult.innerHTML = `
       ${bestComboButtonHTML}
       <div class="small-note">只從 AI最佳 / 防穿透 / 高過關爆發 / 反指標排行 中挑選，完全排除隨機平衡；v43：反指標不看勝率，只看連續倒排行，且最新一期必須倒。AI / 防穿透仍先強制篩選未過關≤3，若無才≤4，再無才≤5；高爆發完全隔離。<br>四期倒覆蓋：<b>${comboDownCoverage4}/4</b>｜三組共同最新連倒：<b>${comboAllDownStreak}/4</b>｜連倒分布：<b>4連${streakProfile[0] || 0}組 / 3連${streakProfile[1] || 0}組 / 2連${streakProfile[2] || 0}組 / 1連${streakProfile[3] || 0}組</b>｜近5期合計倒數：<b>${totalRecent5Down}/20</b>｜平均同柱重複率：<b>${avgSamePillarOverlap}%</b>｜三組平均全柱穿插重複率：<b>${avgCrossOverlap}%</b>｜最高單對全柱穿插重複率：<b>${maxCrossOverlap}%</b>｜最新一期倒：<b>${latestDownCount}/4</b>｜平均最新連倒：<b>${avgLatestDownStreak}/4</b></div>
+      ${latestDrawLegendHTML()}
       <div class="recommend-list">
         ${items.map(item => `
           <div class="recommend-item">
@@ -3513,7 +3594,8 @@
                 <button class="btn btn-secondary single-copy-btn" data-copy-type="recommended" data-copy-index="${item.recommendRank - 1}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
               </div>
             </div>
-            <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜最新一期 ${item.stats.latestDown ? '倒' : '過關'}｜最新連倒 ${item.stats.latestDownStreak || 0}/4｜近5期倒 ${item.stats.recent5Down || 0}/5｜未過關 ${item.stats.fail} 期${item.failLimitUsed ? `（門檻≤${item.failLimitUsed}）` : ""}｜結構懲罰 ${typeof item.stats.balancePenalty === "number" ? item.stats.balancePenalty.toFixed(2) : "-"}｜強度分數 ${(item.strengthScore || 0).toFixed(2)}｜格式：${exportText(item.groups)}</div>
+            <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜最新一期 ${item.stats.latestDown ? '倒' : '過關'}｜最新連倒 ${item.stats.latestDownStreak || 0}/4｜近5期倒 ${item.stats.recent5Down || 0}/5｜未過關 ${item.stats.fail} 期${item.failLimitUsed ? `（門檻≤${item.failLimitUsed}）` : ""}｜結構懲罰 ${typeof item.stats.balancePenalty === "number" ? item.stats.balancePenalty.toFixed(2) : "-"}｜強度分數 ${(item.strengthScore || 0).toFixed(2)}</div>
+            ${renderGroupsHighlighted(item.groups)}
           </div>
         `).join('')}
       </div>
