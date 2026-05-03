@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v51 分欄致命倒牌分析版</title>
+  <title>吸金穩贏 APP v52 50+100+150同時生成版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -502,6 +502,27 @@
     }
     .input-collapse-body { padding: 0 12px 12px; }
     .input-collapse-body.collapsed { display: none; }
+    .backtest-section-title {
+      margin: 14px 0 10px;
+      padding: 9px 12px;
+      border-radius: 12px;
+      background: rgba(245,158,11,.14);
+      border: 1px solid rgba(245,158,11,.42);
+      color: #fcd34d;
+      font-weight: 900;
+      letter-spacing: .5px;
+    }
+    .backtest-label-badge {
+      display:inline-block;
+      margin-left:8px;
+      padding:3px 8px;
+      border-radius:999px;
+      background:rgba(245,158,11,.18);
+      border:1px solid rgba(245,158,11,.48);
+      color:#fcd34d;
+      font-size:12px;
+      font-weight:900;
+    }
 
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
@@ -512,14 +533,14 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜結構優化不卡版＋分欄致命倒牌分析</div>
+    <div class="title">吸金穩贏 APP｜結構優化不卡版＋50+100+150同時生成</div>
     <div class="sub">
       貼上近百期開獎號碼或使用彩種資料庫後，工具會做兩件事：<br>
       1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
       2. 同時產生相同組數的 <b>大小、單雙平均分配</b> 隨機立柱作對照。<br>
       3. 額外新增 <b>反指標排行立柱</b>：不看勝率，只排行「連續倒」，最新一期必須倒，且連倒期數不設上限。<br>
       4. 額外提供候選號碼排行與核心分析，方便你自行判斷。<br>
-      本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。<br>v36 勝率硬鎖延續版：以你提供的 v34 為底稿修改。AI最佳 / 防穿透在推薦區先強制篩選百期未過關 ≤3，若無才放寬 ≤4，再無才放寬 ≤5；在合格池內再套用四期倒覆蓋、近5期倒數、低重複率與結構平衡懲罰。高過關爆發完全隔離，不套用 AI / 防穿透的新條件。
+      本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。<br>v54 移至推薦區不跳頁版：50+100+150 模式會各自完整列出，不再合併成各類 5 組。AI最佳 / 防穿透在推薦區先強制篩選百期未過關 ≤3，若無才放寬 ≤4，再無才放寬 ≤5；在合格池內再套用四期倒覆蓋、近5期倒數、低重複率與結構平衡懲罰。高過關爆發完全隔離，不套用 AI / 防穿透的新條件。
     </div>
 
     <div class="grid">
@@ -528,7 +549,7 @@
           <div class="section-title">彩種資料庫</div>
           <div class="db-row">
             <div><div class="field-label">彩種模式</div><select id="gameMode" class="db-select"><option value="539">539</option><option value="dayday">天天樂</option></select></div>
-            <div><div class="field-label">生成立柱參考期數</div><select id="backtestLimit" class="db-select"><option value="50">50期</option><option value="100" selected>100期</option><option value="150">150期</option><option value="200">200期</option><option value="250">250期</option><option value="300">300期</option><option value="all">全部</option></select></div>
+            <div><div class="field-label">生成立柱參考期數</div><select id="backtestLimit" class="db-select"><option value="50">50期</option><option value="100" selected>100期</option><option value="150">150期</option><option value="multi_50_100_150">50+100+150 同時生成</option><option value="200">200期</option><option value="250">250期</option><option value="300">300期</option><option value="all">全部</option></select></div>
             <div><div class="field-label">新增日期 / 期別備註</div><input id="newDrawDate" class="db-input" placeholder="例：2026/04/27 或 114000001" /></div>
             <div><div class="field-label">新增開獎號碼</div><input id="newDrawNums" class="db-input" placeholder="例：01 05 06 20 34" /></div>
           </div>
@@ -1521,13 +1542,19 @@
 
   function buildMultiResultHTML(items, prefix, removeMode = false, copyType = '') {
     if (!items || !items.length) return '尚未產生。';
-    return items.map((item, idx) => `
+    let lastSection = '';
+    return items.map((item, idx) => {
+      const label = item.sourceBacktestLabel || '';
+      const showSection = label && label !== lastSection;
+      if (showSection) lastSection = label;
+      return `
+      ${showSection ? `<div class="backtest-section-title">${prefix}｜${label} 生成結果</div>` : ''}
       <div class="pillar" style="margin-bottom:12px;">
         <div class="pillar-title" style="display:flex; flex-direction:column; gap:6px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span>${prefix} 第 ${idx + 1} 組</span>
+            <span>${prefix} 第 ${idx + 1} 組${label ? `<span class="backtest-label-badge">${label}</span>` : ''}</span>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button class="btn btn-primary move-to-recommend-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-source-label="${prefix}" style="padding:6px 10px; font-size:13px; width:auto;">移至推薦區</button>
+              <button class="btn btn-primary move-to-recommend-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-source-label="${prefix}${label ? '｜' + label : ''}" style="padding:6px 10px; font-size:13px; width:auto;">移至推薦區</button>
               <button class="btn btn-secondary single-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">只複製這一組</button>
             </div>
           </div>
@@ -1548,8 +1575,8 @@
 
         </div>
         ${buildResultHTML(`${prefix} 第 ${idx + 1} 組`, item.groups, item.stats, removeMode ? item : null, item.rankingCount ? item : null)}
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   }
 
   function summarizeCollection(items) {
@@ -3671,7 +3698,47 @@
     // 生成與回測仍會在欄位空白時自動讀取目前彩種資料庫，避免誤按「匯入」覆蓋資料庫。
     drawInput.value = '';
   }
-  function getBacktestDraws() { const rawDraws = parseDraws(getActiveDrawText()); const selected = backtestLimit.value; if (selected === 'all') return rawDraws; return rawDraws.slice(0, Number(selected) || 100); }
+  function isMultiBacktestMode() { return backtestLimit && backtestLimit.value === 'multi_50_100_150'; }
+  function getBacktestLimitLabel() {
+    const selected = backtestLimit.value;
+    if (selected === 'all') return '全部';
+    if (selected === 'multi_50_100_150') return '50+100+150 同時生成';
+    return `${Number(selected) || 100}期`;
+  }
+  function getBacktestDraws() {
+    const rawDraws = parseDraws(getActiveDrawText());
+    const selected = backtestLimit.value;
+    if (selected === 'all') return rawDraws;
+    if (selected === 'multi_50_100_150') return rawDraws.slice(0, Math.min(150, rawDraws.length));
+    return rawDraws.slice(0, Number(selected) || 100);
+  }
+  function getGenerationDrawSets() {
+    const rawDraws = parseDraws(getActiveDrawText());
+    if (!isMultiBacktestMode()) return [{ label: getBacktestLimitLabel(), limit: getBacktestDraws().length, draws: getBacktestDraws() }];
+    return [50, 100, 150]
+      .filter(limit => rawDraws.length >= limit)
+      .map(limit => ({ label: `${limit}期`, limit, draws: rawDraws.slice(0, limit) }));
+  }
+  function retestItemsOnJudgeDraws(items, judgeDraws, sourceLabel = '') {
+    return (items || []).map(item => ({
+      ...item,
+      groups: cloneGroups(item.groups),
+      stats: evaluate(item.groups, judgeDraws),
+      sourceBacktestLabel: sourceLabel || item.sourceBacktestLabel || ''
+    }));
+  }
+  function uniqueTopByGroups(items, limit, comparator) {
+    const seen = new Set();
+    const out = [];
+    for (const item of (items || []).sort(comparator)) {
+      const key = exportText(item.groups);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
 
   function renderDrawDb() {
     const mode = currentGameMode();
@@ -3836,7 +3903,7 @@
   }
 
   gameMode.addEventListener('change', () => applyGameMode(gameMode.value));
-  backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; log(`已切換生成立柱參考期數：${backtestLimit.value === 'all' ? '全部' : backtestLimit.value + '期'}，目前可用 ${getBacktestDraws().length} 期。`); });
+  backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
   addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error('請輸入 5 個 01~39 的號碼。'); addRecordToDb(nums, newDrawDate.value, currentGameMode(), true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', importTextareaToCurrentDb);
   copyDbBackupBtn.addEventListener('click', copyDatabaseBackup);
@@ -3870,6 +3937,76 @@
     ].join('\n');
   });
 
+
+  function tagItemsWithBacktestLabel(items, sourceLabel = '') {
+    return (items || []).map(item => ({
+      ...item,
+      groups: cloneGroups(item.groups),
+      stats: { ...(item.stats || {}) },
+      sourceBacktestLabel: sourceLabel || item.sourceBacktestLabel || ''
+    }));
+  }
+
+  async function buildTopAiGroupsForSelectedMode(judgeDraws, wantedGroups) {
+    if (!isMultiBacktestMode()) return buildTopAiGroups(judgeDraws, wantedGroups);
+    let combined = [];
+    for (const set of getGenerationDrawSets()) {
+      log(`50+100+150 完整顯示：開始 AI 最佳立柱 ${set.label}，預計顯示 ${wantedGroups} 組。`);
+      const items = await buildTopAiGroups(set.draws, wantedGroups);
+      combined = combined.concat(tagItemsWithBacktestLabel(items, set.label));
+      await new Promise(requestAnimationFrame);
+    }
+    return combined;
+  }
+
+  async function buildTopAntiGroupsForSelectedMode(judgeDraws, candidateScoreData, wantedGroups) {
+    if (!isMultiBacktestMode()) return buildTopAntiGroups(judgeDraws, candidateScoreData, wantedGroups);
+    let combined = [];
+    for (const set of getGenerationDrawSets()) {
+      log(`50+100+150 完整顯示：開始防穿透立柱 ${set.label}，預計顯示 ${wantedGroups} 組。`);
+      const localCandidateScoreData = buildCandidateScoreRanking(set.draws, parseCandidateShares(candidateInput.value).counts);
+      const items = await buildTopAntiGroups(set.draws, localCandidateScoreData, wantedGroups);
+      combined = combined.concat(tagItemsWithBacktestLabel(items, set.label));
+      await new Promise(requestAnimationFrame);
+    }
+    return combined;
+  }
+
+  async function buildTopHighPassGroupsForSelectedMode(judgeDraws, wantedGroups, aiItems) {
+    if (!isMultiBacktestMode()) return buildTopHighPassGroups(judgeDraws, wantedGroups, aiItems);
+    let combined = [];
+    for (const set of getGenerationDrawSets()) {
+      log(`50+100+150 完整顯示：開始高過關爆發立柱 ${set.label}，預計顯示 ${wantedGroups} 組。`);
+      const localAiSeeds = (aiItems || []).filter(item => !item.sourceBacktestLabel || item.sourceBacktestLabel === set.label);
+      const items = await buildTopHighPassGroups(set.draws, wantedGroups, localAiSeeds);
+      combined = combined.concat(tagItemsWithBacktestLabel(items, set.label));
+      await new Promise(requestAnimationFrame);
+    }
+    return combined;
+  }
+
+  async function buildTopReverseGroupsForSelectedMode(judgeDraws, wantedGroups) {
+    if (!isMultiBacktestMode()) return buildTopReverseGroups(judgeDraws, wantedGroups);
+    let combined = [];
+    for (const set of getGenerationDrawSets()) {
+      log(`50+100+150 完整顯示：開始反指標排行立柱 ${set.label}，預計顯示 ${wantedGroups} 組。`);
+      const items = await buildTopReverseGroups(set.draws, wantedGroups);
+      combined = combined.concat(tagItemsWithBacktestLabel(items, set.label));
+      await new Promise(requestAnimationFrame);
+    }
+    return combined;
+  }
+
+  function buildTopRandomGroupsForSelectedMode(judgeDraws, wantedGroups) {
+    if (!isMultiBacktestMode()) return buildTopRandomGroups(judgeDraws, wantedGroups);
+    let combined = [];
+    for (const set of getGenerationDrawSets()) {
+      const items = buildTopRandomGroups(set.draws, wantedGroups);
+      combined = combined.concat(tagItemsWithBacktestLabel(items, set.label));
+    }
+    return combined;
+  }
+
   async function run() {
     const activeDrawText = getActiveDrawText();
     const allDraws = parseDraws(activeDrawText);
@@ -3888,11 +4025,12 @@
     currentRunSignature = seedText;
     setRunSeed(seedText);
     resetLog();
-    log(`目前彩種：${gameLabel(currentGameMode())}。資料庫/欄位共 ${allDraws.length} 期，本次生成立柱參考 ${draws.length} 期。`);
+    log(`目前彩種：${gameLabel(currentGameMode())}。資料庫/欄位共 ${allDraws.length} 期，本次生成立柱參考：${getBacktestLimitLabel()}；判斷基準 ${draws.length} 期。`);
+    if (isMultiBacktestMode()) log(`50+100+150 同時生成已啟用：會分別用 50期、100期、150期各自生成，並全部分區顯示。`);
     log('本次啟用 v30 深度固定搜尋：同一份資料會用固定種子逐類深度分析，清除鎖定後重新生成也會回到同一套嚴格結果。');
     log(`已讀取多人分享不出牌 ${shareData.rows} 行。`);
     log(`已讀取多人分享推薦號碼 ${candidateShareData.rows} 行。`);
-    log(`本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組防穿透立柱、${wantedGroups} 組高過關爆發立柱、${wantedGroups} 組反指標排行立柱、${wantedGroups} 組隨機立柱。`);
+    log(isMultiBacktestMode() ? `本次將在 50期 / 100期 / 150期各生成 ${wantedGroups} 組；每一類最多顯示 ${wantedGroups * getGenerationDrawSets().length} 組。` : `本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組防穿透立柱、${wantedGroups} 組高過關爆發立柱、${wantedGroups} 組反指標排行立柱、${wantedGroups} 組隨機立柱。`);
     log('v30 深度固定搜尋版已啟動：AI / 防穿透會繼續搜尋並和舊鎖定池合併；高爆發完全使用原始高爆發排序隔離鎖定，不套用連倒條件。');
 
     aiResult.innerHTML = 'AI 計算中...';
@@ -3910,28 +4048,46 @@
       lastCandidateScoreData = candidateScoreData;
 
       log('開始產生 AI 最佳立柱，並與歷史鎖定池合併...（v30 會拉長分析時間，請等它跑完）');
-      const freshAI = await buildTopAiGroups(draws, wantedGroups);
-      lockTypeItems('ai', freshAI, draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
-      lastAI = getLockedTypeItems('ai', draws, wantedGroups, candidateInput.value, noDrawInput.value);
-      const recommendAI = getLockedTypeItems('ai', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+      const freshAI = await buildTopAiGroupsForSelectedMode(draws, wantedGroups);
+      let recommendAI = [];
+      if (isMultiBacktestMode()) {
+        lastAI = freshAI;
+        recommendAI = freshAI;
+      } else {
+        lockTypeItems('ai', freshAI, draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+        lastAI = getLockedTypeItems('ai', draws, wantedGroups, candidateInput.value, noDrawInput.value);
+        recommendAI = getLockedTypeItems('ai', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+      }
       aiResult.innerHTML = buildMultiResultHTML(lastAI, 'AI 最佳立柱', false, 'ai');
       log(`AI 最佳立柱完成，共顯示 ${lastAI.length} 組；推薦池累積 ${recommendAI.length} 組。最佳整體過關率 ${(lastAI[0].stats.passRate * 100).toFixed(2)}%。`);
 
 
       log('開始產生防穿透立柱，並與歷史鎖定池合併...（v30 會逐個深度比較）');
-      const freshAnti = await buildTopAntiGroups(draws, candidateScoreData, wantedGroups);
-      lockTypeItems('anti', freshAnti, draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
-      lastAnti = getLockedTypeItems('anti', draws, wantedGroups, candidateInput.value, noDrawInput.value);
-      const recommendAnti = getLockedTypeItems('anti', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+      const freshAnti = await buildTopAntiGroupsForSelectedMode(draws, candidateScoreData, wantedGroups);
+      let recommendAnti = [];
+      if (isMultiBacktestMode()) {
+        lastAnti = freshAnti;
+        recommendAnti = freshAnti;
+      } else {
+        lockTypeItems('anti', freshAnti, draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+        lastAnti = getLockedTypeItems('anti', draws, wantedGroups, candidateInput.value, noDrawInput.value);
+        recommendAnti = getLockedTypeItems('anti', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+      }
       antiResult.innerHTML = buildMultiResultHTML(lastAnti, '防穿透立柱', false, 'anti');
       const antiFirst = lastAnti[0];
       log(`防穿透立柱完成，共 ${lastAnti.length} 組。最佳整體過關率 ${(antiFirst.stats.passRate * 100).toFixed(2)}%，同柱重疊 ${(samePillarOverlapRate(antiFirst.groups, lastAI[0].groups) * 100).toFixed(2)}%。`);
 
       log('開始產生高過關爆發立柱，並與歷史鎖定池合併...');
-      const freshHighPass = await buildTopHighPassGroups(draws, wantedGroups, lastAI);
-      lockTypeItems('highpass', freshHighPass, draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
-      lastHighPass = getLockedTypeItems('highpass', draws, wantedGroups, candidateInput.value, noDrawInput.value);
-      const recommendHighPass = getLockedTypeItems('highpass', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+      const freshHighPass = await buildTopHighPassGroupsForSelectedMode(draws, wantedGroups, lastAI);
+      let recommendHighPass = [];
+      if (isMultiBacktestMode()) {
+        lastHighPass = freshHighPass;
+        recommendHighPass = freshHighPass;
+      } else {
+        lockTypeItems('highpass', freshHighPass, draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+        lastHighPass = getLockedTypeItems('highpass', draws, wantedGroups, candidateInput.value, noDrawInput.value);
+        recommendHighPass = getLockedTypeItems('highpass', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+      }
       if (lastHighPass.length) {
         highPassResult.innerHTML = buildMultiResultHTML(lastHighPass, '高過關爆發立柱', false, 'highpass');
         const highPassFirst = lastHighPass[0];
@@ -3942,7 +4098,7 @@
       }
 
       log('開始產生反指標排行立柱（不看勝率，最新一期必須倒，依連續倒排行）...');
-      lastReverse = await buildTopReverseGroups(draws, wantedGroups);
+      lastReverse = await buildTopReverseGroupsForSelectedMode(draws, wantedGroups);
       if (lastReverse.length) {
         reverseResult.innerHTML = buildMultiResultHTML(lastReverse, '反指標排行立柱', false, 'reverse');
         log(`反指標排行立柱完成，共 ${lastReverse.length} 組。最高連倒 ${lastReverse[0].stats.latestDownStreak || 0} 期，近5期倒 ${lastReverse[0].stats.recent5Down || 0}/5。`);
@@ -3952,7 +4108,7 @@
       }
 
       log('開始產生隨機平衡立柱...');
-      lastRandom = buildTopRandomGroups(draws, wantedGroups);
+      lastRandom = buildTopRandomGroupsForSelectedMode(draws, wantedGroups);
       randomResult.innerHTML = buildMultiResultHTML(lastRandom, '隨機平衡立柱', false, 'random');
       log(`隨機平衡立柱完成，共 ${lastRandom.length} 組。最佳整體過關率 ${(lastRandom[0].stats.passRate * 100).toFixed(2)}%。`);
 
@@ -4176,9 +4332,11 @@
       sourceLabel: sourceLabel || sourceTypeLabel(copyType),
       manualKey: key
     });
+    const savedScrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+    const savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     refreshRecommendArea();
     log(`已將 ${sourceLabel || sourceTypeLabel(copyType)} 第 ${index + 1} 組移至上方推薦區手動比較。`);
-    recommendResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() => window.scrollTo(savedScrollX, savedScrollY));
   }
 
   document.addEventListener('click', async (e) => {
