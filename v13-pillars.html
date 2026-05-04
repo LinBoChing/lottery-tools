@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v55 七日財運盈虧試算表版</title>
+  <title>吸金穩贏 APP v57 七日財運盈虧直輸版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -540,8 +540,24 @@
     .weekly-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
     .weekly-summary-box { background: #0b1220; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; color: #cbd5e1; font-size: 14px; }
     .weekly-summary-box b { font-size: 18px; }
-    .weekly-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+    .weekly-summary-title { color: var(--muted); font-size: 13px; font-weight: 800; margin-bottom: 6px; }
+    .weekly-summary-input { width: 100%; background: #020617; color: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 20px; font-weight: 900; text-align: center; }
+    .weekly-summary-input.weekly-profit { color:#86efac; }
+    .weekly-summary-input.weekly-loss { color:#fca5a5; }
+    .weekly-summary-input.weekly-zero { color:#cbd5e1; }
+    .weekly-mini-total { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .weekly-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
     .weekly-actions .btn { width: auto; }
+    .weekly-input-panel { display: none; margin-top: 10px; }
+    .weekly-input-panel.open { display: block; }
+    .weekly-today-note { color:#fcd34d; font-size:13px; line-height:1.6; margin:8px 0 10px; font-weight:800; }
+    .weekly-hidden-row { display:none; }
+    .weekly-table-wrap.weekly-today-only tbody tr:not(.weekly-today-row) { display:none; }
+    .db-backup-area.collapsed .db-backup-body { display:none; }
+    .db-backup-head { display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+    .db-backup-head .field-label { margin-bottom:0; }
+    .db-backup-body { margin-top:8px; }
+    .db-backup-toggle { width:auto; padding:7px 11px; font-size:13px; border-radius:10px; white-space:nowrap; }
 
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
@@ -552,7 +568,7 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜七日財運盈虧試算表版</div>
+    <div class="title">吸金穩贏 APP｜七日財運盈虧直輸版</div>
     <div class="sub">
       七日財運盈虧試算表：你只要自己輸入每次下注的輸贏金額，系統會自動加總早場、晚場、每日小計與整週總損益。<br>
       <b>資料保存說明：</b>本試算表會存在這台裝置的瀏覽器 localStorage，只要不按「清除試算表」按鈕，關閉或重啟網頁後資料都會保留，不會自動重製。
@@ -560,35 +576,50 @@
 
     <div class="card weekly-calc-card">
       <div class="section-title">七日財運盈虧試算表</div>
-      <div class="weekly-note">輸入方式：贏錢填正數，例如 5000；輸錢填負數，例如 -1000。每一格輸入後會自動保存。</div>
-      <div class="weekly-table-wrap">
-        <table class="weekly-table">
-          <thead>
-            <tr>
-              <th>天數</th>
-              <th>早場輸贏</th>
-              <th>晚場輸贏</th>
-              <th>當日小計</th>
-            </tr>
-          </thead>
-          <tbody id="weeklyCalcBody"></tbody>
-          <tfoot>
-            <tr>
-              <th>合計</th>
-              <th id="weeklyMorningTotal">0</th>
-              <th id="weeklyNightTotal">0</th>
-              <th id="weeklyGrandTotal">0</th>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <div class="weekly-note">不用再先展開今日輸入；直接在上方輸入今天早場 / 晚場輸贏金額即可。贏錢填正數，例如 5000；輸錢填負數，例如 -1000。</div>
       <div class="weekly-summary-grid">
-        <div class="weekly-summary-box">早場合計：<b id="weeklyMorningSummary">0</b></div>
-        <div class="weekly-summary-box">晚場合計：<b id="weeklyNightSummary">0</b></div>
-        <div class="weekly-summary-box">整週總損益：<b id="weeklyGrandSummary">0</b></div>
+        <div class="weekly-summary-box">
+          <div class="weekly-summary-title" id="weeklyTodayMorningLabel">今日早場輸贏</div>
+          <input id="weeklyTodayMorningInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
+          <div class="weekly-mini-total">早場合計：<b id="weeklyMorningSummary">0</b></div>
+        </div>
+        <div class="weekly-summary-box">
+          <div class="weekly-summary-title" id="weeklyTodayNightLabel">今日晚場輸贏</div>
+          <input id="weeklyTodayNightInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
+          <div class="weekly-mini-total">晚場合計：<b id="weeklyNightSummary">0</b></div>
+        </div>
+        <div class="weekly-summary-box">
+          整週總損益：<br><b id="weeklyGrandSummary">0</b>
+          <div class="weekly-mini-total">今日輸入會自動保存；不按清除就不會重置。</div>
+        </div>
       </div>
       <div class="weekly-actions">
+        <button class="btn btn-dark" id="toggleWeeklyAllBtn" type="button">展開整週明細</button>
         <button class="btn btn-dark" id="clearWeeklyCalcBtn" type="button">清除試算表</button>
+      </div>
+      <div class="weekly-input-panel" id="weeklyInputPanel">
+        <div class="weekly-today-note" id="weeklyTodayNote">整週明細預設收起。</div>
+        <div class="weekly-table-wrap" id="weeklyTableWrap">
+          <table class="weekly-table">
+            <thead>
+              <tr>
+                <th>天數</th>
+                <th>早場輸贏</th>
+                <th>晚場輸贏</th>
+                <th>當日小計</th>
+              </tr>
+            </thead>
+            <tbody id="weeklyCalcBody"></tbody>
+            <tfoot>
+              <tr>
+                <th>合計</th>
+                <th id="weeklyMorningTotal">0</th>
+                <th id="weeklyNightTotal">0</th>
+                <th id="weeklyGrandTotal">0</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -616,10 +647,15 @@
             <div class="db-chip">最新一期：<b id="dbLatest">尚無資料</b></div>
           </div>
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
-          <div class="db-backup-area">
-            <div class="field-label">資料庫備份貼上區</div>
-            <textarea id="dbBackupText" class="db-backup-textarea" placeholder="按「複製目前彩種百期格式」會輸出像百期開獎號碼一樣的純文字；可先貼到 LINE 備份，日後複製回新版的百期欄位，再按「把下方貼上資料匯入目前彩種」。"></textarea>
-            <div class="db-mini">備份格式改為純文字：每行 5 個開獎號碼，第 1 行仍是最新一期；貼到 LINE 不會像亂碼。要備份 539 與天天樂時，請先切換彩種後各複製一次。</div>
+          <div class="db-backup-area collapsed" id="dbBackupArea">
+            <div class="db-backup-head" id="dbBackupHead">
+              <div class="field-label">資料庫備份貼上區</div>
+              <button class="btn btn-dark db-backup-toggle" id="toggleDbBackupBtn" type="button">展開</button>
+            </div>
+            <div class="db-backup-body" id="dbBackupBody">
+              <textarea id="dbBackupText" class="db-backup-textarea" placeholder="按「複製目前彩種百期格式」會輸出像百期開獎號碼一樣的純文字；可先貼到 LINE 備份，日後複製回新版的百期欄位，再按「把下方貼上資料匯入目前彩種」。"></textarea>
+              <div class="db-mini">備份格式改為純文字：每行 5 個開獎號碼，第 1 行仍是最新一期；貼到 LINE 不會像亂碼。要備份 539 與天天樂時，請先切換彩種後各複製一次。</div>
+            </div>
           </div>
           <div class="db-table-wrap" id="dbTableWrap"><table class="db-table"><thead><tr><th>序</th><th>日期 / 期別</th><th>開獎號碼</th><th>操作</th></tr></thead><tbody id="dbTableBody"><tr><td colspan="4">尚無資料</td></tr></tbody></table></div>
         </div>
@@ -849,10 +885,27 @@
   const weeklyMorningSummary = document.getElementById('weeklyMorningSummary');
   const weeklyNightSummary = document.getElementById('weeklyNightSummary');
   const weeklyGrandSummary = document.getElementById('weeklyGrandSummary');
+  const weeklyTodayMorningInput = document.getElementById('weeklyTodayMorningInput');
+  const weeklyTodayNightInput = document.getElementById('weeklyTodayNightInput');
+  const weeklyTodayMorningLabel = document.getElementById('weeklyTodayMorningLabel');
+  const weeklyTodayNightLabel = document.getElementById('weeklyTodayNightLabel');
+  const weeklyInputPanel = document.getElementById('weeklyInputPanel');
+  const weeklyTableWrap = document.getElementById('weeklyTableWrap');
+  const weeklyTodayNote = document.getElementById('weeklyTodayNote');
+  const toggleWeeklyAllBtn = document.getElementById('toggleWeeklyAllBtn');
+  const dbBackupArea = document.getElementById('dbBackupArea');
+  const dbBackupHead = document.getElementById('dbBackupHead');
+  const toggleDbBackupBtn = document.getElementById('toggleDbBackupBtn');
 
 
   const WEEKLY_CALC_STORAGE_KEY = 'weekly_am_pm_profit_calc_v1';
   const WEEKLY_DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+  let weeklyShowAll = false;
+
+  function getTodayWeeklyIndex() {
+    const jsDay = new Date().getDay(); // 0=週日, 1=週一
+    return jsDay === 0 ? 6 : jsDay - 1;
+  }
 
   function parseMoneyValue(value) {
     const n = Number(String(value || '').replace(/,/g, '').trim());
@@ -889,15 +942,25 @@
   function renderWeeklyCalcTable() {
     if (!weeklyCalcBody) return;
     const data = loadWeeklyCalcData();
+    const todayIdx = getTodayWeeklyIndex();
     weeklyCalcBody.innerHTML = WEEKLY_DAYS.map((day, idx) => `
-      <tr>
-        <th>${day}</th>
+      <tr class="${idx === todayIdx ? 'weekly-today-row' : ''}">
+        <th>${day}${idx === todayIdx ? '（今天）' : ''}</th>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="morning" placeholder="0" value="${data[idx].morning}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="night" placeholder="0" value="${data[idx].night}"></td>
         <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
       </tr>
     `).join('');
+    if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${WEEKLY_DAYS[todayIdx]}早場輸贏`;
+    if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${WEEKLY_DAYS[todayIdx]}晚場輸贏`;
+    if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${WEEKLY_DAYS[todayIdx]}。`;
+    applyWeeklyViewMode();
     updateWeeklyCalcTotals();
+  }
+
+  function applyWeeklyViewMode() {
+    if (weeklyInputPanel) weeklyInputPanel.classList.toggle('open', weeklyShowAll);
+    if (toggleWeeklyAllBtn) toggleWeeklyAllBtn.textContent = weeklyShowAll ? '收起整週明細' : '展開整週明細';
   }
 
   function updateWeeklyCalcTotals() {
@@ -916,6 +979,11 @@
         cell.className = `weekly-day-total ${moneyClass(dayTotal)}`;
       }
     });
+    const todayIdx = getTodayWeeklyIndex();
+    if (weeklyTodayMorningInput && document.activeElement !== weeklyTodayMorningInput) weeklyTodayMorningInput.value = data[todayIdx]?.morning || '';
+    if (weeklyTodayNightInput && document.activeElement !== weeklyTodayNightInput) weeklyTodayNightInput.value = data[todayIdx]?.night || '';
+    if (weeklyTodayMorningInput) weeklyTodayMorningInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.morning))}`;
+    if (weeklyTodayNightInput) weeklyTodayNightInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.night))}`;
     const grandTotal = morningTotal + nightTotal;
     const pairs = [
       [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyGrandTotal, grandTotal],
@@ -942,6 +1010,29 @@
         updateWeeklyCalcTotals();
       }
     });
+    function saveTodaySummaryInput(field, value) {
+      const day = getTodayWeeklyIndex();
+      const data = loadWeeklyCalcData();
+      if (data[day]) {
+        data[day][field] = value;
+        saveWeeklyCalcData(data);
+        const detailInput = weeklyCalcBody.querySelector(`.weekly-input[data-weekly-day="${day}"][data-weekly-field="${field}"]`);
+        if (detailInput && detailInput !== document.activeElement) detailInput.value = value;
+        updateWeeklyCalcTotals();
+      }
+    }
+    if (weeklyTodayMorningInput) {
+      weeklyTodayMorningInput.addEventListener('input', () => saveTodaySummaryInput('morning', weeklyTodayMorningInput.value));
+    }
+    if (weeklyTodayNightInput) {
+      weeklyTodayNightInput.addEventListener('input', () => saveTodaySummaryInput('night', weeklyTodayNightInput.value));
+    }
+    if (toggleWeeklyAllBtn) {
+      toggleWeeklyAllBtn.addEventListener('click', () => {
+        weeklyShowAll = !weeklyShowAll;
+        applyWeeklyViewMode();
+      });
+    }
     if (clearWeeklyCalcBtn) {
       clearWeeklyCalcBtn.addEventListener('click', () => {
         if (!confirm('確定要清除七日財運盈虧試算表嗎？')) return;
@@ -4499,6 +4590,19 @@
 
   renderWeeklyCalcTable();
   bindWeeklyCalcEvents();
+
+  function setDbBackupCollapsed(collapsed) {
+    if (!dbBackupArea) return;
+    dbBackupArea.classList.toggle('collapsed', collapsed);
+    if (toggleDbBackupBtn) toggleDbBackupBtn.textContent = collapsed ? '展開' : '收起';
+  }
+
+  if (dbBackupHead) {
+    dbBackupHead.addEventListener('click', (e) => {
+      e.preventDefault();
+      setDbBackupCollapsed(!dbBackupArea.classList.contains('collapsed'));
+    });
+  }
 
   document.addEventListener('click', async (e) => {
     const collapseTargetEl = e.target.closest('[data-collapse-target]');
