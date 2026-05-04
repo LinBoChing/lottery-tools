@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v52 50+100+150同時生成版</title>
+  <title>吸金穩贏 APP v55 七日財運盈虧試算表版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -524,23 +524,72 @@
       font-weight:900;
     }
 
+
+    .weekly-calc-card { margin-bottom: 16px; }
+    .weekly-note { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 10px; }
+    .weekly-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; }
+    .weekly-table { width: 100%; border-collapse: collapse; background: #020617; font-size: 15px; }
+    .weekly-table th, .weekly-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: center; white-space: nowrap; }
+    .weekly-table th { color: var(--muted); background: #0b1220; font-weight: 800; }
+    .weekly-table tfoot th { color: #f8fafc; background: rgba(34,197,94,.12); }
+    .weekly-input { width: 100%; min-width: 110px; background: #0b1220; color: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-size: 15px; text-align: center; }
+    .weekly-day-total, .weekly-money { font-weight: 900; }
+    .weekly-profit { color: #86efac; }
+    .weekly-loss { color: #fca5a5; }
+    .weekly-zero { color: #cbd5e1; }
+    .weekly-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .weekly-summary-box { background: #0b1220; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; color: #cbd5e1; font-size: 14px; }
+    .weekly-summary-box b { font-size: 18px; }
+    .weekly-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+    .weekly-actions .btn { width: auto; }
+
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
       .controls, .stat-grid { grid-template-columns: 1fr; }
-      .db-row, .db-row-compact, .db-summary { grid-template-columns: 1fr; }
+      .db-row, .db-row-compact, .db-summary, .weekly-summary-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜結構優化不卡版＋50+100+150同時生成</div>
+    <div class="title">吸金穩贏 APP｜七日財運盈虧試算表版</div>
     <div class="sub">
-      貼上近百期開獎號碼或使用彩種資料庫後，工具會做兩件事：<br>
-      1. 可自訂一次產生 <b>1~5 組</b> AI 計算整體過關率最高的 10-14-15 立柱。<br>
-      2. 同時產生相同組數的 <b>大小、單雙平均分配</b> 隨機立柱作對照。<br>
-      3. 額外新增 <b>反指標排行立柱</b>：不看勝率，只排行「連續倒」，最新一期必須倒，且連倒期數不設上限。<br>
-      4. 額外提供候選號碼排行與核心分析，方便你自行判斷。<br>
-      本工具的「過關」定義為：<b>當期開出的 5 個號碼，三柱都至少中 1 個號碼</b>。<br>v54 移至推薦區不跳頁版：50+100+150 模式會各自完整列出，不再合併成各類 5 組。AI最佳 / 防穿透在推薦區先強制篩選百期未過關 ≤3，若無才放寬 ≤4，再無才放寬 ≤5；在合格池內再套用四期倒覆蓋、近5期倒數、低重複率與結構平衡懲罰。高過關爆發完全隔離，不套用 AI / 防穿透的新條件。
+      七日財運盈虧試算表：你只要自己輸入每次下注的輸贏金額，系統會自動加總早場、晚場、每日小計與整週總損益。<br>
+      <b>資料保存說明：</b>本試算表會存在這台裝置的瀏覽器 localStorage，只要不按「清除試算表」按鈕，關閉或重啟網頁後資料都會保留，不會自動重製。
+    </div>
+
+    <div class="card weekly-calc-card">
+      <div class="section-title">七日財運盈虧試算表</div>
+      <div class="weekly-note">輸入方式：贏錢填正數，例如 5000；輸錢填負數，例如 -1000。每一格輸入後會自動保存。</div>
+      <div class="weekly-table-wrap">
+        <table class="weekly-table">
+          <thead>
+            <tr>
+              <th>天數</th>
+              <th>早場輸贏</th>
+              <th>晚場輸贏</th>
+              <th>當日小計</th>
+            </tr>
+          </thead>
+          <tbody id="weeklyCalcBody"></tbody>
+          <tfoot>
+            <tr>
+              <th>合計</th>
+              <th id="weeklyMorningTotal">0</th>
+              <th id="weeklyNightTotal">0</th>
+              <th id="weeklyGrandTotal">0</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="weekly-summary-grid">
+        <div class="weekly-summary-box">早場合計：<b id="weeklyMorningSummary">0</b></div>
+        <div class="weekly-summary-box">晚場合計：<b id="weeklyNightSummary">0</b></div>
+        <div class="weekly-summary-box">整週總損益：<b id="weeklyGrandSummary">0</b></div>
+      </div>
+      <div class="weekly-actions">
+        <button class="btn btn-dark" id="clearWeeklyCalcBtn" type="button">清除試算表</button>
+      </div>
     </div>
 
     <div class="grid">
@@ -792,6 +841,115 @@
   const dbLatest = document.getElementById('dbLatest');
   const dbTableWrap = document.getElementById('dbTableWrap');
   const dbTableBody = document.getElementById('dbTableBody');
+  const weeklyCalcBody = document.getElementById('weeklyCalcBody');
+  const clearWeeklyCalcBtn = document.getElementById('clearWeeklyCalcBtn');
+  const weeklyMorningTotal = document.getElementById('weeklyMorningTotal');
+  const weeklyNightTotal = document.getElementById('weeklyNightTotal');
+  const weeklyGrandTotal = document.getElementById('weeklyGrandTotal');
+  const weeklyMorningSummary = document.getElementById('weeklyMorningSummary');
+  const weeklyNightSummary = document.getElementById('weeklyNightSummary');
+  const weeklyGrandSummary = document.getElementById('weeklyGrandSummary');
+
+
+  const WEEKLY_CALC_STORAGE_KEY = 'weekly_am_pm_profit_calc_v1';
+  const WEEKLY_DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+
+  function parseMoneyValue(value) {
+    const n = Number(String(value || '').replace(/,/g, '').trim());
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function formatMoneyValue(value) {
+    const n = Number(value) || 0;
+    return n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
+  }
+
+  function moneyClass(value) {
+    const n = Number(value) || 0;
+    if (n > 0) return 'weekly-profit';
+    if (n < 0) return 'weekly-loss';
+    return 'weekly-zero';
+  }
+
+  function loadWeeklyCalcData() {
+    try {
+      const raw = localStorage.getItem(WEEKLY_CALC_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed) && parsed.length === 7) {
+        return parsed.map(row => ({ morning: String(row.morning || ''), night: String(row.night || '') }));
+      }
+    } catch (err) {}
+    return WEEKLY_DAYS.map(() => ({ morning: '', night: '' }));
+  }
+
+  function saveWeeklyCalcData(data) {
+    try { localStorage.setItem(WEEKLY_CALC_STORAGE_KEY, JSON.stringify(data)); } catch (err) {}
+  }
+
+  function renderWeeklyCalcTable() {
+    if (!weeklyCalcBody) return;
+    const data = loadWeeklyCalcData();
+    weeklyCalcBody.innerHTML = WEEKLY_DAYS.map((day, idx) => `
+      <tr>
+        <th>${day}</th>
+        <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="morning" placeholder="0" value="${data[idx].morning}"></td>
+        <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="night" placeholder="0" value="${data[idx].night}"></td>
+        <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
+      </tr>
+    `).join('');
+    updateWeeklyCalcTotals();
+  }
+
+  function updateWeeklyCalcTotals() {
+    const data = loadWeeklyCalcData();
+    let morningTotal = 0;
+    let nightTotal = 0;
+    data.forEach((row, idx) => {
+      const morning = parseMoneyValue(row.morning);
+      const night = parseMoneyValue(row.night);
+      const dayTotal = morning + night;
+      morningTotal += morning;
+      nightTotal += night;
+      const cell = document.getElementById(`weeklyDayTotal${idx}`);
+      if (cell) {
+        cell.textContent = formatMoneyValue(dayTotal);
+        cell.className = `weekly-day-total ${moneyClass(dayTotal)}`;
+      }
+    });
+    const grandTotal = morningTotal + nightTotal;
+    const pairs = [
+      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyGrandTotal, grandTotal],
+      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyGrandSummary, grandTotal]
+    ];
+    pairs.forEach(([el, value]) => {
+      if (!el) return;
+      el.textContent = formatMoneyValue(value);
+      el.className = `weekly-money ${moneyClass(value)}`;
+    });
+  }
+
+  function bindWeeklyCalcEvents() {
+    if (!weeklyCalcBody) return;
+    weeklyCalcBody.addEventListener('input', (e) => {
+      const input = e.target.closest('.weekly-input');
+      if (!input) return;
+      const day = Number(input.dataset.weeklyDay);
+      const field = input.dataset.weeklyField;
+      const data = loadWeeklyCalcData();
+      if (Number.isInteger(day) && data[day] && (field === 'morning' || field === 'night')) {
+        data[day][field] = input.value;
+        saveWeeklyCalcData(data);
+        updateWeeklyCalcTotals();
+      }
+    });
+    if (clearWeeklyCalcBtn) {
+      clearWeeklyCalcBtn.addEventListener('click', () => {
+        if (!confirm('確定要清除七日財運盈虧試算表嗎？')) return;
+        try { localStorage.removeItem(WEEKLY_CALC_STORAGE_KEY); } catch (err) {}
+        renderWeeklyCalcTable();
+      });
+    }
+  }
 
   let lastAI = [];
   let lastAnti = [];
@@ -4338,6 +4496,9 @@
     log(`已將 ${sourceLabel || sourceTypeLabel(copyType)} 第 ${index + 1} 組移至上方推薦區手動比較。`);
     requestAnimationFrame(() => window.scrollTo(savedScrollX, savedScrollY));
   }
+
+  renderWeeklyCalcTable();
+  bindWeeklyCalcEvents();
 
   document.addEventListener('click', async (e) => {
     const collapseTargetEl = e.target.closest('[data-collapse-target]');
