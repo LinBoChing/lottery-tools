@@ -1049,6 +1049,8 @@
   let lastReverse = [];
   let lastRecommended = [];
   let manualRecommendItems = [];
+  let manualComboIndex = 0;
+  let manualActiveIndexes = [0, 1, 2];
   let manualProbabilityAnalysisHTML = '';
   let manualFatalRiskAnalysisHTML = '';
   let manualRiskCopyPayloads = {};
@@ -3261,6 +3263,144 @@
     return candidates.slice(0, 150);
   }
 
+  function resetManualAnalysisState(status = '') {
+    manualProbabilityAnalysisHTML = '';
+    manualFatalRiskAnalysisHTML = '';
+    bestComboAnalysisHTML = '';
+    manualTuneSuggestion = null;
+    manualTuneActive = false;
+    manualTuneStatus = status;
+  }
+
+  function manualItemTypeKey(item) {
+    // 同類型最多取一組：優先用來源類型，避免條件相同時複號太多。
+    return item && (item.sourceType || item.sourceLabel || 'manual');
+  }
+
+  function getManualComboWindows() {
+    const items = manualRecommendItems || [];
+    if (items.length < 3) return [];
+    const windows = [];
+    const seen = new Set();
+    const allTypeKeys = items.map(item => manualItemTypeKey(item));
+    const canEnforceTypeUnique = new Set(allTypeKeys).size >= 3;
+    for (let a = 0; a < items.length; a++) {
+      for (let b = 0; b < items.length; b++) {
+        if (b === a) continue;
+        for (let c = 0; c < items.length; c++) {
+          if (c === a || c === b) continue;
+          const indexes = [a, b, c];
+          const typeKeys = indexes.map(i => manualItemTypeKey(items[i]));
+          if (canEnforceTypeUnique && new Set(typeKeys).size !== typeKeys.length) continue;
+          const key = indexes.map(i => exportText(items[i].groups)).join('||');
+          if (seen.has(key)) continue;
+          seen.add(key);
+          windows.push({ indexes, items: indexes.map(i => items[i]) });
+        }
+      }
+    }
+    return windows;
+  }
+
+  function clampManualComboIndex() {
+    const combos = getManualComboWindows();
+    if (!combos.length) {
+      manualComboIndex = 0;
+      manualActiveIndexes = [0, 1, 2];
+      return null;
+    }
+    if (manualComboIndex < 0) manualComboIndex = combos.length - 1;
+    if (manualComboIndex >= combos.length) manualComboIndex = 0;
+    const combo = combos[manualComboIndex];
+    manualActiveIndexes = combo.indexes.slice();
+    return combo;
+  }
+
+  function getActiveManualItems() {
+    const combo = clampManualComboIndex();
+    return combo ? combo.items : [];
+  }
+
+  function manualComboStatusText() {
+    const combos = getManualComboWindows();
+    if (!combos.length) return '未滿 3 組，無法切換分析組合';
+    const combo = combos[Math.min(manualComboIndex, combos.length - 1)] || combos[0];
+    return `目前組合 ${manualComboIndex + 1}/${combos.length}｜分析手動第 ${combo.indexes.map(i => i + 1).join('、')} 組`;
+  }
+
+  function compareManualComboByNoLose(a, b, draws) {
+    if (!b) return -1;
+    const eps = 1e-12;
+    const aRate = a.noLoseStats.noLose / Math.max(1, a.noLoseStats.total);
+    const bRate = b.noLoseStats.noLose / Math.max(1, b.noLoseStats.total);
+    if (Math.abs(aRate - bRate) > eps) return bRate - aRate;
+    const aDown = a.noLoseStats.allLose / Math.max(1, a.noLoseStats.total);
+    const bDown = b.noLoseStats.allLose / Math.max(1, b.noLoseStats.total);
+    if (Math.abs(aDown - bDown) > eps) return aDown - bDown;
+    if (draws && draws.length) {
+      const aBack = a.backtestStats || calcThreeComboBacktestStats(a.combo.items, draws);
+      const bBack = b.backtestStats || calcThreeComboBacktestStats(b.combo.items, draws);
+      if (Math.abs(aBack.noLoseRate - bBack.noLoseRate) > eps) return bBack.noLoseRate - aBack.noLoseRate;
+      if (Math.abs(aBack.allDownRate - bBack.allDownRate) > eps) return aBack.allDownRate - bBack.allDownRate;
+      if (Math.abs(aBack.avgCrossOverlap - bBack.avgCrossOverlap) > eps) return aBack.avgCrossOverlap - bBack.avgCrossOverlap;
+    }
+    const aAvgPass = a.combo.items.reduce((sum, item) => sum + ((item.stats && item.stats.passRate) || 0), 0) / 3;
+    const bAvgPass = b.combo.items.reduce((sum, item) => sum + ((item.stats && item.stats.passRate) || 0), 0) / 3;
+    if (Math.abs(aAvgPass - bAvgPass) > eps) return bAvgPass - aAvgPass;
+    return a.combo.indexes.join('-').localeCompare(b.combo.indexes.join('-'));
+  }
+
+  function sortManualByBestSinglePassRate() {
+    if (!manualRecommendItems || manualRecommendItems.length < 3) {
+      alert('請先至少移入 3 組立柱到手動比較區。');
+      return;
+    }
+    const draws = parseDraws(getActiveDrawText());
+    if (!draws.length) {
+      alert('請先在資料庫或下方貼上欄位加入有效開獎號碼。');
+      return;
+    }
+    manualRecommendItems.forEach(item => {
+      if (item && item.groups) item.stats = evaluate(item.groups, draws);
+    });
+    const combos = getManualComboWindows();
+    if (!combos.length) {
+      alert('找不到符合「同類型最多取一組」的三組排列，請先移入不同類型的立柱。');
+      return;
+    }
+    let bestCombo = null;
+    combos.forEach(combo => {
+      const noLoseStats = calcThreeNoLoseStats(combo.items);
+      if (!noLoseStats) return;
+      const candidate = {
+        combo,
+        noLoseStats,
+        backtestStats: calcThreeComboBacktestStats(combo.items, draws)
+      };
+      if (compareManualComboByNoLose(candidate, bestCombo, draws) < 0) bestCombo = candidate;
+    });
+    if (!bestCombo) {
+      alert('最佳三組計算失敗，請確認手動移入區內的立柱資料。');
+      return;
+    }
+    const pickedSet = new Set(bestCombo.combo.indexes);
+    // 保留最佳排列順序，不再用單組 passRate 重新洗牌，避免看起來像隨機抽取。
+    const picked = bestCombo.combo.indexes.map(i => manualRecommendItems[i]);
+    const rest = manualRecommendItems
+      .map((item, idx) => ({ item, idx }))
+      .filter(x => !pickedSet.has(x.idx))
+      .sort((a, b) => ((b.item.stats && b.item.stats.passRate) || 0) - ((a.item.stats && a.item.stats.passRate) || 0) || a.idx - b.idx)
+      .map(x => x.item);
+    manualRecommendItems = picked.concat(rest);
+    manualComboIndex = 0;
+    const bestRateText = ((bestCombo.noLoseStats.noLose / bestCombo.noLoseStats.total) * 100).toFixed(2);
+    const bestDownText = ((bestCombo.noLoseStats.allLose / bestCombo.noLoseStats.total) * 100).toFixed(2);
+    const histText = bestCombo.backtestStats ? `｜歷史至少過1組 ${(bestCombo.backtestStats.noLoseRate * 100).toFixed(2)}%｜歷史全倒 ${(bestCombo.backtestStats.allDownRate * 100).toFixed(2)}%` : '';
+    resetManualAnalysisState(`已用全部 ${combos.length} 種有效排列，找出不微調前最佳三組並排到最上方｜不輸率 ${bestRateText}%｜全倒率 ${bestDownText}%${histText}`);
+    refreshRecommendArea();
+    log(`已完成手動移入區最佳三組排序：檢查 ${combos.length} 種有效排列，不微調前不輸率 ${bestRateText}%，全倒率 ${bestDownText}%。`);
+  }
+
   function makeTunePreviewItems(items, ops) {
     const preview = (items || []).slice(0, 3).map(item => ({
       ...item,
@@ -3286,11 +3426,12 @@
   }
 
   function findManualTuneSuggestion() {
-    if (!manualRecommendItems || manualRecommendItems.length < 3) return null;
+    const activeManualItems = getActiveManualItems();
+    if (!activeManualItems || activeManualItems.length < 3) return null;
 
     // v49：手機不卡版。
     // 只做結構優化判斷，不再對每個候選調整重算 575,757 種組合，避免按下分析或微調時卡住。
-    const baseItems = manualRecommendItems.slice(0, 3).map(item => ({
+    const baseItems = activeManualItems.slice(0, 3).map(item => ({
       ...item,
       groups: cloneGroups(item.groups),
       stats: { ...(item.stats || {}) }
@@ -3367,7 +3508,7 @@
     const summary = tuneNoLoseSummaryText(suggestion, applied) || (applied ? '已套用微調。' : '尚未產生微調分析。');
     const ops = suggestion && suggestion.ops ? suggestion.ops : [];
     const opHtml = ops.length ? `<div class="manual-op-list">${ops.map((op, idx) => `
-      <div class="manual-op-item">${idx + 1}. 手動第 ${op.itemIndex + 1} 組：${pad2(op.n1)} ↔ ${pad2(op.n2)}</div>
+      <div class="manual-op-item">${idx + 1}. 手動第 ${((manualActiveIndexes || [])[op.itemIndex] ?? op.itemIndex) + 1} 組：${pad2(op.n1)} ↔ ${pad2(op.n2)}</div>
     `).join('')}</div>` : '<div class="small-note">目前沒有需要調整的號碼。</div>';
     const base = suggestion && suggestion.baseNoLoseStats ? suggestion.baseNoLoseStats : null;
     const tuned = suggestion && suggestion.tunedNoLoseStats ? suggestion.tunedNoLoseStats : base;
@@ -3462,7 +3603,8 @@
   }
 
   function analyzeManualProbability() {
-    if (!manualRecommendItems || manualRecommendItems.length < 3) {
+    const activeManualItems = getActiveManualItems();
+    if (!activeManualItems || activeManualItems.length < 3) {
       alert('請先至少移入 3 組立柱到手動比較區。');
       return;
     }
@@ -3473,9 +3615,9 @@
       manualTuneStatus = '已套用微調；下方極端組合已用微調後號碼重新分析。';
     }
     manualProbabilityAnalysisHTML = buildManualTuneAnalysisHTML(manualTuneSuggestion, manualTuneActive);
-    manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(manualRecommendItems.slice(0, 3));
+    manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(activeManualItems.slice(0, 3));
     refreshRecommendArea();
-    log(`已完成手動比較區分欄分析：${manualTuneStatus}`);
+    log(`已完成手動比較區第 ${manualComboIndex + 1} 組分欄分析：${manualTuneStatus}`);
   }
 
   function applyTuneOps(items, ops, reverse = false) {
@@ -3488,18 +3630,19 @@
   }
 
   function toggleManualTune() {
-    if (!manualRecommendItems || manualRecommendItems.length < 3) {
+    const activeManualItems = getActiveManualItems();
+    if (!activeManualItems || activeManualItems.length < 3) {
       alert('請先至少移入 3 組立柱到手動比較區。');
       return;
     }
     if (manualTuneActive) {
       if (manualTuneSuggestion && manualTuneSuggestion.ops && manualTuneSuggestion.ops.length) {
-        applyTuneOps(manualRecommendItems, manualTuneSuggestion.ops, true);
+        applyTuneOps(activeManualItems, manualTuneSuggestion.ops, true);
       }
       manualTuneActive = false;
       manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, false) || '已恢復微調前號碼。';
       manualProbabilityAnalysisHTML = buildManualTuneAnalysisHTML(manualTuneSuggestion, false);
-      manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(manualRecommendItems.slice(0, 3));
+      manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(activeManualItems.slice(0, 3));
       refreshRecommendArea();
       return;
     }
@@ -3511,19 +3654,20 @@
       refreshRecommendArea();
       return;
     }
-    applyTuneOps(manualRecommendItems, manualTuneSuggestion.ops, false);
+    applyTuneOps(activeManualItems, manualTuneSuggestion.ops, false);
     manualTuneActive = true;
     manualTuneStatus = tuneNoLoseSummaryText(manualTuneSuggestion, true) || `已套用結構微調，共調整 ${manualTuneSuggestion.ops.length} 組號碼。`; 
     manualProbabilityAnalysisHTML = buildManualTuneAnalysisHTML(manualTuneSuggestion, true);
-    manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(manualRecommendItems.slice(0, 3));
+    manualFatalRiskAnalysisHTML = buildManualFatalRiskHTML(activeManualItems.slice(0, 3));
     refreshRecommendArea();
   }
 
   function renderManualNums(item, itemIndex) {
     const ops = manualTuneSuggestion && manualTuneSuggestion.needed ? (manualTuneSuggestion.ops || []) : [];
+    const activePos = (manualActiveIndexes || []).indexOf(itemIndex);
     const targets = new Set();
     ops.forEach(op => {
-      if (op.itemIndex === itemIndex) {
+      if (op.itemIndex === activePos) {
         targets.add(Number(op.n1));
         targets.add(Number(op.n2));
       }
@@ -3766,6 +3910,7 @@
         return;
       }
 
+      manualComboIndex = 0;
       manualRecommendItems = best.items.map((item, idx) => ({
         ...item,
         groups: cloneGroups(item.groups),
@@ -3803,20 +3948,24 @@
     return `
       <div class="manual-recommend-zone">
         <div class="manual-recommend-title">
-          <span>手動移入比較區（${manualRecommendItems.length} 組）</span>
+          <span>手動移入比較區（${manualRecommendItems.length} 組）｜${manualComboStatusText()}</span>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button class="btn btn-primary analyze-manual-probability-btn" style="padding:6px 10px; font-size:13px; width:auto;">分析</button>
+            <button class="btn btn-dark manual-prev-combo-btn" style="padding:6px 10px; font-size:13px; width:auto;">上一組</button>
+            <button class="btn btn-dark manual-next-combo-btn" style="padding:6px 10px; font-size:13px; width:auto;">下一組</button>
+            <button class="btn btn-primary analyze-manual-probability-btn" style="padding:6px 10px; font-size:13px; width:auto;">分析目前組合</button>
+            <button class="btn btn-secondary sort-manual-best-btn" style="padding:6px 10px; font-size:13px; width:auto;">一鍵排列最佳三組</button>
             <button class="btn btn-dark clear-manual-recommend-btn" style="padding:6px 10px; font-size:13px; width:auto;">清空手動比較</button>
           </div>
         </div>
+        <div class="small-note" style="margin:6px 0;color:#7dd3fc;">切換規則：會列出所有「三組立柱的不同排列順序」，例如 1-2-3、1-3-2、2-1-3、2-3-1、3-1-2、3-2-1。若手動區內已有至少三種來源類型，組合會套用同類型最多取一組，避免複號太多；按「分析目前組合」只分析上方 X/Y 指定的排列。</div>
         ${latestDrawLegendHTML()}
         ${statusHtml}
         ${(manualProbabilityAnalysisHTML || manualFatalRiskAnalysisHTML) ? `<div class="manual-analysis-split">${manualProbabilityAnalysisHTML || ''}${manualFatalRiskAnalysisHTML || ''}</div>` : ''}
         <div class="recommend-list">
           ${manualRecommendItems.map((item, idx) => `
-            <div class="recommend-item">
+            <div class="recommend-item" style="${(manualActiveIndexes || []).includes(idx) ? 'border-color:rgba(56,189,248,.75); box-shadow:0 0 0 1px rgba(56,189,248,.20) inset;' : ''}">
               <div class="recommend-item-head">
-                <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${Number(item.sourceIndex) + 1} 組</span>
+                <span class="tag-hot">${(manualActiveIndexes || []).includes(idx) ? '★ ' : ''}手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${Number(item.sourceIndex) + 1} 組</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <button class="btn btn-secondary single-copy-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
                   <button class="btn btn-dark move-manual-up-btn" data-manual-index="${idx}" ${idx === 0 ? 'disabled' : ''} style="padding:6px 10px; font-size:13px; width:auto;">順序上調</button>
@@ -4566,12 +4715,8 @@
       alert('這一組已經在上方手動比較區。');
       return;
     }
-    manualProbabilityAnalysisHTML = '';
-    manualFatalRiskAnalysisHTML = '';
-    bestComboAnalysisHTML = '';
-    manualTuneSuggestion = null;
-    manualTuneActive = false;
-    manualTuneStatus = '';
+    manualComboIndex = 0;
+    resetManualAnalysisState('');
     manualRecommendItems.push({
       ...sourceItem,
       groups: cloneGroups(sourceItem.groups),
@@ -4630,6 +4775,30 @@
       return;
     }
 
+    const prevManualComboBtn = e.target.closest('.manual-prev-combo-btn');
+    if (prevManualComboBtn) {
+      manualComboIndex -= 1;
+      clampManualComboIndex();
+      resetManualAnalysisState(`已切換到${manualComboStatusText()}，可按分析目前組合。`);
+      refreshRecommendArea();
+      return;
+    }
+
+    const nextManualComboBtn = e.target.closest('.manual-next-combo-btn');
+    if (nextManualComboBtn) {
+      manualComboIndex += 1;
+      clampManualComboIndex();
+      resetManualAnalysisState(`已切換到${manualComboStatusText()}，可按分析目前組合。`);
+      refreshRecommendArea();
+      return;
+    }
+
+    const sortManualBestBtn = e.target.closest('.sort-manual-best-btn');
+    if (sortManualBestBtn) {
+      sortManualByBestSinglePassRate();
+      return;
+    }
+
     const manualTuneBtn = e.target.closest('.manual-tune-toggle-btn');
     if (manualTuneBtn) {
       toggleManualTune();
@@ -4645,11 +4814,8 @@
     const clearManualBtn = e.target.closest('.clear-manual-recommend-btn');
     if (clearManualBtn) {
       manualRecommendItems = [];
-      manualProbabilityAnalysisHTML = '';
-      bestComboAnalysisHTML = '';
-      manualTuneSuggestion = null;
-      manualTuneActive = false;
-      manualTuneStatus = '';
+      manualComboIndex = 0;
+      resetManualAnalysisState('');
       refreshRecommendArea();
       log('已清空上方手動比較區。');
       return;
@@ -4660,12 +4826,8 @@
       const index = Number(moveManualUpBtn.dataset.manualIndex);
       if (Number.isInteger(index) && index > 0 && index < manualRecommendItems.length) {
         [manualRecommendItems[index - 1], manualRecommendItems[index]] = [manualRecommendItems[index], manualRecommendItems[index - 1]];
-        manualProbabilityAnalysisHTML = '';
-        manualFatalRiskAnalysisHTML = '';
-        bestComboAnalysisHTML = '';
-        manualTuneSuggestion = null;
-        manualTuneActive = false;
-        manualTuneStatus = `已將手動比較第 ${index + 1} 組上調為第 ${index} 組。`;
+        manualComboIndex = 0;
+        resetManualAnalysisState(`已將手動比較第 ${index + 1} 組上調為第 ${index} 組。`);
         refreshRecommendArea();
         log(`已將手動比較第 ${index + 1} 組上調為第 ${index} 組。`);
       }
@@ -4677,12 +4839,8 @@
       const index = Number(removeManualBtn.dataset.manualIndex);
       if (Number.isInteger(index) && index >= 0 && index < manualRecommendItems.length) {
         manualRecommendItems.splice(index, 1);
-        manualProbabilityAnalysisHTML = '';
-        manualFatalRiskAnalysisHTML = '';
-        bestComboAnalysisHTML = '';
-        manualTuneSuggestion = null;
-        manualTuneActive = false;
-        manualTuneStatus = '';
+        manualComboIndex = 0;
+        resetManualAnalysisState('');
         refreshRecommendArea();
         log(`已移除手動比較第 ${index + 1} 組。`);
       }
