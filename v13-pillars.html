@@ -559,6 +559,25 @@
     .db-backup-body { margin-top:8px; }
     .db-backup-toggle { width:auto; padding:7px 11px; font-size:13px; border-radius:10px; white-space:nowrap; }
 
+
+    #goManualBtn {
+      position: fixed;
+      right: 16px;
+      bottom: 82px;
+      z-index: 99999;
+      background: #22c55e;
+      color: #052e16;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 16px;
+      font-weight: 900;
+      font-size: 14px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.42);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    #goManualBtn:hover { transform: translateY(-2px); }
+
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
       .controls, .stat-grid { grid-template-columns: 1fr; }
@@ -567,6 +586,7 @@
   </style>
 </head>
 <body>
+  <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
     <div class="title">吸金穩贏 APP｜手動排列準確加速版</div>
     <div class="sub">
@@ -4003,7 +4023,7 @@
     clampManualComboIndex();
     const statusHtml = manualTuneStatus && !manualProbabilityAnalysisHTML ? `<div class="small-note" style="margin:8px 0;color:#fcd34d;">${manualTuneStatus}</div>` : '';
     return `
-      <div class="manual-recommend-zone">
+      <div id="manualSection" class="manual-recommend-zone">
         <div class="manual-recommend-title">
           <span>手動移入比較區（${manualRecommendItems.length} 組）｜${manualComboStatusText()}</span>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
@@ -4020,7 +4040,7 @@
         ${(manualProbabilityAnalysisHTML || manualFatalRiskAnalysisHTML) ? `<div class="manual-analysis-split">${manualProbabilityAnalysisHTML || ''}${manualFatalRiskAnalysisHTML || ''}</div>` : ''}
         <div class="recommend-list">
           ${manualRecommendItems.map((item, idx) => `
-            <div class="recommend-item" style="${(manualActiveIndexes || []).includes(idx) ? 'border-color:rgba(245,158,11,.82); box-shadow:0 0 0 1px rgba(245,158,11,.28) inset;' : ''}">
+            <div class="recommend-item" id="manualItem-${idx}" style="${(manualActiveIndexes || []).includes(idx) ? 'border-color:rgba(245,158,11,.82); box-shadow:0 0 0 1px rgba(245,158,11,.28) inset;' : ''}">
               <div class="recommend-item-head">
                 <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${Number(item.sourceIndex) + 1} 組${(manualActiveIndexes || []).includes(idx) ? '｜目前分析中' : ''}</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
@@ -4759,6 +4779,20 @@
     await copyTextSmart(text, `第 ${index + 1} 組扣除所有絕對不出版本已複製`);
   }
 
+
+  function scrollToManualSection() {
+    const target = document.getElementById('manualSection') || document.querySelector('.manual-recommend-zone') || recommendResult;
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function scrollToManualItem(index) {
+    // 只更新手動區內容，不強制捲動畫面；避免下方立柱按「移至手動區」後被拉到手動區。
+    return;
+  }
+
+  window.scrollToManualSection = scrollToManualSection;
+
   function moveItemToRecommend(copyType, rawIndex, sourceLabel = '') {
     const items = getItemByCopyType(copyType);
     const index = Number(rawIndex);
@@ -4789,15 +4823,24 @@
       sourceLabel: sourceLabel || sourceTypeLabel(copyType),
       manualKey: key
     });
-    const savedScrollX = window.scrollX || document.documentElement.scrollLeft || 0;
-    const savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const newManualIndex = manualRecommendItems.length - 1;
     refreshRecommendArea();
-    log(`已將 ${sourceLabel || sourceTypeLabel(copyType)} 第 ${index + 1} 組移至上方推薦區手動比較。`);
-    requestAnimationFrame(() => window.scrollTo(savedScrollX, savedScrollY));
+    log(`已將 ${sourceLabel || sourceTypeLabel(copyType)} 第 ${index + 1} 組移至手動比較區。`);
+    scrollToManualItem(newManualIndex);
   }
 
   renderWeeklyCalcTable();
   bindWeeklyCalcEvents();
+
+
+  const goManualBtn = document.getElementById('goManualBtn');
+  if (goManualBtn) {
+    goManualBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      scrollToManualSection();
+    });
+  }
+
 
   function setDbBackupCollapsed(collapsed) {
     if (!dbBackupArea) return;
