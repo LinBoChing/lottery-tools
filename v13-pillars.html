@@ -553,6 +553,15 @@
     .weekly-today-note { color:#fcd34d; font-size:13px; line-height:1.6; margin:8px 0 10px; font-weight:800; }
     .weekly-hidden-row { display:none; }
     .weekly-table-wrap.weekly-today-only tbody tr:not(.weekly-today-row) { display:none; }
+    .weekly-chart-panel { margin-top: 12px; background:#0b1220; border:1px solid var(--border); border-radius:14px; padding:12px; }
+    .weekly-chart-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+    .weekly-chart-title { font-weight:900; color:#fcd34d; }
+    .weekly-chart-tabs { display:flex; gap:8px; flex-wrap:wrap; }
+    .weekly-chart-tab { width:auto; padding:7px 12px; font-size:13px; border-radius:999px; border:1px solid var(--border); background:#020617; color:#cbd5e1; font-weight:800; cursor:pointer; }
+    .weekly-chart-tab.active { background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.55); color:#86efac; }
+    .weekly-chart-canvas-wrap { width:100%; height:260px; background:#020617; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    #weeklyProfitChart { width:100%; height:260px; display:block; }
+    .weekly-chart-note { color:var(--muted); font-size:12px; line-height:1.5; margin-top:8px; }
     .db-backup-area.collapsed .db-backup-body { display:none; }
     .db-backup-head { display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer; user-select:none; }
     .db-backup-head .field-label { margin-bottom:0; }
@@ -577,46 +586,6 @@
       touch-action: manipulation;
     }
     #goManualBtn:hover { transform: translateY(-2px); }
-
-    .daily-agent-box {
-      margin-top: 12px;
-      background: linear-gradient(135deg, rgba(34,197,94,.13), rgba(56,189,248,.10));
-      border: 1px solid rgba(34,197,94,.42);
-      border-radius: 14px;
-      padding: 14px;
-    }
-    .daily-agent-head {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:8px;
-    }
-    .daily-agent-title {
-      font-size: 17px;
-      font-weight: 900;
-      color:#86efac;
-    }
-    .daily-agent-result {
-      margin-top: 10px;
-      color:#cbd5e1;
-      line-height:1.65;
-      font-size:13px;
-    }
-    .daily-agent-kpi {
-      display:grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap:8px;
-      margin:10px 0;
-    }
-    .daily-agent-kpi div {
-      background:#020617;
-      border:1px solid var(--border);
-      border-radius:10px;
-      padding:8px;
-    }
-    .daily-agent-kpi b { font-size:16px; color:#f8fafc; }
 
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
@@ -655,6 +624,7 @@
       </div>
       <div class="weekly-actions">
         <button class="btn btn-dark" id="toggleWeeklyAllBtn" type="button">展開整週明細</button>
+        <button class="btn btn-secondary" id="copyWeeklyReportBtn" type="button">複製當週損益報表</button>
         <button class="btn btn-dark" id="clearWeeklyCalcBtn" type="button">清除試算表</button>
       </div>
       <div class="weekly-input-panel" id="weeklyInputPanel">
@@ -679,6 +649,18 @@
               </tr>
             </tfoot>
           </table>
+        </div>
+        <div class="weekly-chart-panel">
+          <div class="weekly-chart-head">
+            <div class="weekly-chart-title">歷史損益走勢圖</div>
+            <div class="weekly-chart-tabs">
+              <button class="weekly-chart-tab active" type="button" data-weekly-chart-mode="day">日</button>
+              <button class="weekly-chart-tab" type="button" data-weekly-chart-mode="week">週</button>
+              <button class="weekly-chart-tab" type="button" data-weekly-chart-mode="month">月</button>
+            </div>
+          </div>
+          <div class="weekly-chart-canvas-wrap"><canvas id="weeklyProfitChart"></canvas></div>
+          <div class="weekly-chart-note" id="weeklyChartNote">日線會顯示每日損益；週線/月線會自動把已保存的每日資料加總。從新版開始輸入的資料會累積成歷史走勢。</div>
         </div>
       </div>
     </div>
@@ -764,21 +746,10 @@
           <button class="btn btn-primary" id="runBtn">開始分析並產生多組立柱</button>
           <button class="btn btn-dark" id="sampleBtn">載入範例</button>
           <button class="btn btn-dark" id="clearLockBtn">清除鎖定最佳</button>
-          <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
-          <button class="btn btn-primary" id="moveAllCaishenBtn">財神參考全移入</button>
         </div>
         <div class="recommend-box">
           <div class="recommend-title">推薦 4 組低穿透率立柱</div>
           <div id="recommendResult" class="small-note">尚未產生。</div>
-        </div>
-
-        <div class="daily-agent-box">
-          <div class="daily-agent-head">
-            <div class="daily-agent-title">財神今日代理</div>
-            <button class="btn btn-primary" id="dailyAgentBtn" type="button" style="width:auto; padding:8px 12px; font-size:13px;">啟動財神今日代理</button>
-          </div>
-          <div class="small-note">按下後會照你的手動思維執行：AI/防穿透只看100+150，高爆發看分布是否接近平均，反指標看50+100連倒；最後先防全倒、再看最新倒與近5倒，挑出三組移入手動比較區。</div>
-          <div id="dailyAgentResult" class="daily-agent-result">尚未啟動。</div>
         </div>
         <div class="small-note">
           規則說明：<br>
@@ -919,8 +890,6 @@
   const runBtn = document.getElementById('runBtn');
   const sampleBtn = document.getElementById('sampleBtn');
   const clearLockBtn = document.getElementById('clearLockBtn');
-  const moveAllToRecommendBtn = document.getElementById('moveAllToRecommendBtn');
-  const moveAllCaishenBtn = document.getElementById('moveAllCaishenBtn');
   const countDraws = document.getElementById('countDraws');
   const groupCount = document.getElementById('groupCount');
   const logBox = document.getElementById('logBox');
@@ -931,8 +900,6 @@
   const randomResult = document.getElementById('randomResult');
   const reverseResult = document.getElementById('reverseResult');
   const recommendResult = document.getElementById('recommendResult');
-  const dailyAgentBtn = document.getElementById('dailyAgentBtn');
-  const dailyAgentResult = document.getElementById('dailyAgentResult');
   const scoreBoardBody = document.getElementById('scoreBoardBody');
   const candidateScoreBoardBody = document.getElementById('candidateScoreBoardBody');
   const antiAnalysisBody = document.getElementById('antiAnalysisBody');
@@ -954,6 +921,9 @@
   const dbTableBody = document.getElementById('dbTableBody');
   const weeklyCalcBody = document.getElementById('weeklyCalcBody');
   const clearWeeklyCalcBtn = document.getElementById('clearWeeklyCalcBtn');
+  const copyWeeklyReportBtn = document.getElementById('copyWeeklyReportBtn');
+  const weeklyProfitChart = document.getElementById('weeklyProfitChart');
+  const weeklyChartNote = document.getElementById('weeklyChartNote');
   const weeklyMorningTotal = document.getElementById('weeklyMorningTotal');
   const weeklyNightTotal = document.getElementById('weeklyNightTotal');
   const weeklyGrandTotal = document.getElementById('weeklyGrandTotal');
@@ -974,6 +944,8 @@
 
 
   const WEEKLY_CALC_STORAGE_KEY = 'weekly_am_pm_profit_calc_v1';
+  const WEEKLY_PROFIT_HISTORY_KEY = 'weekly_am_pm_profit_history_v1';
+  let weeklyChartMode = 'day';
   const WEEKLY_DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
   let weeklyShowAll = false;
 
@@ -997,6 +969,183 @@
     if (n > 0) return 'weekly-profit';
     if (n < 0) return 'weekly-loss';
     return 'weekly-zero';
+  }
+
+  function getLocalISODate(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function getWeekStartDate(baseDate = new Date()) {
+    const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const jsDay = d.getDay();
+    const diff = jsDay === 0 ? -6 : 1 - jsDay;
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+
+  function loadWeeklyHistory() {
+    try {
+      const raw = localStorage.getItem(WEEKLY_PROFIT_HISTORY_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveWeeklyHistory(history) {
+    try { localStorage.setItem(WEEKLY_PROFIT_HISTORY_KEY, JSON.stringify(history)); } catch (err) {}
+  }
+
+  function syncWeeklyHistoryFromCurrentData() {
+    const data = loadWeeklyCalcData();
+    const history = loadWeeklyHistory();
+    const start = getWeekStartDate();
+    const now = new Date().toISOString();
+    data.forEach((row, idx) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + idx);
+      const key = getLocalISODate(date);
+      const morning = parseMoneyValue(row.morning);
+      const night = parseMoneyValue(row.night);
+      history[key] = { morning, night, total: morning + night, updatedAt: now };
+    });
+    saveWeeklyHistory(history);
+  }
+
+  function getWeeklyChartPoints(mode) {
+    const history = loadWeeklyHistory();
+    const entries = Object.keys(history).sort().map(date => ({ date, ...(history[date] || {}) }));
+    if (!entries.length) return [];
+    if (mode === 'day') {
+      return entries.slice(-31).map(item => ({ label: item.date.slice(5), value: Number(item.total) || 0 }));
+    }
+    const bucket = {};
+    entries.forEach(item => {
+      const date = new Date(item.date + 'T00:00:00');
+      let key = item.date;
+      if (mode === 'week') {
+        key = getLocalISODate(getWeekStartDate(date));
+      } else if (mode === 'month') {
+        key = item.date.slice(0, 7);
+      }
+      bucket[key] = (bucket[key] || 0) + (Number(item.total) || 0);
+    });
+    return Object.keys(bucket).sort().slice(mode === 'week' ? -16 : -12).map(key => ({ label: mode === 'week' ? key.slice(5) : key, value: bucket[key] }));
+  }
+
+  function drawWeeklyProfitChart() {
+    if (!weeklyProfitChart) return;
+    const wrap = weeklyProfitChart.parentElement;
+    const rect = wrap ? wrap.getBoundingClientRect() : { width: 320, height: 260 };
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(320, Math.floor(rect.width || 320));
+    const height = 260;
+    weeklyProfitChart.width = Math.floor(width * dpr);
+    weeklyProfitChart.height = Math.floor(height * dpr);
+    weeklyProfitChart.style.width = width + 'px';
+    weeklyProfitChart.style.height = height + 'px';
+    const ctx = weeklyProfitChart.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    const points = getWeeklyChartPoints(weeklyChartMode);
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, width, height);
+    ctx.font = '12px Microsoft JhengHei, sans-serif';
+    ctx.fillStyle = '#94a3b8';
+
+    if (!points.length) {
+      ctx.fillText('尚無歷史損益資料，輸入損益後會自動累積。', 16, 36);
+      if (weeklyChartNote) weeklyChartNote.textContent = '尚無歷史資料；從這版開始，每次輸入早/晚損益都會自動保存到走勢圖。';
+      return;
+    }
+
+    const padL = 56, padR = 14, padT = 20, padB = 42;
+    const chartW = width - padL - padR;
+    const chartH = height - padT - padB;
+    const values = points.map(p => Number(p.value) || 0);
+    let min = Math.min(0, ...values);
+    let max = Math.max(0, ...values);
+    if (min === max) { min -= 1000; max += 1000; }
+    const span = max - min;
+    const y = v => padT + (max - v) / span * chartH;
+    const zeroY = y(0);
+
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + chartH); ctx.lineTo(width - padR, padT + chartH); ctx.stroke();
+    ctx.strokeStyle = 'rgba(148,163,184,.45)';
+    ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(width - padR, zeroY); ctx.stroke();
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.textAlign = 'right';
+    ctx.fillText(formatMoneyValue(max), padL - 6, padT + 8);
+    ctx.fillText('0', padL - 6, zeroY + 4);
+    ctx.fillText(formatMoneyValue(min), padL - 6, padT + chartH);
+
+    const gap = chartW / Math.max(1, points.length);
+    const barW = Math.max(6, Math.min(28, gap * 0.58));
+    points.forEach((p, i) => {
+      const cx = padL + gap * i + gap / 2;
+      const py = y(p.value);
+      ctx.fillStyle = p.value > 0 ? '#22c55e' : p.value < 0 ? '#ef4444' : '#64748b';
+      const top = Math.min(py, zeroY);
+      const h = Math.max(2, Math.abs(zeroY - py));
+      ctx.fillRect(cx - barW / 2, top, barW, h);
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#cbd5e1';
+    const labelStep = Math.max(1, Math.ceil(points.length / 6));
+    points.forEach((p, i) => {
+      if (i % labelStep === 0 || i === points.length - 1) ctx.fillText(p.label, padL + gap * i + gap / 2, height - 18);
+    });
+
+    const total = values.reduce((sum, v) => sum + v, 0);
+    const modeLabel = weeklyChartMode === 'day' ? '日' : weeklyChartMode === 'week' ? '週' : '月';
+    if (weeklyChartNote) weeklyChartNote.textContent = `${modeLabel}走勢：目前顯示 ${points.length} 筆，區間合計 ${formatMoneyValue(total)}。`;
+  }
+
+  function buildWeeklyReportText() {
+    const data = loadWeeklyCalcData();
+    const start = getWeekStartDate();
+    let morningTotal = 0, nightTotal = 0;
+    const lines = [];
+    lines.push('七日財運盈虧報表');
+    lines.push(`週期：${getLocalISODate(start)} ~ ${getLocalISODate(new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6))}`);
+    lines.push('');
+    lines.push('| 天數 | 早場輸贏 | 晚場輸贏 | 當日小計 |');
+    lines.push('|---|---:|---:|---:|');
+    data.forEach((row, idx) => {
+      const morning = parseMoneyValue(row.morning);
+      const night = parseMoneyValue(row.night);
+      const total = morning + night;
+      morningTotal += morning;
+      nightTotal += night;
+      lines.push(`| ${WEEKLY_DAYS[idx]} | ${formatMoneyValue(morning)} | ${formatMoneyValue(night)} | ${formatMoneyValue(total)} |`);
+    });
+    lines.push('|---|---:|---:|---:|');
+    lines.push(`| 合計 | ${formatMoneyValue(morningTotal)} | ${formatMoneyValue(nightTotal)} | ${formatMoneyValue(morningTotal + nightTotal)} |`);
+    return lines.join('\n');
+  }
+
+  function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok ? Promise.resolve() : Promise.reject(new Error('copy failed'));
   }
 
   function loadWeeklyCalcData() {
@@ -1069,7 +1218,90 @@
       el.textContent = formatMoneyValue(value);
       el.className = `weekly-money ${moneyClass(value)}`;
     });
+    syncWeeklyHistoryFromCurrentData();
+    drawWeeklyProfitChart();
   }
+
+
+  function buildWeeklyLineReportText() {
+    const data = loadWeeklyCalcData();
+    const now = new Date();
+    const dateText = now.toLocaleDateString('zh-TW');
+    const rows = [];
+    let morningTotal = 0;
+    let nightTotal = 0;
+    let grandTotal = 0;
+
+    rows.push('📊 本週損益報表');
+    rows.push('日期：' + dateText);
+    rows.push('');
+    rows.push('項目　　　早場　　　晚場　　　小計');
+    rows.push('────────────────────');
+
+    WEEKLY_DAYS.forEach((day, idx) => {
+      const morning = parseMoneyValue(data[idx]?.morning);
+      const night = parseMoneyValue(data[idx]?.night);
+      const total = morning + night;
+      morningTotal += morning;
+      nightTotal += night;
+      grandTotal += total;
+
+      const shortDay = day.replace('星期', '週');
+      rows.push(
+        padTextForLine(shortDay, 6) +
+        padMoneyForLine(morning, 10) +
+        padMoneyForLine(night, 10) +
+        padMoneyForLine(total, 10)
+      );
+    });
+
+    rows.push('────────────────────');
+    rows.push(
+      padTextForLine('合計', 6) +
+      padMoneyForLine(morningTotal, 10) +
+      padMoneyForLine(nightTotal, 10) +
+      padMoneyForLine(grandTotal, 10)
+    );
+    rows.push('');
+    rows.push(grandTotal >= 0 ? '✅ 本週總獲利：+' + formatMoneyValue(grandTotal) : '⚠️ 本週總損益：' + formatMoneyValue(grandTotal));
+    return rows.join('\n');
+  }
+
+  function padTextForLine(value, size) {
+    const s = String(value ?? '');
+    const visual = s.replace(/[^\x00-\xff]/g, 'xx').length;
+    return s + ' '.repeat(Math.max(1, size - visual));
+  }
+
+  function padMoneyForLine(value, size) {
+    const n = Number(value) || 0;
+    const s = (n > 0 ? '+' : '') + formatMoneyValue(n);
+    const visual = s.replace(/[^\x00-\xff]/g, 'xx').length;
+    return ' '.repeat(Math.max(1, size - visual)) + s;
+  }
+
+  async function copyWeeklyLineReport() {
+    const text = buildWeeklyLineReportText();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      alert('已複製純文字損益報表，可直接貼到 LINE');
+    } catch (err) {
+      alert('複製失敗，請手動長按選取報表內容');
+    }
+  }
+
 
   function bindWeeklyCalcEvents() {
     if (!weeklyCalcBody) return;
@@ -1108,11 +1340,49 @@
         applyWeeklyViewMode();
       });
     }
+    document.querySelectorAll('[data-weekly-chart-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        weeklyChartMode = btn.dataset.weeklyChartMode || 'day';
+        document.querySelectorAll('[data-weekly-chart-mode]').forEach(b => b.classList.toggle('active', b === btn));
+        drawWeeklyProfitChart();
+      });
+    });
+    if (copyWeeklyReportBtn) {
+      copyWeeklyReportBtn.addEventListener('click', async () => {
+        try {
+          await copyTextToClipboard(buildWeeklyReportText());
+          alert('已複製當週損益報表');
+        } catch (err) {
+          alert('複製失敗，請改用手動選取複製');
+        }
+      });
+    }
+    window.addEventListener('resize', () => drawWeeklyProfitChart());
+
+    const copyWeeklyLineReportBtn = document.getElementById('copyWeeklyLineReportBtn')
+      || document.getElementById('copyWeeklyReportBtn')
+      || document.getElementById('copyWeeklyProfitReportBtn')
+      || document.getElementById('copyWeeklyCalcReportBtn')
+      || document.getElementById('weeklyCopyReportBtn')
+      || document.getElementById('copyProfitReportBtn');
+    if (copyWeeklyLineReportBtn) {
+      copyWeeklyLineReportBtn.onclick = copyWeeklyLineReport;
+    }
+
     if (clearWeeklyCalcBtn) {
       clearWeeklyCalcBtn.addEventListener('click', () => {
         if (!confirm('確定要清除七日財運盈虧試算表嗎？')) return;
         try { localStorage.removeItem(WEEKLY_CALC_STORAGE_KEY); } catch (err) {}
+        const history = loadWeeklyHistory();
+        const start = getWeekStartDate();
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(start);
+          d.setDate(start.getDate() + i);
+          delete history[getLocalISODate(d)];
+        }
+        saveWeeklyHistory(history);
         renderWeeklyCalcTable();
+        drawWeeklyProfitChart();
       });
     }
   }
@@ -1276,7 +1546,6 @@
       </div>`).join('')}</div>`;
   }
   let rngState = 1;
-  let CAISHEN_FAST_MODE = false; // V8：財神代理啟動時使用快速生成深度，避免手機等待10分鐘。
 
   function hashString(str) {
     let h = 2166136261 >>> 0;
@@ -1676,37 +1945,7 @@
     return mp;
   }
 
-  const EVALUATE_CACHE_LIMIT = 18000;
-  const evaluateCacheByDraws = new WeakMap();
-  function getDrawsCache(draws) {
-    let cache = evaluateCacheByDraws.get(draws);
-    if (!cache) {
-      cache = { map: new Map(), hits: 0, misses: 0 };
-      evaluateCacheByDraws.set(draws, cache);
-    }
-    return cache;
-  }
-  function fastGroupsKey(groups) {
-    return (groups || []).map(g => (g || []).join(',')).join('+');
-  }
-  function cloneStatsObject(stats) {
-    if (!stats || typeof stats !== 'object') return stats;
-    return {
-      ...stats,
-      recentDownFlags: Array.isArray(stats.recentDownFlags) ? stats.recentDownFlags.slice() : stats.recentDownFlags,
-      patterns: stats.patterns ? { ...stats.patterns } : stats.patterns
-    };
-  }
-
   function evaluate(groups, draws) {
-    const cache = getDrawsCache(draws);
-    const cacheKey = fastGroupsKey(groups);
-    const cached = cache.map.get(cacheKey);
-    if (cached) {
-      cache.hits++;
-      return cloneStatsObject(cached);
-    }
-    cache.misses++;
     const mp = pillarToMap(groups);
     let pass = 0;
     let fail = 0;
@@ -1760,7 +1999,7 @@
       (allInOne / total) * 120 -
       balancePenalty;
 
-    const result = {
+    return {
       pass,
       fail,
       passRate: pass / total,
@@ -1782,9 +2021,6 @@
       patterns,
       totalDraws: draws.length
     };
-    if (cache.map.size > EVALUATE_CACHE_LIMIT) cache.map.clear();
-    cache.map.set(cacheKey, cloneStatsObject(result));
-    return cloneStatsObject(result);
   }
 
   function cloneGroups(groups) {
@@ -1980,7 +2216,7 @@
 
   async function strictRefinePool(pool, draws, totalWanted, scorer, comparator, label, options = {}) {
     let nextPool = pool.slice();
-    const primaryCount = CAISHEN_FAST_MODE ? Math.min(nextPool.length, Math.max(12, totalWanted * 3)) : Math.min(nextPool.length, Math.max(42, totalWanted * 16));
+    const primaryCount = Math.min(nextPool.length, Math.max(42, totalWanted * 16));
     for (let i = 0; i < primaryCount; i++) {
       if (i % 8 === 0) log(`${label} 嚴格精修 ${i + 1}/${primaryCount}...`);
       const refined = refineCandidateItem(nextPool[i], draws, scorer, comparator, {
@@ -1992,7 +2228,7 @@
       if (i % 10 === 9) await new Promise(requestAnimationFrame);
     }
 
-    const eliteCount = CAISHEN_FAST_MODE ? Math.min(nextPool.length, Math.max(4, totalWanted)) : Math.min(nextPool.length, Math.max(10, totalWanted * 5));
+    const eliteCount = Math.min(nextPool.length, Math.max(10, totalWanted * 5));
     for (let i = 0; i < eliteCount; i++) {
       if (i % 4 === 0) log(`${label} 極限精修 ${i + 1}/${eliteCount}...`);
       const refined = refineCandidateItem(nextPool[i], draws, scorer, comparator, {
@@ -2146,18 +2382,18 @@
     seedForType('ai');
     const storageKey = makeStorageKey('ai_v30_deep_fixed', draws);
     let pool = [];
-    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
-    const seedCount = CAISHEN_FAST_MODE ? Math.max(220, totalWanted * 18) : Math.max(960, totalWanted * 320);
+    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
+    const seedCount = Math.max(960, totalWanted * 320);
     const freshSeeds = seedPoolFromDraws(draws, seedCount);
     for (const item of freshSeeds) {
       pool = addUniqueSorted(pool, item, keepSize, compareAiItems);
     }
 
     pool = await strictRefinePool(pool, draws, totalWanted, evaluate, compareAiItems, 'AI', {
-      primarySteps: CAISHEN_FAST_MODE ? 120 : 620,
-      eliteSteps: CAISHEN_FAST_MODE ? 260 : 1480,
-      primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
-      eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
+      primarySteps: 620,
+      eliteSteps: 1480,
+      primaryAcceptChance: 0.008,
+      eliteAcceptChance: 0.003
     });
 
     const finalItems = finalizeTopItems(pool, totalWanted, compareAiItems);
@@ -2219,8 +2455,8 @@
     seedForType('reverse');
     const storageKey = makeStorageKey('reverse_v44_unlimited_latest_down_rank', draws);
     let pool = [];
-    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
-    const seedCount = CAISHEN_FAST_MODE ? Math.max(260, totalWanted * 20) : Math.max(1200, totalWanted * 360);
+    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
+    const seedCount = Math.max(1200, totalWanted * 360);
 
     for (let i = 0; i < seedCount; i++) {
       const groups = buildBalancedRandomPillar();
@@ -2235,7 +2471,7 @@
       ...(lastRandom || [])
     ].filter(Boolean);
     for (const seed of baseSeeds) {
-      for (let i = 0; i < (CAISHEN_FAST_MODE ? 8 : 30); i++) {
+      for (let i = 0; i < 30; i++) {
         const groups = mutateByTimes(seed.groups, 1 + (i % 4));
         const item = reverseItemFromGroups(groups, draws);
         if (item.stats.latestDown) pool = addUniqueSorted(pool, item, keepSize, compareReverseItems);
@@ -2249,11 +2485,11 @@
       }
     }
 
-    const refineRounds = CAISHEN_FAST_MODE ? Math.min(pool.length, Math.max(10, totalWanted * 3)) : Math.min(pool.length, Math.max(36, totalWanted * 14));
+    const refineRounds = Math.min(pool.length, Math.max(36, totalWanted * 14));
     for (let i = 0; i < refineRounds; i++) {
       let current = pool[i % pool.length];
       let best = current;
-      for (let step = 0; step < (CAISHEN_FAST_MODE ? 70 : 260); step++) {
+      for (let step = 0; step < 260; step++) {
         const candidate = reverseItemFromGroups(randomSwap(current.groups), draws);
         const candidateOk = candidate.stats.latestDown;
         if (candidateOk && (compareReverseItems(candidate, current) < 0 || rand() < 0.015)) current = candidate;
@@ -2305,7 +2541,7 @@
       : buildBalancedRandomPillar();
     let bestGroups = cloneGroups(base);
     let bestEval = antiScore(bestGroups, draws);
-    for (let i = 0; i < (CAISHEN_FAST_MODE ? 20 : 80); i++) {
+    for (let i = 0; i < 80; i++) {
       const candidateGroups = randomSwap(bestGroups);
       const candidateEval = antiScore(candidateGroups, draws);
       if (betterAnti(candidateEval, bestEval) || rand() < 0.05) {
@@ -2339,18 +2575,18 @@
     seedForType('anti');
     const storageKey = makeStorageKey('anti_v30_deep_fixed', draws, JSON.stringify(candidateScoreData && candidateScoreData.ranking ? candidateScoreData.ranking.slice(0, 18).map(x => x.n) : []));
     let pool = [];
-    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
+    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
 
-    for (let i = 0; i < (CAISHEN_FAST_MODE ? Math.max(150, totalWanted * 14) : Math.max(560, totalWanted * 180)); i++) {
+    for (let i = 0; i < Math.max(560, totalWanted * 180); i++) {
       const seed = buildAntiSeed(draws, candidateScoreData);
       pool = addUniqueSorted(pool, seed, keepSize, compareAntiItems);
     }
 
     pool = await strictRefinePool(pool, draws, totalWanted, antiScore, compareAntiItems, '防穿透', {
-      primarySteps: CAISHEN_FAST_MODE ? 100 : 620,
-      eliteSteps: CAISHEN_FAST_MODE ? 220 : 1480,
-      primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
-      eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
+      primarySteps: 620,
+      eliteSteps: 1480,
+      primaryAcceptChance: 0.008,
+      eliteAcceptChance: 0.003
     });
 
     const finalItems = finalizeTopItems(pool, totalWanted, compareAntiItems);
@@ -2426,11 +2662,11 @@
     seedForType('highpass');
     const storageKey = makeStorageKey('highpass_v30_deep_fixed', draws);
     let pool = [];
-    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
+    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
 
     const seeds = [];
     aiSeedItems.forEach(item => seeds.push({ groups: cloneGroups(item.groups), stats: highPassScore(item.groups, draws) }));
-    for (let i = 0; i < (CAISHEN_FAST_MODE ? Math.max(170, totalWanted * 14) : Math.max(620, totalWanted * 200)); i++) {
+    for (let i = 0; i < Math.max(620, totalWanted * 200); i++) {
       let groups = buildBalancedRandomPillar();
       if (i % 2 === 1 && aiSeedItems.length) groups = mutateByTimes(aiSeedItems[i % aiSeedItems.length].groups, 1 + (i % 6));
       seeds.push({ groups, stats: highPassScore(groups, draws) });
@@ -2438,10 +2674,10 @@
     for (const seed of seeds) pool = addUniqueSorted(pool, seed, keepSize, compareHighPassItems);
 
     pool = await strictRefinePool(pool, draws, totalWanted, highPassScore, compareHighPassItems, '高過關爆發', {
-      primarySteps: CAISHEN_FAST_MODE ? 100 : 620,
-      eliteSteps: CAISHEN_FAST_MODE ? 220 : 1480,
-      primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
-      eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
+      primarySteps: 620,
+      eliteSteps: 1480,
+      primaryAcceptChance: 0.008,
+      eliteAcceptChance: 0.003
     });
 
     const qualifiedPool = pool.filter(item => isQualifiedHighPassStats(item.stats));
@@ -3729,7 +3965,6 @@
       refreshRecommendArea();
       log(`已完成手動移入區最佳三組排序：檢查 ${combos.length} 種有效排列，不微調前不輸率 ${bestRateText}%，全倒率 ${bestDownText}%。`);
     } finally {
-      CAISHEN_FAST_MODE = false;
       if (buttonEl) {
         buttonEl.disabled = false;
         buttonEl.textContent = originalText || '一鍵排列最佳三組';
@@ -4047,532 +4282,6 @@
       best.isQualified = best.stats.noLoseRate >= 0.62 && best.stats.allDownRate <= 0.04;
     }
     return best;
-  }
-
-
-
-  // 財神今日代理 V8：真正加速版；財神按鈕啟動快速深度，先求有感速度，再保留你的硬門檻。
-  function comboCount(n, k) {
-    if (k < 0 || k > n) return 0;
-    let result = 1;
-    for (let i = 1; i <= k; i++) result = result * (n - k + i) / i;
-    return result;
-  }
-
-  function expectedPatternRatesForGroups(groups) {
-    const sizes = (groups || []).map(g => (g || []).length);
-    if (sizes.length !== 3) return {};
-    const total = comboCount(sizes.reduce((s, v) => s + v, 0), 5) || 1;
-    const rates = {};
-    for (let a = 0; a <= 5; a++) {
-      for (let b = 0; b <= 5 - a; b++) {
-        const c = 5 - a - b;
-        const ways = comboCount(sizes[0], a) * comboCount(sizes[1], b) * comboCount(sizes[2], c);
-        if (!ways) continue;
-        const key = [a, b, c].sort((x, y) => y - x).join('-');
-        rates[key] = (rates[key] || 0) + ways / total;
-      }
-    }
-    return rates;
-  }
-
-  function calcPatternAveragePenalty(item) {
-    if (!item || !item.groups || !item.stats) return 999;
-    const targetKeys = ['2-2-1', '3-1-1', '3-2-0', '4-1-0', '5-0-0'];
-    const expected = expectedPatternRatesForGroups(item.groups);
-    const total = item.stats.totalDraws || 1;
-    let penalty = 0;
-    targetKeys.forEach(key => {
-      const observed = ((item.stats.patterns || {})[key] || 0) / total;
-      penalty += Math.abs(observed - (expected[key] || 0));
-    });
-    return penalty;
-  }
-
-  function attachCaishenInfo(item, ruleTag) {
-    const out = { ...item, groups: cloneGroups(item.groups), stats: { ...(item.stats || {}) } };
-    out.caishenRuleTag = ruleTag || '';
-    out.patternAveragePenalty = calcPatternAveragePenalty(out);
-    out.singleDecisionScore = calcCaishenSingleScore(out);
-    return out;
-  }
-
-  function calcCaishenSingleScore(item) {
-    const s = item.stats || {};
-    const patternPenalty = Number.isFinite(item.patternAveragePenalty) ? item.patternAveragePenalty : 2;
-    const passRate = s.passRate || 0;
-    let score = 0;
-    // 你的思維：最新有倒，比一直順更值得先看。
-    if (s.latestDown) score += 180;
-    score += (s.recent5Down || 0) * 42;
-    score += Math.min(6, s.latestDownStreak || 0) * 24;
-    // 數據仍要看，但不能蓋過生存邏輯。
-    score += passRate * 80;
-    score -= (s.balancePenalty || 0) * 12;
-    score -= patternPenalty * 75;
-    return score;
-  }
-
-  function compareCaishenAiAnti(a, b) {
-    const as = a.stats || {}, bs = b.stats || {};
-    if (!!bs.latestDown !== !!as.latestDown) return Number(!!bs.latestDown) - Number(!!as.latestDown);
-    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
-    if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
-    if ((b.singleDecisionScore || 0) !== (a.singleDecisionScore || 0)) return (b.singleDecisionScore || 0) - (a.singleDecisionScore || 0);
-    if ((bs.passRate || 0) !== (as.passRate || 0)) return (bs.passRate || 0) - (as.passRate || 0);
-    return (as.balancePenalty || 0) - (bs.balancePenalty || 0);
-  }
-
-  function compareCaishenHighPass(a, b) {
-    const as = a.stats || {}, bs = b.stats || {};
-    const pa = Number.isFinite(a.patternAveragePenalty) ? a.patternAveragePenalty : 999;
-    const pb = Number.isFinite(b.patternAveragePenalty) ? b.patternAveragePenalty : 999;
-    // 高爆發：先目測分布是不是正常，再看最新倒與近5倒。
-    if (Math.abs(pa - pb) > 1e-12) return pa - pb;
-    if (!!bs.latestDown !== !!as.latestDown) return Number(!!bs.latestDown) - Number(!!as.latestDown);
-    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
-    return (bs.passRate || 0) - (as.passRate || 0);
-  }
-
-  function compareCaishenReverse(a, b) {
-    const as = a.stats || {}, bs = b.stats || {};
-    // 反指標：連倒越長越優先，再看近5倒與分布。
-    if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
-    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
-    const pa = Number.isFinite(a.patternAveragePenalty) ? a.patternAveragePenalty : 999;
-    const pb = Number.isFinite(b.patternAveragePenalty) ? b.patternAveragePenalty : 999;
-    if (Math.abs(pa - pb) > 1e-12) return pa - pb;
-    return (bs.passRate || 0) - (as.passRate || 0);
-  }
-
-  function sortAndTakeCaishen(items, sourceType, take) {
-    const list = (items || []).filter(item => item && item.sourceType === sourceType);
-    const sorter = sourceType === 'reverse' ? compareCaishenReverse : sourceType === 'highpass' ? compareCaishenHighPass : compareCaishenAiAnti;
-    return list.sort(sorter).slice(0, take || 8);
-  }
-
-
-  function caishenGeneratedRejectReasons(item, sourceType) {
-    const s = item && item.stats ? item.stats : {};
-    const reasons = [];
-    const passRate = s.passRate || 0;
-    const patternPenalty = Number.isFinite(item && item.patternAveragePenalty) ? item.patternAveragePenalty : 999;
-    const recent5Down = s.recent5Down || 0;
-    const latestDown = !!s.latestDown;
-    const latestDownStreak = s.latestDownStreak || 0;
-    const balancePenalty = s.balancePenalty || 0;
-
-    // 這裡是「生成階段」的硬淘汰：不再先丟五組垃圾給你自己目測。
-    if (sourceType === 'ai' || sourceType === 'anti') {
-      if (!latestDown && recent5Down < 2) reasons.push('沒有最新倒，近5倒也不足2次');
-      if (passRate < 0.58) reasons.push('單組回測過關率偏低');
-      if (balancePenalty > 7.5) reasons.push('結構失衡偏高');
-      if (patternPenalty > 0.30) reasons.push('分布偏離過大');
-    } else if (sourceType === 'highpass') {
-      if (patternPenalty > 0.20) reasons.push('2-2-1/3-1-1/3-2-0/4-1-0/5-0-0分布不夠平均');
-      if (passRate < 0.60) reasons.push('高爆發但基本過關率不足');
-      if (balancePenalty > 8.5) reasons.push('高爆發結構太偏');
-    } else if (sourceType === 'reverse') {
-      if (latestDownStreak < 2 && recent5Down < 3) reasons.push('反指標連倒力道不足');
-      if (patternPenalty > 0.24) reasons.push('反指標分布不耐打');
-      if (passRate < 0.50) reasons.push('反指標太弱，像垃圾不是回調');
-    }
-    return reasons;
-  }
-
-  function caishenFilterGenerated(items, sourceType, take) {
-    const list = (items || []).filter(item => item && item.sourceType === sourceType);
-    const sorter = sourceType === 'reverse' ? compareCaishenReverse : sourceType === 'highpass' ? compareCaishenHighPass : compareCaishenAiAnti;
-    const withReasons = list.map(item => ({ item, reasons: caishenGeneratedRejectReasons(item, sourceType) }));
-    const clean = withReasons.filter(row => row.reasons.length === 0).map(row => row.item).sort(sorter);
-    const soft = withReasons.filter(row => row.reasons.length > 0).map(row => {
-      row.item.caishenGeneratedRejectReasons = row.reasons;
-      return row.item;
-    }).sort(sorter);
-    const need = take || 8;
-    const picked = clean.slice(0, need);
-    // 若嚴格條件完全不足，才補缺點最少的，且會標註原因，避免看起來像合格品。
-    if (picked.length < Math.min(3, need)) {
-      const filler = soft
-        .sort((a, b) => (a.caishenGeneratedRejectReasons || []).length - (b.caishenGeneratedRejectReasons || []).length || sorter(a, b))
-        .slice(0, need - picked.length);
-      picked.push(...filler);
-    }
-    return picked.slice(0, need);
-  }
-
-  function normalizeCaishenPoolItem(item, sourceType, sourceLabel, sourceIndex, backtestMode, ruleTag) {
-    return attachCaishenInfo(normalizeBest3PoolItem(item, sourceType, sourceLabel, sourceIndex, backtestMode), ruleTag);
-  }
-
-  function appendUniqueCaishenItems(bucket, items, sourceType, sourceLabel, backtestMode, seen, ruleTag) {
-    (items || []).forEach((item, idx) => {
-      if (!item || !Array.isArray(item.groups) || item.groups.length !== 3) return;
-      const key = exportText(item.groups);
-      if (seen.has(key)) return;
-      seen.add(key);
-      bucket.push(normalizeCaishenPoolItem(item, sourceType, sourceLabel, idx, backtestMode, ruleTag));
-    });
-  }
-
-  async function buildCaishenAgentPool(allDraws) {
-    const raw = [];
-    const seen = new Set();
-    const candidateShareData = parseCandidateShares(candidateInput.value);
-    const modes = [50, 100, 150];
-    const wantedPerBuild = CAISHEN_FAST_MODE ? 12 : 32; // V8：快速模式先保留每類前12組，減少手機長時間卡住。
-    const t0 = performance.now ? performance.now() : Date.now();
-
-    for (const mode of modes) {
-      const modeDraws = allDraws.slice(0, Math.min(mode, allDraws.length));
-      if (modeDraws.length < 10) continue;
-      currentRunSignature = [getActiveDrawText(), noDrawInput.value, candidateInput.value, 'CAISHEN_AGENT_V8_REAL_FAST', String(mode)].join('\n---\n');
-      setRunSeed(currentRunSignature);
-      const candidateScoreData = buildCandidateScoreRanking(modeDraws, candidateShareData.counts);
-      log(`財神今日代理V8：生成回測 ${modeDraws.length} 期候選。`);
-
-      let aiItems = [];
-
-      // V7關鍵加速：50期只用於反指標，完全不再浪費時間生成 AI / 防穿透 / 高爆發。
-      if (modeDraws.length === 50) {
-        const reverseItems = await buildTopReverseGroups(modeDraws, wantedPerBuild);
-        appendUniqueCaishenItems(raw, reverseItems, 'reverse', '反指標排行立柱', modeDraws.length, seen, '反指標只採50+100｜連倒期數越多越優先｜再看分布是否耐打');
-        await new Promise(requestAnimationFrame);
-        continue;
-      }
-
-      // 100期：四種類型都會用到。
-      if (modeDraws.length === 100) {
-        aiItems = await buildTopAiGroups(modeDraws, wantedPerBuild);
-        appendUniqueCaishenItems(raw, aiItems, 'ai', 'AI 最佳立柱', modeDraws.length, seen, 'AI只採100+150｜最新一期倒優先｜近5期倒越多越前面｜不是只看勝率');
-        await new Promise(requestAnimationFrame);
-
-        const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, wantedPerBuild);
-        appendUniqueCaishenItems(raw, antiItems, 'anti', '防穿透立柱', modeDraws.length, seen, '防穿透只採100+150｜條件同AI｜另外用來避開AI同弱點');
-        await new Promise(requestAnimationFrame);
-
-        const highPassItems = await buildTopHighPassGroups(modeDraws, wantedPerBuild, aiItems);
-        appendUniqueCaishenItems(raw, highPassItems, 'highpass', '高過關爆發立柱', modeDraws.length, seen, '高爆發只採100+150｜先看2-2-1/3-1-1/3-2-0/4-1-0/5-0-0是否接近平均');
-        await new Promise(requestAnimationFrame);
-
-        const reverseItems = await buildTopReverseGroups(modeDraws, wantedPerBuild);
-        appendUniqueCaishenItems(raw, reverseItems, 'reverse', '反指標排行立柱', modeDraws.length, seen, '反指標只採50+100｜連倒期數越多越優先｜再看分布是否耐打');
-        await new Promise(requestAnimationFrame);
-        continue;
-      }
-
-      // 150期：只用 AI / 防穿透 / 高爆發；不再浪費時間生成反指標。
-      if (modeDraws.length === 150) {
-        aiItems = await buildTopAiGroups(modeDraws, wantedPerBuild);
-        appendUniqueCaishenItems(raw, aiItems, 'ai', 'AI 最佳立柱', modeDraws.length, seen, 'AI只採100+150｜最新一期倒優先｜近5期倒越多越前面｜不是只看勝率');
-        await new Promise(requestAnimationFrame);
-
-        const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, wantedPerBuild);
-        appendUniqueCaishenItems(raw, antiItems, 'anti', '防穿透立柱', modeDraws.length, seen, '防穿透只採100+150｜條件同AI｜另外用來避開AI同弱點');
-        await new Promise(requestAnimationFrame);
-
-        const highPassItems = await buildTopHighPassGroups(modeDraws, wantedPerBuild, aiItems);
-        appendUniqueCaishenItems(raw, highPassItems, 'highpass', '高過關爆發立柱', modeDraws.length, seen, '高爆發只採100+150｜先看2-2-1/3-1-1/3-2-0/4-1-0/5-0-0是否接近平均');
-        await new Promise(requestAnimationFrame);
-      }
-    }
-
-    const pool = [];
-    ['ai', 'anti', 'highpass', 'reverse'].forEach(type => {
-      const before = raw.filter(item => item.sourceType === type).length;
-      const picked = caishenFilterGenerated(raw, type, 10);
-      const clean = picked.filter(item => !(item.caishenGeneratedRejectReasons || []).length).length;
-      pool.push(...picked);
-      log(`財神今日代理V8：${sourceTypeLabel(type)} 生成${before}組，通過你的生成門檻${clean}組，納入排行${picked.length}組。`);
-    });
-    const t1 = performance.now ? performance.now() : Date.now();
-    log(`財神今日代理V8：已啟用V8快速生成深度，跳過無效生成並降低重複精修，候選 ${pool.length} 組，生成耗時約 ${((t1 - t0) / 1000).toFixed(1)} 秒。`);
-    return pool;
-  }
-
-  const caishenPassVectorCache = new WeakMap();
-  function getCaishenPassVector(item, judgeDraws) {
-    if (!item || !Array.isArray(item.groups)) return [];
-    let byDraws = caishenPassVectorCache.get(item);
-    if (!byDraws) {
-      byDraws = new WeakMap();
-      caishenPassVectorCache.set(item, byDraws);
-    }
-    const cached = byDraws.get(judgeDraws);
-    if (cached) return cached;
-    const safeDraws = (judgeDraws || []).filter(draw => Array.isArray(draw) && draw.length === 5);
-    const vector = safeDraws.map(draw => isDrawPassGroups(item.groups, draw) ? 1 : 0);
-    byDraws.set(judgeDraws, vector);
-    return vector;
-  }
-  function getCaishenOverlapStats(items) {
-    const crossOverlaps = [];
-    const samePillarOverlaps = [];
-    for (let a = 0; a < items.length - 1; a++) {
-      for (let b = a + 1; b < items.length; b++) {
-        crossOverlaps.push(crossOverlapRate(items[a].groups, items[b].groups));
-        samePillarOverlaps.push(pairwiseSamePillarOverlap(items[a].groups, items[b].groups));
-      }
-    }
-    return {
-      avgCrossOverlap: crossOverlaps.length ? crossOverlaps.reduce((sum, value) => sum + value, 0) / crossOverlaps.length : 0,
-      maxCrossOverlap: crossOverlaps.length ? Math.max(...crossOverlaps) : 0,
-      avgSamePillarOverlap: samePillarOverlaps.length ? samePillarOverlaps.reduce((sum, value) => sum + value, 0) / samePillarOverlaps.length : 0
-    };
-  }
-
-  function calcCaishenComboBacktest(items, judgeDraws) {
-    const safeDraws = (judgeDraws || []).filter(draw => Array.isArray(draw) && draw.length === 5);
-    const total = safeDraws.length || 1;
-    const vectors = items.map(item => getCaishenPassVector(item, judgeDraws));
-    let allWin = 0, allLose = 0, oneWin = 0, twoWin = 0, atLeastOne = 0;
-    for (let idx = 0; idx < safeDraws.length; idx++) {
-      const wins = (vectors[0][idx] || 0) + (vectors[1][idx] || 0) + (vectors[2][idx] || 0);
-      if (wins === 0) allLose++;
-      if (wins >= 1) atLeastOne++;
-      if (wins === 1) oneWin++;
-      if (wins === 2) twoWin++;
-      if (wins === 3) allWin++;
-    }
-    const overlapStats = getCaishenOverlapStats(items);
-    const totalRecent5Down = items.reduce((sum, item) => sum + ((item.stats && item.stats.recent5Down) || 0), 0);
-    const latestDownCount = items.reduce((sum, item) => sum + ((item.stats && item.stats.latestDown) ? 1 : 0), 0);
-    const latestDownStreakSum = items.reduce((sum, item) => sum + ((item.stats && item.stats.latestDownStreak) || 0), 0);
-    const sourceVariety = new Set(items.map(item => item.sourceType)).size;
-    const avgPatternPenalty = items.reduce((sum, item) => sum + (Number.isFinite(item.patternAveragePenalty) ? item.patternAveragePenalty : 1), 0) / items.length;
-    return {
-      total, allWin, allLose, oneWin, twoWin, atLeastOne,
-      noLoseRate: atLeastOne / total,
-      allDownRate: allLose / total,
-      ...overlapStats,
-      totalRecent5Down,
-      latestDownCount,
-      latestDownStreakSum,
-      sourceVariety,
-      avgPatternPenalty
-    };
-  }
-
-  function caishenComboStatus(stats) {
-    const reasons = [];
-    if ((stats.noLoseRate || 0) < 0.62) reasons.push('不輸率低於62%');
-    if ((stats.allDownRate || 0) > 0.04) reasons.push('全倒率高於4%');
-    if ((stats.latestDownCount || 0) < 1) reasons.push('最新一期倒數不足');
-    if ((stats.totalRecent5Down || 0) < 3) reasons.push('近5期回調不足');
-    if ((stats.avgCrossOverlap || 0) > 0.34) reasons.push('穿插重複偏高');
-    if ((stats.avgPatternPenalty || 0) > 0.22) reasons.push('分布偏離平均');
-    return reasons;
-  }
-
-  function compareCaishenCombo(a, b) {
-    if (!b) return -1;
-    const ar = caishenComboStatus(a.stats);
-    const br = caishenComboStatus(b.stats);
-    const aQualified = (a.stats.noLoseRate || 0) >= 0.62 && (a.stats.allDownRate || 0) <= 0.04;
-    const bQualified = (b.stats.noLoseRate || 0) >= 0.62 && (b.stats.allDownRate || 0) <= 0.04;
-    if (aQualified !== bQualified) return aQualified ? -1 : 1;
-    // 像你手動挑：先淘汰缺點多的組，再排序。
-    if (ar.length !== br.length) return ar.length - br.length;
-    const eps = 1e-12;
-    if (Math.abs((a.stats.allDownRate || 0) - (b.stats.allDownRate || 0)) > eps) return (a.stats.allDownRate || 0) - (b.stats.allDownRate || 0);
-    if ((a.stats.latestDownCount || 0) !== (b.stats.latestDownCount || 0)) return (b.stats.latestDownCount || 0) - (a.stats.latestDownCount || 0);
-    if ((a.stats.totalRecent5Down || 0) !== (b.stats.totalRecent5Down || 0)) return (b.stats.totalRecent5Down || 0) - (a.stats.totalRecent5Down || 0);
-    if (Math.abs((a.stats.noLoseRate || 0) - (b.stats.noLoseRate || 0)) > eps) return (b.stats.noLoseRate || 0) - (a.stats.noLoseRate || 0);
-    if ((a.stats.sourceVariety || 0) !== (b.stats.sourceVariety || 0)) return (b.stats.sourceVariety || 0) - (a.stats.sourceVariety || 0);
-    if (Math.abs((a.stats.avgCrossOverlap || 0) - (b.stats.avgCrossOverlap || 0)) > eps) return (a.stats.avgCrossOverlap || 0) - (b.stats.avgCrossOverlap || 0);
-    if (Math.abs((a.stats.avgPatternPenalty || 0) - (b.stats.avgPatternPenalty || 0)) > eps) return (a.stats.avgPatternPenalty || 0) - (b.stats.avgPatternPenalty || 0);
-    const aPass = a.items.reduce((sum, item) => sum + ((item.stats && item.stats.passRate) || 0), 0) / a.items.length;
-    const bPass = b.items.reduce((sum, item) => sum + ((item.stats && item.stats.passRate) || 0), 0) / b.items.length;
-    return bPass - aPass;
-  }
-
-  function chooseCaishenBestThree(pool, judgeDraws) {
-    let bestQualified = null;
-    let bestFallback = null;
-    const rejected = [];
-    let checked = 0;
-    let qualified = 0;
-    const usedCombos = [];
-    for (let i = 0; i < pool.length - 2; i++) {
-      for (let j = i + 1; j < pool.length - 1; j++) {
-        for (let k = j + 1; k < pool.length; k++) {
-          const picks = [pool[i], pool[j], pool[k]];
-          const types = picks.map(item => item.sourceType);
-          if (new Set(types).size !== picks.length) continue;
-          checked++;
-          const stats = calcCaishenComboBacktest(picks, judgeDraws);
-          const candidate = { items: picks, stats, rejectReasons: caishenComboStatus(stats) };
-          const isHardQualified = (stats.noLoseRate || 0) >= 0.62 && (stats.allDownRate || 0) <= 0.04;
-          if (isHardQualified) {
-            qualified++;
-            if (compareCaishenCombo(candidate, bestQualified) < 0) bestQualified = candidate;
-          }
-          if (compareCaishenCombo(candidate, bestFallback) < 0) bestFallback = candidate;
-          usedCombos.push(candidate);
-        }
-      }
-    }
-    usedCombos.sort(compareCaishenCombo);
-    const best = bestQualified || bestFallback;
-    usedCombos.filter(combo => combo !== best).slice(0, 8).forEach(combo => rejected.push(combo));
-    if (best) {
-      best.checked = checked;
-      best.qualified = qualified;
-      best.isQualified = !!bestQualified;
-      best.rejected = rejected;
-      best.rejectReasons = caishenComboStatus(best.stats);
-      best.caishen = true;
-      best.pool = pool || [];
-      best.hardGateText = bestQualified ? '已找到符合62%不輸硬門檻的主推' : '本輪沒有任何三組同時達到62%不輸＋4%全倒，以下僅顯示最接近候選，不當作合格主推';
-    }
-    return best;
-  }
-
-  function caishenPoolSourceOrder(type) {
-    const order = { ai: 1, anti: 2, highpass: 3, reverse: 4, random: 5 };
-    return order[type] || 99;
-  }
-
-  function caishenReferenceStatus(item) {
-    const s = item.stats || {};
-    const gen = (item.caishenGeneratedRejectReasons || []).length ? `補位：${item.caishenGeneratedRejectReasons.join('、')}` : '通過生成門檻';
-    const p = Number.isFinite(item.patternAveragePenalty) ? `｜分布偏差 ${(item.patternAveragePenalty * 100).toFixed(2)}%` : '';
-    return `回測${item.backtestMode || '-'}期｜最新${s.latestDown ? '倒' : '過'}｜近5倒${s.recent5Down || 0}/5｜連倒${s.latestDownStreak || 0}｜單組過關 ${(((s.passRate || 0) * 100)).toFixed(2)}%${p}｜${gen}`;
-  }
-
-  function buildCaishenReferenceHTML(pool) {
-    const refs = (pool || []).slice().sort((a, b) => {
-      const sourceDiff = caishenPoolSourceOrder(a.sourceType) - caishenPoolSourceOrder(b.sourceType);
-      if (sourceDiff) return sourceDiff;
-      if ((a.backtestMode || 0) !== (b.backtestMode || 0)) return (a.backtestMode || 0) - (b.backtestMode || 0);
-      return compareCaishenAiAnti(a, b);
-    });
-    if (!refs.length) return '<div class="small-note">本輪沒有可顯示的參考立柱。</div>';
-    return `
-      <details open style="margin-top:10px;">
-        <summary style="cursor:pointer;font-weight:900;color:#7dd3fc;">財神本輪全部參考立柱（${refs.length}組，已同步顯示到下方各區）</summary>
-        <div class="recommend-list" style="margin-top:10px;">
-          ${refs.map((item, idx) => `
-            <div class="recommend-item">
-              <div class="recommend-item-head">
-                <span>${idx + 1}. ${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${(Number(item.sourceIndex) || 0) + 1}</span>
-              </div>
-              <div class="recommend-meta">${caishenReferenceStatus(item)}<br>規則：${item.caishenRuleTag || '-'}</div>
-              ${renderGroupsHighlighted(item.groups)}
-            </div>
-          `).join('')}
-        </div>
-      </details>
-    `;
-  }
-
-  function renderCaishenReferenceSections(pool) {
-    const refs = pool || [];
-    lastAI = refs.filter(item => item.sourceType === 'ai');
-    lastAnti = refs.filter(item => item.sourceType === 'anti');
-    lastHighPass = refs.filter(item => item.sourceType === 'highpass');
-    lastReverse = refs.filter(item => item.sourceType === 'reverse');
-    lastRandom = [];
-    if (aiResult) aiResult.innerHTML = buildMultiResultHTML(lastAI, '財神參考｜AI 最佳立柱', false, 'ai');
-    if (antiResult) antiResult.innerHTML = buildMultiResultHTML(lastAnti, '財神參考｜防穿透立柱', false, 'anti');
-    if (highPassResult) highPassResult.innerHTML = buildMultiResultHTML(lastHighPass, '財神參考｜高過關爆發立柱', false, 'highpass');
-    if (reverseResult) reverseResult.innerHTML = buildMultiResultHTML(lastReverse, '財神參考｜反指標排行立柱', false, 'reverse');
-    if (randomResult) randomResult.innerHTML = '<div class="small-note">財神今日代理本輪不採隨機平衡，避免垃圾組混入判斷。</div>';
-  }
-
-  function buildCaishenAgentHTML(best, allDraws) {
-    if (!best || !best.items || best.items.length !== 3) {
-      return '<div class="bad">財神今日代理沒有找到可用組合，請先確認資料庫至少有 50 期以上資料。</div>';
-    }
-    const stats = best.stats || {};
-    const qualifyText = best.isQualified ? '✅ 通過62%不輸硬門檻' : '⛔ 未達62%硬門檻，本輪不視為合格主推';
-    const reasons = best.rejectReasons && best.rejectReasons.length ? best.rejectReasons.join('、') : '無明顯硬傷';
-    const hardGateText = best.hardGateText || '';
-    const referenceHTML = '';
-    const sourceText = best.items.map((item, idx) => {
-      const p = Number.isFinite(item.patternAveragePenalty) ? `｜分布偏差 ${(item.patternAveragePenalty * 100).toFixed(2)}%` : '';
-      const s = item.stats || {};
-      const genFlag = (item.caishenGeneratedRejectReasons || []).length ? `｜<span class="mid">補位：${item.caishenGeneratedRejectReasons.join('、')}</span>` : '｜<span class="ok">通過生成門檻</span>';
-      return `${idx + 1}.${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${(Number(item.sourceIndex) || 0) + 1} 組｜最新${s.latestDown ? '倒' : '過'}｜近5倒${s.recent5Down || 0}/5｜連倒${s.latestDownStreak || 0}${p}${genFlag}<br><span style="color:var(--muted);">採用規則：${item.caishenRuleTag || '-'}</span>`;
-    }).join('<br>');
-    const rejectedText = (best.rejected || []).slice(0, 4).map((combo, idx) => {
-      const s = combo.stats || {};
-      const why = combo.rejectReasons && combo.rejectReasons.length ? combo.rejectReasons.join('、') : '輸給主推的細節分數';
-      const types = combo.items.map(item => sourceTypeLabel(item.sourceType)).join(' + ');
-      return `${idx + 1}. ${types}｜不輸 ${((s.noLoseRate || 0) * 100).toFixed(2)}%｜全倒 ${((s.allDownRate || 0) * 100).toFixed(2)}%｜淘汰原因：${why}`;
-    }).join('<br>') || '沒有足夠淘汰樣本。';
-    return `
-      <div><b>財神今日代理V8｜${qualifyText}</b>｜已檢查 ${best.checked || 0} 種三組排列，符合 62%不輸＋4%全倒門檻 ${best.qualified || 0} 種。</div>
-      <div style="margin-top:6px;color:${best.isQualified ? '#86efac' : '#fca5a5'};font-weight:900;">${hardGateText}</div>
-      <div class="daily-agent-kpi">
-        <div>至少過1組<br><b>${((stats.noLoseRate || 0) * 100).toFixed(2)}%</b></div>
-        <div>三組全倒率<br><b>${((stats.allDownRate || 0) * 100).toFixed(2)}%</b></div>
-        <div>平均穿插重複<br><b>${((stats.avgCrossOverlap || 0) * 100).toFixed(2)}%</b></div>
-        <div>最新一期倒數<br><b>${stats.latestDownCount || 0}/3</b></div>
-      </div>
-      <div>柏青哥判斷：先防全倒，再看最新倒與近5倒。這次硬傷檢查：<b>${reasons}</b>。近5期倒合計 ${stats.totalRecent5Down || 0}/15，分布偏差 ${(stats.avgPatternPenalty * 100 || 0).toFixed(2)}%。</div>
-      <div style="margin-top:8px;color:#7dd3fc;">已自動移入「手動移入比較區」，可直接按「分析目前組合」看極端全倒風險。</div>
-      <div style="margin-top:8px;color:var(--muted);">主推來源：<br>${sourceText}</div>
-      <div style="margin-top:8px;color:#fcd34d;">淘汰參考：<br>${rejectedText}</div>
-      ${referenceHTML}
-    `;
-  }
-
-  async function runDailyPassAgent(buttonEl) {
-    const allDraws = parseDraws(getActiveDrawText());
-    if (!allDraws.length) {
-      alert('請先在資料庫或下方貼上欄位加入有效開獎號碼。');
-      return;
-    }
-    const originalText = buttonEl ? buttonEl.textContent : '';
-    if (buttonEl) {
-      buttonEl.disabled = true;
-      buttonEl.textContent = '財神代理V8運算中...';
-    }
-    if (dailyAgentResult) dailyAgentResult.innerHTML = '財神今日代理V8正在用你的思維「先生成篩掉垃圾」：AI/防穿透100+150先看最新倒與近5倒，高爆發先看分布，反指標先看連倒，再做三組生存排列...';
-    try {
-      resetLog();
-      log(`財神今日代理啟動：目前彩種 ${gameLabel(currentGameMode())}，資料 ${allDraws.length} 期。`);
-      CAISHEN_FAST_MODE = true;
-      const pool = await buildCaishenAgentPool(allDraws);
-      const best = chooseCaishenBestThree(pool, allDraws);
-      if (best) best.pool = pool;
-      renderCaishenReferenceSections(pool);
-      if (!best) {
-        if (dailyAgentResult) dailyAgentResult.innerHTML = '<span class="bad">沒有找到可用三組，請先補足資料或重新匯入資料庫。</span>';
-        log('財神今日代理：沒有找到可用三組。');
-        return;
-      }
-      manualRecommendItems = best.items.map((item, idx) => ({
-        ...item,
-        groups: cloneGroups(item.groups),
-        sourceLabel: `財神今日代理｜${item.sourceLabel || sourceTypeLabel(item.sourceType)}`,
-        sourceIndex: Number.isFinite(Number(item.sourceIndex)) ? Number(item.sourceIndex) : idx
-      }));
-      manualComboIndex = 0;
-      manualActiveIndexes = [0, 1, 2];
-      manualProbabilityAnalysisHTML = '';
-      manualFatalRiskAnalysisHTML = '';
-      bestComboAnalysisHTML = '';
-      manualTuneSuggestion = null;
-      manualTuneActive = false;
-      manualTuneStatus = `${best.isQualified ? '財神今日代理V8完成｜已通過62%不輸硬門檻' : '財神今日代理V8完成｜未達62%硬門檻，僅供參考'}｜生成先淘汰垃圾 > 防全倒 > 最新倒 > 近5倒 > 不輸率 > 重疊與分布｜不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%｜全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%｜平均穿插重複率 ${(best.stats.avgCrossOverlap * 100).toFixed(2)}%。`;
-      refreshRecommendArea();
-      if (dailyAgentResult) dailyAgentResult.innerHTML = buildCaishenAgentHTML(best, allDraws);
-      log(`財神今日代理完成：不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%，全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%，達標 ${best.qualified}/${best.checked}。`);
-      const target = document.getElementById('manualSection') || recommendResult;
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (err) {
-      console.error(err);
-      if (dailyAgentResult) dailyAgentResult.innerHTML = '<span class="bad">財神今日代理執行錯誤：' + escapeHtml(err && err.message ? err.message : err) + '</span>';
-      alert('財神今日代理執行時發生錯誤：' + (err && err.message ? err.message : err));
-      log('財神今日代理錯誤：' + (err && err.message ? err.message : err));
-    } finally {
-      if (buttonEl) {
-        buttonEl.disabled = false;
-        buttonEl.textContent = originalText || '啟動財神今日代理';
-      }
-    }
   }
 
   async function analyzeBestThreeCombo(buttonEl) {
@@ -5254,83 +4963,7 @@
     log('已手動清除目前資料的鎖定最佳。');
   });
 
-  if (moveAllToRecommendBtn) {
-    moveAllToRecommendBtn.addEventListener('click', () => {
-      try {
-        const allCards = document.querySelectorAll('.move-to-recommend-btn');
-        let moved = 0;
-
-        allCards.forEach(btn => {
-          try {
-            btn.click();
-            moved++;
-          } catch(err) {}
-        });
-
-        if (moved > 0) {
-          alert(`已一鍵移入 ${moved} 組至推薦區`);
-        } else {
-          alert('目前沒有可移入推薦區的結果');
-        }
-      } catch(err) {
-        alert('一鍵移入失敗');
-      }
-    });
-  }
-
-
-  if (moveAllCaishenBtn) {
-    moveAllCaishenBtn.addEventListener('click', () => {
-      try {
-
-        // 財神代理生成後，下方真正可操作的按鈕
-        // 實際上都共用 data-move-to-recommend
-        // 直接抓下方結果區即可
-
-        const resultAreas = [
-          document.getElementById('aiResult'),
-          document.getElementById('antiResult'),
-          document.getElementById('highPassResult'),
-          document.getElementById('reverseResult'),
-          document.getElementById('randomResult')
-        ].filter(Boolean);
-
-        const btns = [];
-
-        resultAreas.forEach(area => {
-          area.querySelectorAll('[data-move-to-recommend], button').forEach(btn => {
-            const txt = (btn.textContent || '').trim();
-            if (txt.includes('移至推薦區')) {
-              btns.push(btn);
-            }
-          });
-        });
-
-        let moved = 0;
-
-        btns.forEach(btn => {
-          try {
-            btn.click();
-            moved++;
-          } catch(err) {}
-        });
-
-        if (moved > 0) {
-          alert(`已將 ${moved} 組財神參考立柱移入推薦區`);
-        } else {
-          alert('目前沒有財神參考立柱可移入');
-        }
-
-      } catch(err) {
-        console.error(err);
-        alert('財神參考移入失敗');
-      }
-    });
-  }
-
-
   runBtn.addEventListener('click', run);
-  if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
   initDrawDatabase();
 
   function legacyCopyText(text) {
