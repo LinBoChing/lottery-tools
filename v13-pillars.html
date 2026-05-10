@@ -711,6 +711,38 @@
     .daily-agent-kpi b { font-size:16px; color:#f8fafc; }
 
 
+
+    .caishen-ai-box{
+      margin-top:10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#020617;
+      padding:10px;
+    }
+    .caishen-ai-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+      margin-top:8px;
+    }
+    .caishen-ai-card{
+      background:#0f172a;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:10px;
+      font-size:13px;
+      color:#cbd5e1;
+      line-height:1.55;
+    }
+    .caishen-ai-card b{
+      color:#fcd34d;
+    }
+    @media (max-width:768px){
+      .caishen-ai-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
     .caishen-growth-box{
       margin-top:12px;
       padding:14px;
@@ -1092,6 +1124,39 @@
             <button class="btn btn-dark" id="reviewTodayBattleBtn" type="button" style="width:auto;">財神檢討</button>
           </div>
           <div class="caishen-battle-analysis" id="caishenBattleAnalysis">當天對戰分析：尚未結算。</div>
+
+          <div class="caishen-ai-box">
+            <div class="section-title" style="margin-bottom:4px;">財神代理 V2 權重學習</div>
+            <div class="db-mini">依照目前彩種的對戰結算資料學習；檢討是修正註記，真正權重以「已結算且可辨識來源的出戰組」計算。類型未識別時不會亂猜，避免錯誤學習。</div>
+
+            <div class="caishen-ai-grid">
+              <div class="caishen-ai-card">
+                <b>AI最佳權重</b><br>
+                <span id="caishenWeightAI">計算中...</span>
+              </div>
+
+              <div class="caishen-ai-card">
+                <b>防穿透權重</b><br>
+                <span id="caishenWeightDefense">計算中...</span>
+              </div>
+
+              <div class="caishen-ai-card">
+                <b>高爆發權重</b><br>
+                <span id="caishenWeightBurst">計算中...</span>
+              </div>
+
+              <div class="caishen-ai-card">
+                <b>反指標權重</b><br>
+                <span id="caishenWeightAnti">計算中...</span>
+              </div>
+
+              <div class="caishen-ai-card">
+                <b>代理學習狀態</b><br>
+                <span id="caishenLearningState">分析中...</span>
+              </div>
+            </div>
+          </div>
+
           <div class="caishen-record-wrap" id="caishenRecordWrap">
             <div class="caishen-record-head" id="caishenRecordHead">
               <span>對戰紀錄</span>
@@ -1729,12 +1794,67 @@
     return [];
   }
 
+
+  function caishenTypeCodeToName(type){
+    const t = String(type || '').toLowerCase();
+    if (t === 'ai') return 'AI最佳';
+    if (t === 'defense') return '防穿透';
+    if (t === 'burst') return '高爆發';
+    if (t === 'anti') return '反指標';
+    return '未識別';
+  }
+
+  function caishenSourceToType(source){
+    const s = String(source || '').toLowerCase();
+    if (s === 'ai') return 'ai';
+    if (s === 'anti') return 'defense';      // 原系統 anti = 防穿透
+    if (s === 'highpass') return 'burst';    // 高過關爆發
+    if (s === 'reverse') return 'anti';      // 反指標
+    if (s === 'random') return 'unknown';
+    if (s === 'recommended') return 'unknown';
+    return 'unknown';
+  }
+
+  function caishenGuessTypeFromItem(item, idx){
+    if (!item) return 'unknown';
+
+    const sourceMapped = caishenSourceToType(item.sourceType || item.copyType || item.originType || '');
+    if (sourceMapped !== 'unknown') return sourceMapped;
+
+    const direct = [
+      item.type,
+      item.mode,
+      item.label,
+      item.sourceType,
+      item.sourceLabel,
+      item.source,
+      item.name,
+      item.category,
+      item.kind,
+      item.title
+    ].filter(Boolean).join(' ');
+
+    let type = caishenExtractTypeFromText(direct);
+    if (type !== 'unknown') return type;
+
+    type = caishenExtractTypeFromText(item.text || '');
+    if (type !== 'unknown') return type;
+
+    // 不能用順序猜類型，否則會把防穿透/高爆發/反指標誤學成 AI/防穿透/高爆發。
+    // 抓不到真實來源時，一律標示未識別，不納入類型權重。
+    return 'unknown';
+  }
+
+
   function caishenNormalizeInternalItem(item, idx){
     const groups = item && Array.isArray(item.groups) ? item.groups : [];
     const stats = item && item.stats ? item.stats : {};
-    const type = item && (item.type || item.mode || item.label || item.source || item.name) ? (item.type || item.mode || item.label || item.source || item.name) : '推薦區';
+    const inferredType = caishenGuessTypeFromItem(item, idx);
+    const typeName = caishenTypeCodeToName(inferredType);
+    const rawType = item && (item.type || item.mode || item.label || item.source || item.name) ? (item.type || item.mode || item.label || item.source || item.name) : '推薦區';
     const text =
-`來源：${type}
+`類型：${typeName}
+來源：${item?.sourceLabel || rawType}
 過關率：${typeof stats.passRate === 'number' ? (stats.passRate * 100).toFixed(2) + '%' : '未記錄'}
 最新連倒：${stats.latestDownStreak ?? '未記錄'}
 近5期倒數：${stats.recent5DownCount ?? stats.recentFiveDownCount ?? '未記錄'}
@@ -1747,27 +1867,32 @@
       html: '',
       groups,
       stats,
-      source: 'internal-lastRecommended'
+      type: inferredType,
+      typeName,
+      sourceType: item?.sourceType || '',
+      sourceLabel: item?.sourceLabel || '',
+      source: item?.sourceType || item?.sourceLabel || 'internal'
     };
   }
 
   function getRecommendTopThreeForBattle(){
-    // 最準來源：推薦區內部資料，不靠畫面文字解析。
-    if (Array.isArray(lastRecommended) && lastRecommended.length) {
-      const internal = lastRecommended
-        .filter(item => item && Array.isArray(item.groups) && item.groups.length === 3)
-        .slice(0, 3)
-        .map((item, idx) => caishenNormalizeInternalItem(item, idx));
-      if (internal.length) return internal;
-    }
-
-    // 次準來源：手動移入/推薦手動陣列
+    // 真正出戰來源：手動區上方前三組優先。
+    // 因為你最後下注是從手動區決定，不是單純推薦區。
     if (Array.isArray(manualRecommendItems) && manualRecommendItems.length) {
       const manual = manualRecommendItems
         .filter(item => item && Array.isArray(item.groups) && item.groups.length === 3)
         .slice(0, 3)
         .map((item, idx) => caishenNormalizeInternalItem(item, idx));
       if (manual.length) return manual;
+    }
+
+    // 沒有手動區時，才退回最終推薦區。
+    if (Array.isArray(lastRecommended) && lastRecommended.length) {
+      const internal = lastRecommended
+        .filter(item => item && Array.isArray(item.groups) && item.groups.length === 3)
+        .slice(0, 3)
+        .map((item, idx) => caishenNormalizeInternalItem(item, idx));
+      if (internal.length) return internal;
     }
 
     // 最後才退回畫面解析
@@ -1778,11 +1903,14 @@
       const text = (el.innerText || '').trim();
       if (!text || text.length < 10) return;
       const groups = caishenParseGroupsFromElement(el);
+      const inferredType = caishenExtractTypeFromText(text);
       selected.push({
         index: selected.length + 1,
-        text,
+        text: `類型：${caishenTypeCodeToName(inferredType)}\n` + text,
         html: el.innerHTML || '',
         groups,
+        type: inferredType,
+        typeName: caishenTypeCodeToName(inferredType),
         source: 'dom'
       });
     });
@@ -1992,6 +2120,146 @@
   }
 
 
+
+  function caishenExtractTypeFromText(text){
+    const t = String(text || '').toLowerCase();
+    if (/反指標|反向|reverse|anti-index/.test(t)) return 'anti';
+    if (/防穿透|穿透|anti penetration|defense|防守/.test(t)) return 'defense';
+    if (/高爆發|爆發|high pass|burst/.test(t)) return 'burst';
+    if (/ai最佳|ai best|ai 最佳|\bai\b/.test(t)) return 'ai';
+    return 'unknown';
+  }
+
+  function caishenExtractTypeFromBattleGroup(g){
+    if (!g) return 'unknown';
+    if (g.type && ['ai','defense','burst','anti'].includes(String(g.type).toLowerCase())) return String(g.type).toLowerCase();
+    const sourceMapped = caishenSourceToType(g.sourceType || g.copyType || g.originType || '');
+    if (sourceMapped !== 'unknown') return sourceMapped;
+    const direct = [g.type, g.mode, g.label, g.sourceType, g.sourceLabel, g.source, g.name, g.category].filter(Boolean).join(' ');
+    let type = caishenExtractTypeFromText(direct);
+    if (type !== 'unknown') return type;
+    type = caishenExtractTypeFromText(g.text || '');
+    if (type !== 'unknown') return type;
+
+    // 類型抓不到就不猜，避免錯誤學習。
+    return 'unknown';
+  }
+
+  function caishenBuildLearningStats(memory){
+    const settles = caishenFilterSettlesByActiveGame(memory);
+    const stats = {
+      ai:{total:0, pass:0, down:0},
+      defense:{total:0, pass:0, down:0},
+      burst:{total:0, pass:0, down:0},
+      anti:{total:0, pass:0, down:0},
+      unknown:{total:0, pass:0, down:0}
+    };
+
+    settles.forEach(s => {
+      const groups = s.battle?.groups || [];
+      groups.forEach((g, idx) => {
+        const type = caishenExtractTypeFromBattleGroup(g);
+        const bucket = stats[type] || stats.unknown;
+        bucket.total += 1;
+
+        const line = (s.analysisLines || [])[idx] || '';
+        if (/過關✅|過關/.test(line)) {
+          bucket.pass += 1;
+        } else if (/倒牌|全倒|❌/.test(line)) {
+          bucket.down += 1;
+        } else if (typeof s.passCount === 'number') {
+          if (s.passCount > 0) bucket.pass += 1;
+          else bucket.down += 1;
+        }
+      });
+    });
+
+    return stats;
+  }
+
+  function caishenWeightScore(item){
+    if (!item.total) return 50;
+    const passRate = item.pass / item.total;
+    const downRate = item.down / item.total;
+
+    let score = 50;
+    score += passRate * 45;
+    score -= downRate * 30;
+
+    score = Math.max(5, Math.min(99, Math.round(score)));
+    return score;
+  }
+
+  function caishenWeightLabel(score){
+    if (score >= 80) return `強化中 ↑ (${score})`;
+    if (score >= 60) return `穩定 ↑ (${score})`;
+    if (score >= 45) return `觀察中 (${score})`;
+    if (score >= 30) return `降權中 ↓ (${score})`;
+    return `危險 ↓ (${score})`;
+  }
+
+  function caishenRenderLearningEngine(){
+    const memory = loadCaishenGrowthMemory();
+    const stats = caishenBuildLearningStats(memory);
+
+    const aiScore = caishenWeightScore(stats.ai);
+    const defenseScore = caishenWeightScore(stats.defense);
+    const burstScore = caishenWeightScore(stats.burst);
+    const antiScore = caishenWeightScore(stats.anti);
+
+    const aiEl = document.getElementById('caishenWeightAI');
+    const defenseEl = document.getElementById('caishenWeightDefense');
+    const burstEl = document.getElementById('caishenWeightBurst');
+    const antiEl = document.getElementById('caishenWeightAnti');
+    const stateEl = document.getElementById('caishenLearningState');
+
+    function renderOne(el, item, score){
+      if (!el) return;
+      el.innerHTML =
+`狀態：${caishenWeightLabel(score)}<br>
+可學習組數：${item.total} 組<br>
+過關：${item.pass} 次｜倒牌：${item.down} 次`;
+    }
+
+    renderOne(aiEl, stats.ai, aiScore);
+    renderOne(defenseEl, stats.defense, defenseScore);
+    renderOne(burstEl, stats.burst, burstScore);
+    renderOne(antiEl, stats.anti, antiScore);
+
+    if (stateEl) {
+      const candidates = [
+        ['AI最佳', aiScore, stats.ai.total],
+        ['防穿透', defenseScore, stats.defense.total],
+        ['高爆發', burstScore, stats.burst.total],
+        ['反指標', antiScore, stats.anti.total]
+      ];
+
+      const learned = candidates.filter(x => x[2] > 0);
+      const best = (learned.length ? learned : candidates).slice().sort((a,b)=>b[1]-a[1])[0];
+      const worst = (learned.length ? learned : candidates).slice().sort((a,b)=>a[1]-b[1])[0];
+      const activeReviews = caishenFilterReviewsByActiveGame(memory);
+      const activeSettles = caishenFilterSettlesByActiveGame(memory);
+
+      stateEl.innerHTML =
+`目前偏好：${best[0]}<br>
+目前降權：${worst[0]}<br>
+已結算對戰：${activeSettles.length} 場<br>
+已檢討：${activeReviews.length} 次<br>
+未識別組數：${stats.unknown.total} 組<br>
+彩種：${caishenActiveGameName()} 獨立學習中`;
+    }
+
+    window.caishenDynamicWeights = {
+      game: caishenActiveGameMode(),
+      ai: aiScore,
+      defense: defenseScore,
+      burst: burstScore,
+      anti: antiScore,
+      stats
+    };
+  }
+
+
   function caishenRenderGrowthStats(){
     const memory = loadCaishenGrowthMemory();
     const activeGame = caishenActiveGameMode();
@@ -2030,6 +2298,7 @@
       }
     }
     caishenRenderReviewRecords(memory);
+    if (typeof caishenRenderLearningEngine === 'function') caishenRenderLearningEngine();
 
     const recEl = document.getElementById('caishenRecordBody');
     if (recEl) {
@@ -2072,7 +2341,7 @@
   function initCaishenGrowthSystem(){
     updateBattleGameLabel();
     const gmForGrowth = document.getElementById('gameMode');
-    if (gmForGrowth) gmForGrowth.addEventListener('change', () => { updateBattleGameLabel(); caishenRenderGrowthStats(); });
+    if (gmForGrowth) gmForGrowth.addEventListener('change', () => { updateBattleGameLabel(); caishenRenderGrowthStats(); if (typeof caishenRenderLearningEngine==='function') caishenRenderLearningEngine(); });
     const memory = loadCaishenGrowthMemory();
     if (memory.lastLog) updateCaishenGrowthLog(memory.lastLog);
 
@@ -2107,7 +2376,7 @@
 出戰當下最新開獎：${memory.todayBattle.latestDrawAtSave || '未讀取'}
 出戰數量：${top3.length} 組
 
-${top3.map(g => `第${g.index}組：${g.groups && g.groups.length === 3 ? '已保存完整三柱' : '未保存完整三柱'}｜來源：${g.source || '未知'}\n${g.text.slice(0,220)}${g.text.length>220?'...':''}`).join('\n\n')}
+${top3.map(g => `第${g.index}組【${g.typeName || caishenTypeCodeToName(g.type)}】：${g.groups && g.groups.length === 3 ? '已保存完整三柱' : '未保存完整三柱'}｜來源：${g.source || '未知'}${(g.type || 'unknown') === 'unknown' ? '｜⚠️未識別類型，不納入類型權重' : ''}\n${g.text.slice(0,220)}${g.text.length>220?'...':''}`).join('\n\n')}
 
 明日修正會參考：
 - 是否全倒
@@ -2149,11 +2418,14 @@ ${top3.map(g => `第${g.index}組：${g.groups && g.groups.length === 3 ? '已�
         const battleGroups = memory.todayBattle.groups || [];
         const analysis = battleGroups.map((g, idx) => {
           const result = caishenAnalyzeOneGroup(g, latest);
+          const typeName = g.typeName || caishenTypeCodeToName(g.type || caishenExtractTypeFromBattleGroup(g));
           return {
             index: idx + 1,
+            type: g.type || caishenExtractTypeFromBattleGroup(g),
+            typeName,
             pass: !!result.pass,
             dist: result.dist || [],
-            line: `第${idx + 1}組：${result.line}`
+            line: `第${idx + 1}組【${typeName}】：${result.line}`
           };
         });
         const passCount = analysis.filter(x => x.pass).length;
