@@ -569,6 +569,62 @@
     .db-backup-toggle { width:auto; padding:7px 11px; font-size:13px; border-radius:10px; white-space:nowrap; }
 
 
+
+    .profit-chart-box {
+      margin-top: 12px;
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .profit-chart-toolbar {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .profit-chart-tabs {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .profit-chart-tabs button {
+      width:auto;
+      padding:7px 11px;
+      font-size:13px;
+      border-radius:10px;
+    }
+    .profit-chart-tabs button.active {
+      background: var(--accent);
+      color:#052e16;
+    }
+    .profit-chart-svg {
+      width:100%;
+      min-height:260px;
+      background:#020617;
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .profit-report-preview {
+      margin-top:10px;
+      white-space:pre;
+      overflow:auto;
+      max-height:240px;
+      background:#020617;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.55;
+      display:none;
+    }
+    .profit-report-preview.open { display:block; }
+
+
     #goManualBtn {
       position: fixed;
       right: 16px;
@@ -629,6 +685,23 @@
       </div>
       <div class="weekly-input-panel" id="weeklyInputPanel">
         <div class="weekly-today-note" id="weeklyTodayNote">整週明細預設收起。</div>
+
+        <div class="profit-chart-box">
+          <div class="profit-chart-toolbar">
+            <div>
+              <div class="section-title" style="margin:0;">歷史損益走勢圖</div>
+              <div class="db-mini">自動依日期記錄；可切換日 / 週 / 月，K線顯示該區間損益高低範圍。</div>
+            </div>
+            <div class="profit-chart-tabs">
+              <button class="btn btn-dark active" type="button" data-profit-view="day">日</button>
+              <button class="btn btn-dark" type="button" data-profit-view="week">週</button>
+              <button class="btn btn-dark" type="button" data-profit-view="month">月</button>
+            </div>
+          </div>
+          <svg id="profitTrendChart" class="profit-chart-svg" viewBox="0 0 900 300" preserveAspectRatio="none"></svg>
+          <div class="db-mini" id="profitTrendNote">尚無歷史資料。</div>
+        </div>
+
         <div class="weekly-table-wrap" id="weeklyTableWrap">
           <table class="weekly-table">
             <thead>
@@ -947,6 +1020,184 @@
   const WEEKLY_PROFIT_HISTORY_KEY = 'weekly_am_pm_profit_history_v1';
   let weeklyChartMode = 'day';
   const WEEKLY_DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+
+  const WEEKLY_HISTORY_STORAGE_KEY = 'weekly_profit_history_by_date_v2';
+  let profitChartViewMode = 'day';
+
+  function dateKeyFromDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function shortDateLabelFromDate(d) {
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  }
+
+  function getWeekdayNameFromDate(d) {
+    const names = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    return names[d.getDay()];
+  }
+
+  function getMondayOfCurrentWeek(baseDate = new Date()) {
+    const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+
+  function getDateForWeeklyIndex(idx) {
+    const monday = getMondayOfCurrentWeek();
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + idx);
+    return d;
+  }
+
+  function getDateLabelForWeeklyIndex(idx) {
+    const d = getDateForWeeklyIndex(idx);
+    return `${shortDateLabelFromDate(d)}（${getWeekdayNameFromDate(d)}）`;
+  }
+
+  function loadWeeklyProfitHistory() {
+    try {
+      const raw = localStorage.getItem(WEEKLY_HISTORY_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveWeeklyProfitHistory(history) {
+    try { localStorage.setItem(WEEKLY_HISTORY_STORAGE_KEY, JSON.stringify(history)); } catch (err) {}
+  }
+
+  function syncWeeklyProfitHistoryFromCurrentWeek(data) {
+    const history = loadWeeklyProfitHistory();
+    data.forEach((row, idx) => {
+      const d = getDateForWeeklyIndex(idx);
+      const key = dateKeyFromDate(d);
+      const morning = parseMoneyValue(row.morning);
+      const night = parseMoneyValue(row.night);
+      history[key] = {
+        date: key,
+        label: shortDateLabelFromDate(d),
+        weekday: getWeekdayNameFromDate(d),
+        morning,
+        night,
+        total: morning + night,
+        updatedAt: new Date().toISOString()
+      };
+    });
+    saveWeeklyProfitHistory(history);
+    return history;
+  }
+
+  function groupProfitHistory(history, mode) {
+    const rows = Object.values(history || {})
+      .filter(x => x && x.date)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (mode === 'day') {
+      return rows.map(x => ({
+        key: x.date,
+        label: `${Number(String(x.date).slice(5,7))}/${Number(String(x.date).slice(8,10))}`,
+        sub: (x.weekday || '').replace('星期','週'),
+        open: 0,
+        close: Number(x.total) || 0,
+        high: Math.max(0, Number(x.morning) || 0, Number(x.total) || 0),
+        low: Math.min(0, Number(x.morning) || 0, Number(x.total) || 0),
+        total: Number(x.total) || 0
+      })).slice(-31);
+    }
+
+    const bucket = {};
+    rows.forEach(x => {
+      const d = new Date(x.date + 'T00:00:00');
+      let key, label;
+      if (mode === 'week') {
+        const monday = getMondayOfCurrentWeek(d);
+        key = dateKeyFromDate(monday);
+        label = `${monday.getMonth()+1}/${monday.getDate()}週`;
+      } else {
+        key = x.date.slice(0, 7);
+        label = `${Number(x.date.slice(5,7))}月`;
+      }
+      if (!bucket[key]) bucket[key] = { key, label, totals: [], total: 0 };
+      bucket[key].totals.push(Number(x.total) || 0);
+      bucket[key].total += Number(x.total) || 0;
+    });
+
+    return Object.values(bucket).sort((a,b) => a.key.localeCompare(b.key)).map(b => {
+      let running = 0;
+      let high = 0;
+      let low = 0;
+      b.totals.forEach(v => {
+        running += v;
+        high = Math.max(high, running);
+        low = Math.min(low, running);
+      });
+      return { key: b.key, label: b.label, sub: '', open: 0, close: b.total, high, low, total: b.total };
+    }).slice(mode === 'week' ? -12 : -12);
+  }
+
+  function renderProfitTrendChart() {
+    const svg = document.getElementById('profitTrendChart');
+    const note = document.getElementById('profitTrendNote');
+    if (!svg) return;
+    const history = syncWeeklyProfitHistoryFromCurrentWeek(loadWeeklyCalcData());
+    const data = groupProfitHistory(history, profitChartViewMode);
+    if (!data.length) {
+      svg.innerHTML = '';
+      if (note) note.textContent = '尚無歷史資料。';
+      return;
+    }
+
+    const w = 900, h = 300, padL = 46, padR = 16, padT = 22, padB = 54;
+    const values = data.flatMap(d => [d.high, d.low, d.close, d.open]);
+    let min = Math.min(...values, 0);
+    let max = Math.max(...values, 0);
+    if (min === max) { min -= 1000; max += 1000; }
+    const y = v => padT + (max - v) / (max - min) * (h - padT - padB);
+    const x = i => padL + (data.length === 1 ? (w-padL-padR)/2 : i * (w - padL - padR) / (data.length - 1));
+    const zeroY = y(0);
+
+    const linePoints = data.map((d, i) => `${x(i)},${y(d.close)}`).join(' ');
+    const bars = data.map((d, i) => {
+      const cx = x(i);
+      const candleW = Math.max(8, Math.min(26, (w - padL - padR) / Math.max(1, data.length) * 0.42));
+      const top = y(Math.max(d.open, d.close));
+      const bottom = y(Math.min(d.open, d.close));
+      const bodyH = Math.max(2, bottom - top);
+      const cls = d.close >= d.open ? '#86efac' : '#fca5a5';
+      return `
+        <line x1="${cx}" y1="${y(d.high)}" x2="${cx}" y2="${y(d.low)}" stroke="${cls}" stroke-width="2" />
+        <rect x="${cx - candleW/2}" y="${top}" width="${candleW}" height="${bodyH}" rx="3" fill="${cls}" opacity="0.78"></rect>
+      `;
+    }).join('');
+
+    const labels = data.map((d, i) => {
+      const cx = x(i);
+      const show = data.length <= 10 || i === 0 || i === data.length - 1 || i % Math.ceil(data.length / 6) === 0;
+      if (!show) return '';
+      return `<text x="${cx}" y="${h-30}" text-anchor="middle" fill="#94a3b8" font-size="11">${d.label}</text>
+              ${d.sub ? `<text x="${cx}" y="${h-16}" text-anchor="middle" fill="#64748b" font-size="10">${d.sub}</text>` : ''}`;
+    }).join('');
+
+    svg.innerHTML = `
+      <line x1="${padL}" y1="${zeroY}" x2="${w-padR}" y2="${zeroY}" stroke="#334155" stroke-width="1" />
+      <text x="8" y="${y(max)+4}" fill="#94a3b8" font-size="11">${formatMoneyValue(max)}</text>
+      <text x="8" y="${y(min)+4}" fill="#94a3b8" font-size="11">${formatMoneyValue(min)}</text>
+      ${bars}
+      <polyline points="${linePoints}" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+      ${data.map((d,i)=>`<circle cx="${x(i)}" cy="${y(d.close)}" r="3" fill="#e5e7eb"><title>${d.label}${d.sub ? ' ' + d.sub : ''}：${formatMoneyValue(d.close)}</title></circle>`).join('')}
+      ${labels}
+    `;
+    const total = data.reduce((s, d) => s + (Number(d.total) || 0), 0);
+    if (note) note.textContent = `${profitChartViewMode === 'day' ? '日' : profitChartViewMode === 'week' ? '週' : '月'}走勢｜目前顯示 ${data.length} 筆｜合計 ${formatMoneyValue(total)}`;
+  }
+
   let weeklyShowAll = false;
 
   function getTodayWeeklyIndex() {
@@ -1169,15 +1420,15 @@
     const todayIdx = getTodayWeeklyIndex();
     weeklyCalcBody.innerHTML = WEEKLY_DAYS.map((day, idx) => `
       <tr class="${idx === todayIdx ? 'weekly-today-row' : ''}">
-        <th>${day}${idx === todayIdx ? '（今天）' : ''}</th>
+        <th>${getDateLabelForWeeklyIndex(idx)}${idx === todayIdx ? '（今天）' : ''}</th>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="morning" placeholder="0" value="${data[idx].morning}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="night" placeholder="0" value="${data[idx].night}"></td>
         <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
       </tr>
     `).join('');
-    if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${WEEKLY_DAYS[todayIdx]}早場輸贏`;
-    if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${WEEKLY_DAYS[todayIdx]}晚場輸贏`;
-    if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${WEEKLY_DAYS[todayIdx]}。`;
+    if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${getDateLabelForWeeklyIndex(todayIdx)}早場輸贏`;
+    if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${getDateLabelForWeeklyIndex(todayIdx)}晚場輸贏`;
+    if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${getDateLabelForWeeklyIndex(todayIdx)}。`;
     applyWeeklyViewMode();
     updateWeeklyCalcTotals();
   }
@@ -1218,6 +1469,8 @@
       el.textContent = formatMoneyValue(value);
       el.className = `weekly-money ${moneyClass(value)}`;
     });
+    syncWeeklyProfitHistoryFromCurrentWeek(data);
+    renderProfitTrendChart();
     syncWeeklyHistoryFromCurrentData();
     drawWeeklyProfitChart();
   }
@@ -1225,20 +1478,23 @@
 
   function buildWeeklyLineReportText() {
     const data = loadWeeklyCalcData();
-    const now = new Date();
-    const dateText = now.toLocaleDateString('zh-TW');
+    const monday = getMondayOfCurrentWeek();
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
     const rows = [];
     let morningTotal = 0;
     let nightTotal = 0;
     let grandTotal = 0;
 
     rows.push('📊 本週損益報表');
-    rows.push('日期：' + dateText);
+    rows.push(`期間：${shortDateLabelFromDate(monday)}（${getWeekdayNameFromDate(monday)}）～${shortDateLabelFromDate(sunday)}（${getWeekdayNameFromDate(sunday)}）`);
     rows.push('');
-    rows.push('項目　　　早場　　　晚場　　　小計');
-    rows.push('────────────────────');
+    rows.push('日期　　　　　早場　　　晚場　　　小計');
+    rows.push('────────────────────────');
 
     WEEKLY_DAYS.forEach((day, idx) => {
+      const d = getDateForWeeklyIndex(idx);
+      const dateLabel = `${shortDateLabelFromDate(d)}(${getWeekdayNameFromDate(d).replace('星期','週')})`;
       const morning = parseMoneyValue(data[idx]?.morning);
       const night = parseMoneyValue(data[idx]?.night);
       const total = morning + night;
@@ -1246,18 +1502,17 @@
       nightTotal += night;
       grandTotal += total;
 
-      const shortDay = day.replace('星期', '週');
       rows.push(
-        padTextForLine(shortDay, 6) +
+        padTextForLine(dateLabel, 12) +
         padMoneyForLine(morning, 10) +
         padMoneyForLine(night, 10) +
         padMoneyForLine(total, 10)
       );
     });
 
-    rows.push('────────────────────');
+    rows.push('────────────────────────');
     rows.push(
-      padTextForLine('合計', 6) +
+      padTextForLine('合計', 12) +
       padMoneyForLine(morningTotal, 10) +
       padMoneyForLine(nightTotal, 10) +
       padMoneyForLine(grandTotal, 10)
@@ -1265,19 +1520,6 @@
     rows.push('');
     rows.push(grandTotal >= 0 ? '✅ 本週總獲利：+' + formatMoneyValue(grandTotal) : '⚠️ 本週總損益：' + formatMoneyValue(grandTotal));
     return rows.join('\n');
-  }
-
-  function padTextForLine(value, size) {
-    const s = String(value ?? '');
-    const visual = s.replace(/[^\x00-\xff]/g, 'xx').length;
-    return s + ' '.repeat(Math.max(1, size - visual));
-  }
-
-  function padMoneyForLine(value, size) {
-    const n = Number(value) || 0;
-    const s = (n > 0 ? '+' : '') + formatMoneyValue(n);
-    const visual = s.replace(/[^\x00-\xff]/g, 'xx').length;
-    return ' '.repeat(Math.max(1, size - visual)) + s;
   }
 
   async function copyWeeklyLineReport() {
@@ -1368,6 +1610,15 @@
     if (copyWeeklyLineReportBtn) {
       copyWeeklyLineReportBtn.onclick = copyWeeklyLineReport;
     }
+
+
+    document.querySelectorAll('[data-profit-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        profitChartViewMode = btn.dataset.profitView || 'day';
+        document.querySelectorAll('[data-profit-view]').forEach(b => b.classList.toggle('active', b === btn));
+        renderProfitTrendChart();
+      });
+    });
 
     if (clearWeeklyCalcBtn) {
       clearWeeklyCalcBtn.addEventListener('click', () => {
