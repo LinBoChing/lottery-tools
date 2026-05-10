@@ -553,20 +553,14 @@
     .weekly-today-note { color:#fcd34d; font-size:13px; line-height:1.6; margin:8px 0 10px; font-weight:800; }
     .weekly-hidden-row { display:none; }
     .weekly-table-wrap.weekly-today-only tbody tr:not(.weekly-today-row) { display:none; }
-    .weekly-chart-panel { margin-top: 12px; background:#0b1220; border:1px solid var(--border); border-radius:14px; padding:12px; }
-    .weekly-chart-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-    .weekly-chart-title { font-weight:900; color:#fcd34d; }
-    .weekly-chart-tabs { display:flex; gap:8px; flex-wrap:wrap; }
-    .weekly-chart-tab { width:auto; padding:7px 12px; font-size:13px; border-radius:999px; border:1px solid var(--border); background:#020617; color:#cbd5e1; font-weight:800; cursor:pointer; }
-    .weekly-chart-tab.active { background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.55); color:#86efac; }
-    .weekly-chart-canvas-wrap { width:100%; height:260px; background:#020617; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-    #weeklyProfitChart { width:100%; height:260px; display:block; }
-    .weekly-chart-note { color:var(--muted); font-size:12px; line-height:1.5; margin-top:8px; }
     .db-backup-area.collapsed .db-backup-body { display:none; }
     .db-backup-head { display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer; user-select:none; }
     .db-backup-head .field-label { margin-bottom:0; }
     .db-backup-body { margin-top:8px; }
     .db-backup-toggle { width:auto; padding:7px 11px; font-size:13px; border-radius:10px; white-space:nowrap; }
+
+
+
 
 
 
@@ -625,6 +619,39 @@
     .profit-report-preview.open { display:block; }
 
 
+    
+
+
+    #goCaishenBattleBtn{
+      position:fixed;
+      right:18px;
+      bottom:160px;
+      z-index:9999;
+      width:auto;
+      min-width:64px;
+      padding:12px 14px;
+      border-radius:999px;
+      border:none;
+      background:linear-gradient(135deg,#f59e0b,#fcd34d);
+      color:#111827;
+      font-weight:900;
+      box-shadow:0 8px 24px rgba(245,158,11,.35);
+    }
+
+    #goCaishenBattleBtn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.03);
+    }
+
+    @media (max-width: 768px){
+      #goCaishenBattleBtn{
+        bottom:170px;
+        right:16px;
+      }
+    }
+
+
+
     #goManualBtn {
       position: fixed;
       right: 16px;
@@ -642,6 +669,231 @@
       touch-action: manipulation;
     }
     #goManualBtn:hover { transform: translateY(-2px); }
+
+    .daily-agent-box {
+      margin-top: 12px;
+      background: linear-gradient(135deg, rgba(34,197,94,.13), rgba(56,189,248,.10));
+      border: 1px solid rgba(34,197,94,.42);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .daily-agent-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:8px;
+    }
+    .daily-agent-title {
+      font-size: 17px;
+      font-weight: 900;
+      color:#86efac;
+    }
+    .daily-agent-result {
+      margin-top: 10px;
+      color:#cbd5e1;
+      line-height:1.65;
+      font-size:13px;
+    }
+    .daily-agent-kpi {
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap:8px;
+      margin:10px 0;
+    }
+    .daily-agent-kpi div {
+      background:#020617;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px;
+    }
+    .daily-agent-kpi b { font-size:16px; color:#f8fafc; }
+
+
+    .caishen-growth-box{
+      margin-top:12px;
+      padding:14px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:#020617;
+    }
+    .caishen-growth-title{
+      font-size:18px;
+      font-weight:900;
+      margin-bottom:8px;
+      color:#fcd34d;
+    }
+
+    .caishen-growth-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+      margin-top:10px;
+    }
+    .caishen-growth-stat{
+      background:#0f172a;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:9px 10px;
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.45;
+    }
+    .caishen-growth-stat b{
+      display:block;
+      font-size:18px;
+      color:#fcd34d;
+      margin-top:2px;
+    }
+    .caishen-battle-analysis{
+      margin-top:10px;
+      background:#0f172a;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.6;
+      white-space:pre-wrap;
+    }
+
+    .caishen-record-item{
+      border-bottom:1px solid var(--border);
+      padding:10px 0;
+    }
+    .caishen-record-item:last-child{ border-bottom:none; }
+    .caishen-record-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:6px;
+    }
+    .caishen-record-delete-btn{
+      width:auto;
+      padding:5px 9px;
+      font-size:12px;
+      border-radius:8px;
+      background:#7f1d1d;
+      color:#fecaca;
+      border:1px solid rgba(248,113,113,.45);
+      font-weight:900;
+      cursor:pointer;
+    }
+    .caishen-record-delete-btn:hover{
+      filter:brightness(1.08);
+    }
+
+
+    .caishen-review-wrap{
+      margin-top:10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      background:#020617;
+    }
+    .caishen-review-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      padding:10px;
+      cursor:pointer;
+      user-select:none;
+      color:#7dd3fc;
+      font-weight:900;
+    }
+    .caishen-review-body{
+      display:none;
+      padding:10px;
+      border-top:1px solid var(--border);
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.6;
+      max-height:320px;
+      overflow:auto;
+    }
+    .caishen-review-wrap.open .caishen-review-body{
+      display:block;
+    }
+    .caishen-review-item{
+      border-bottom:1px solid var(--border);
+      padding:10px 0;
+    }
+    .caishen-review-item:last-child{ border-bottom:none; }
+    .caishen-review-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:6px;
+    }
+    .caishen-review-delete-btn{
+      width:auto;
+      padding:5px 9px;
+      font-size:12px;
+      border-radius:8px;
+      background:#7f1d1d;
+      color:#fecaca;
+      border:1px solid rgba(248,113,113,.45);
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .caishen-record-wrap{
+      margin-top:10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      background:#020617;
+    }
+    .caishen-record-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      padding:10px;
+      cursor:pointer;
+      user-select:none;
+      color:#fcd34d;
+      font-weight:900;
+    }
+    .caishen-record-body{
+      display:none;
+      padding:10px;
+      border-top:1px solid var(--border);
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.6;
+      white-space:pre-wrap;
+      max-height:320px;
+      overflow:auto;
+    }
+    .caishen-record-wrap.open .caishen-record-body{
+      display:block;
+    }
+    @media (max-width: 768px){
+      .caishen-growth-stats{ grid-template-columns:1fr; }
+    }
+
+
+    .caishen-growth-log{
+      white-space:pre-wrap;
+      font-size:13px;
+      line-height:1.6;
+      color:#cbd5e1;
+      max-height:260px;
+      overflow:auto;
+      background:#0f172a;
+      padding:10px;
+      border-radius:10px;
+      margin-top:10px;
+      border:1px solid var(--border);
+    }
+
 
     @media (max-width: 980px) {
       .grid, .results { grid-template-columns: 1fr; }
@@ -680,11 +932,12 @@
       </div>
       <div class="weekly-actions">
         <button class="btn btn-dark" id="toggleWeeklyAllBtn" type="button">展開整週明細</button>
-        <button class="btn btn-secondary" id="copyWeeklyReportBtn" type="button">複製當週損益報表</button>
+        <button class="btn btn-secondary" id="copyWeeklyLineReportBtn" type="button">複製當週損益報表</button>
         <button class="btn btn-dark" id="clearWeeklyCalcBtn" type="button">清除試算表</button>
       </div>
       <div class="weekly-input-panel" id="weeklyInputPanel">
         <div class="weekly-today-note" id="weeklyTodayNote">整週明細預設收起。</div>
+
 
         <div class="profit-chart-box">
           <div class="profit-chart-toolbar">
@@ -701,7 +954,6 @@
           <svg id="profitTrendChart" class="profit-chart-svg" viewBox="0 0 900 300" preserveAspectRatio="none"></svg>
           <div class="db-mini" id="profitTrendNote">尚無歷史資料。</div>
         </div>
-
         <div class="weekly-table-wrap" id="weeklyTableWrap">
           <table class="weekly-table">
             <thead>
@@ -722,18 +974,6 @@
               </tr>
             </tfoot>
           </table>
-        </div>
-        <div class="weekly-chart-panel">
-          <div class="weekly-chart-head">
-            <div class="weekly-chart-title">歷史損益走勢圖</div>
-            <div class="weekly-chart-tabs">
-              <button class="weekly-chart-tab active" type="button" data-weekly-chart-mode="day">日</button>
-              <button class="weekly-chart-tab" type="button" data-weekly-chart-mode="week">週</button>
-              <button class="weekly-chart-tab" type="button" data-weekly-chart-mode="month">月</button>
-            </div>
-          </div>
-          <div class="weekly-chart-canvas-wrap"><canvas id="weeklyProfitChart"></canvas></div>
-          <div class="weekly-chart-note" id="weeklyChartNote">日線會顯示每日損益；週線/月線會自動把已保存的每日資料加總。從新版開始輸入的資料會累積成歷史走勢。</div>
         </div>
       </div>
     </div>
@@ -819,12 +1059,57 @@
           <button class="btn btn-primary" id="runBtn">開始分析並產生多組立柱</button>
           <button class="btn btn-dark" id="sampleBtn">載入範例</button>
           <button class="btn btn-dark" id="clearLockBtn">清除鎖定最佳</button>
+          <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
+          <button class="btn btn-primary" id="moveAllCaishenBtn">財神參考全移入</button>
         </div>
         <div class="recommend-box">
           <div class="recommend-title">推薦 4 組低穿透率立柱</div>
           <div id="recommendResult" class="small-note">尚未產生。</div>
         </div>
-        <div class="small-note">
+
+        <div class="daily-agent-box">
+          <div class="daily-agent-head">
+            <div class="daily-agent-title">財神今日代理</div>
+            <button class="btn btn-primary" id="dailyAgentBtn" type="button" style="width:auto; padding:8px 12px; font-size:13px;">啟動財神今日代理</button>
+          </div>
+          <div class="small-note">按下後會照你的手動思維執行：AI/防穿透只看100+150，高爆發看分布是否接近平均，反指標看50+100連倒；最後先防全倒、再看最新倒與近5倒，挑出三組移入手動比較區。</div>
+          <div id="dailyAgentResult" class="daily-agent-result">尚未啟動。</div>
+        </div>
+<div class="caishen-growth-box">
+          <div class="caishen-growth-title">財神對戰／AI自我成長</div>
+          <div class="db-mini">每日出戰三組＝最終推薦區最上方三組。539 與天天樂的對戰、檢討、成長統計會分開累積，不互相影響。</div>
+          <div class="db-chip" style="margin-top:8px;">目前獨立成長彩種：<b id="caishenBattleGameLabel">依彩種模式判斷</b></div>
+          <div class="caishen-growth-stats">
+            <div class="caishen-growth-stat">財神成長<b id="caishenGrowthDays">第 0 天</b></div>
+            <div class="caishen-growth-stat">累積對戰<b id="caishenBattleCount">0 場</b></div>
+            <div class="caishen-growth-stat">最近結果<b id="caishenLastResult">尚無</b></div>
+            <div class="caishen-growth-stat">最新檢討<b id="caishenLastReviewInfo">尚無</b></div>
+            <div class="caishen-growth-stat">累積檢討<b id="caishenReviewCount">0 次</b></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <button class="btn btn-primary" id="saveTodayBattleBtn" type="button" style="width:auto;">設為今日出戰</button>
+            <button class="btn btn-secondary" id="settleTodayBattleBtn" type="button" style="width:auto;">今日結算</button>
+            <button class="btn btn-dark" id="reviewTodayBattleBtn" type="button" style="width:auto;">財神檢討</button>
+          </div>
+          <div class="caishen-battle-analysis" id="caishenBattleAnalysis">當天對戰分析：尚未結算。</div>
+          <div class="caishen-record-wrap" id="caishenRecordWrap">
+            <div class="caishen-record-head" id="caishenRecordHead">
+              <span>對戰紀錄</span>
+              <button class="btn btn-dark" id="toggleCaishenRecordBtn" type="button" style="width:auto;padding:6px 10px;font-size:12px;">展開</button>
+            </div>
+            <div class="caishen-record-body" id="caishenRecordBody">尚無對戰紀錄。</div>
+          </div>
+          <div class="caishen-review-wrap" id="caishenReviewWrap">
+            <div class="caishen-review-head" id="caishenReviewHead">
+              <span>檢討紀錄</span>
+              <button class="btn btn-dark" id="toggleCaishenReviewBtn" type="button" style="width:auto;padding:6px 10px;font-size:12px;">展開</button>
+            </div>
+            <div class="caishen-review-body" id="caishenReviewBody">尚無檢討紀錄。</div>
+          </div>
+          <div class="caishen-growth-log" id="caishenGrowthLog">尚未建立今日出戰紀錄。</div>
+        </div>
+
+<div class="small-note">
           規則說明：<br>
           • 每行會抓出前 5 個 01~39 的號碼當作該期開獎號碼。<br>
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
@@ -963,6 +1248,8 @@
   const runBtn = document.getElementById('runBtn');
   const sampleBtn = document.getElementById('sampleBtn');
   const clearLockBtn = document.getElementById('clearLockBtn');
+  const moveAllToRecommendBtn = document.getElementById('moveAllToRecommendBtn');
+  const moveAllCaishenBtn = document.getElementById('moveAllCaishenBtn');
   const countDraws = document.getElementById('countDraws');
   const groupCount = document.getElementById('groupCount');
   const logBox = document.getElementById('logBox');
@@ -973,6 +1260,8 @@
   const randomResult = document.getElementById('randomResult');
   const reverseResult = document.getElementById('reverseResult');
   const recommendResult = document.getElementById('recommendResult');
+  const dailyAgentBtn = document.getElementById('dailyAgentBtn');
+  const dailyAgentResult = document.getElementById('dailyAgentResult');
   const scoreBoardBody = document.getElementById('scoreBoardBody');
   const candidateScoreBoardBody = document.getElementById('candidateScoreBoardBody');
   const antiAnalysisBody = document.getElementById('antiAnalysisBody');
@@ -994,9 +1283,6 @@
   const dbTableBody = document.getElementById('dbTableBody');
   const weeklyCalcBody = document.getElementById('weeklyCalcBody');
   const clearWeeklyCalcBtn = document.getElementById('clearWeeklyCalcBtn');
-  const copyWeeklyReportBtn = document.getElementById('copyWeeklyReportBtn');
-  const weeklyProfitChart = document.getElementById('weeklyProfitChart');
-  const weeklyChartNote = document.getElementById('weeklyChartNote');
   const weeklyMorningTotal = document.getElementById('weeklyMorningTotal');
   const weeklyNightTotal = document.getElementById('weeklyNightTotal');
   const weeklyGrandTotal = document.getElementById('weeklyGrandTotal');
@@ -1017,9 +1303,8 @@
 
 
   const WEEKLY_CALC_STORAGE_KEY = 'weekly_am_pm_profit_calc_v1';
-  const WEEKLY_PROFIT_HISTORY_KEY = 'weekly_am_pm_profit_history_v1';
-  let weeklyChartMode = 'day';
   const WEEKLY_DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+  let weeklyShowAll = false;
 
   const WEEKLY_HISTORY_STORAGE_KEY = 'weekly_profit_history_by_date_v2';
   let profitChartViewMode = 'day';
@@ -1198,8 +1483,6 @@
     if (note) note.textContent = `${profitChartViewMode === 'day' ? '日' : profitChartViewMode === 'week' ? '週' : '月'}走勢｜目前顯示 ${data.length} 筆｜合計 ${formatMoneyValue(total)}`;
   }
 
-  let weeklyShowAll = false;
-
   function getTodayWeeklyIndex() {
     const jsDay = new Date().getDay(); // 0=週日, 1=週一
     return jsDay === 0 ? 6 : jsDay - 1;
@@ -1220,183 +1503,6 @@
     if (n > 0) return 'weekly-profit';
     if (n < 0) return 'weekly-loss';
     return 'weekly-zero';
-  }
-
-  function getLocalISODate(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-
-  function getWeekStartDate(baseDate = new Date()) {
-    const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
-    const jsDay = d.getDay();
-    const diff = jsDay === 0 ? -6 : 1 - jsDay;
-    d.setDate(d.getDate() + diff);
-    return d;
-  }
-
-  function loadWeeklyHistory() {
-    try {
-      const raw = localStorage.getItem(WEEKLY_PROFIT_HISTORY_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-    } catch (err) {
-      return {};
-    }
-  }
-
-  function saveWeeklyHistory(history) {
-    try { localStorage.setItem(WEEKLY_PROFIT_HISTORY_KEY, JSON.stringify(history)); } catch (err) {}
-  }
-
-  function syncWeeklyHistoryFromCurrentData() {
-    const data = loadWeeklyCalcData();
-    const history = loadWeeklyHistory();
-    const start = getWeekStartDate();
-    const now = new Date().toISOString();
-    data.forEach((row, idx) => {
-      const date = new Date(start);
-      date.setDate(start.getDate() + idx);
-      const key = getLocalISODate(date);
-      const morning = parseMoneyValue(row.morning);
-      const night = parseMoneyValue(row.night);
-      history[key] = { morning, night, total: morning + night, updatedAt: now };
-    });
-    saveWeeklyHistory(history);
-  }
-
-  function getWeeklyChartPoints(mode) {
-    const history = loadWeeklyHistory();
-    const entries = Object.keys(history).sort().map(date => ({ date, ...(history[date] || {}) }));
-    if (!entries.length) return [];
-    if (mode === 'day') {
-      return entries.slice(-31).map(item => ({ label: item.date.slice(5), value: Number(item.total) || 0 }));
-    }
-    const bucket = {};
-    entries.forEach(item => {
-      const date = new Date(item.date + 'T00:00:00');
-      let key = item.date;
-      if (mode === 'week') {
-        key = getLocalISODate(getWeekStartDate(date));
-      } else if (mode === 'month') {
-        key = item.date.slice(0, 7);
-      }
-      bucket[key] = (bucket[key] || 0) + (Number(item.total) || 0);
-    });
-    return Object.keys(bucket).sort().slice(mode === 'week' ? -16 : -12).map(key => ({ label: mode === 'week' ? key.slice(5) : key, value: bucket[key] }));
-  }
-
-  function drawWeeklyProfitChart() {
-    if (!weeklyProfitChart) return;
-    const wrap = weeklyProfitChart.parentElement;
-    const rect = wrap ? wrap.getBoundingClientRect() : { width: 320, height: 260 };
-    const dpr = window.devicePixelRatio || 1;
-    const width = Math.max(320, Math.floor(rect.width || 320));
-    const height = 260;
-    weeklyProfitChart.width = Math.floor(width * dpr);
-    weeklyProfitChart.height = Math.floor(height * dpr);
-    weeklyProfitChart.style.width = width + 'px';
-    weeklyProfitChart.style.height = height + 'px';
-    const ctx = weeklyProfitChart.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-
-    const points = getWeeklyChartPoints(weeklyChartMode);
-    ctx.fillStyle = '#020617';
-    ctx.fillRect(0, 0, width, height);
-    ctx.font = '12px Microsoft JhengHei, sans-serif';
-    ctx.fillStyle = '#94a3b8';
-
-    if (!points.length) {
-      ctx.fillText('尚無歷史損益資料，輸入損益後會自動累積。', 16, 36);
-      if (weeklyChartNote) weeklyChartNote.textContent = '尚無歷史資料；從這版開始，每次輸入早/晚損益都會自動保存到走勢圖。';
-      return;
-    }
-
-    const padL = 56, padR = 14, padT = 20, padB = 42;
-    const chartW = width - padL - padR;
-    const chartH = height - padT - padB;
-    const values = points.map(p => Number(p.value) || 0);
-    let min = Math.min(0, ...values);
-    let max = Math.max(0, ...values);
-    if (min === max) { min -= 1000; max += 1000; }
-    const span = max - min;
-    const y = v => padT + (max - v) / span * chartH;
-    const zeroY = y(0);
-
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + chartH); ctx.lineTo(width - padR, padT + chartH); ctx.stroke();
-    ctx.strokeStyle = 'rgba(148,163,184,.45)';
-    ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(width - padR, zeroY); ctx.stroke();
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.textAlign = 'right';
-    ctx.fillText(formatMoneyValue(max), padL - 6, padT + 8);
-    ctx.fillText('0', padL - 6, zeroY + 4);
-    ctx.fillText(formatMoneyValue(min), padL - 6, padT + chartH);
-
-    const gap = chartW / Math.max(1, points.length);
-    const barW = Math.max(6, Math.min(28, gap * 0.58));
-    points.forEach((p, i) => {
-      const cx = padL + gap * i + gap / 2;
-      const py = y(p.value);
-      ctx.fillStyle = p.value > 0 ? '#22c55e' : p.value < 0 ? '#ef4444' : '#64748b';
-      const top = Math.min(py, zeroY);
-      const h = Math.max(2, Math.abs(zeroY - py));
-      ctx.fillRect(cx - barW / 2, top, barW, h);
-    });
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#cbd5e1';
-    const labelStep = Math.max(1, Math.ceil(points.length / 6));
-    points.forEach((p, i) => {
-      if (i % labelStep === 0 || i === points.length - 1) ctx.fillText(p.label, padL + gap * i + gap / 2, height - 18);
-    });
-
-    const total = values.reduce((sum, v) => sum + v, 0);
-    const modeLabel = weeklyChartMode === 'day' ? '日' : weeklyChartMode === 'week' ? '週' : '月';
-    if (weeklyChartNote) weeklyChartNote.textContent = `${modeLabel}走勢：目前顯示 ${points.length} 筆，區間合計 ${formatMoneyValue(total)}。`;
-  }
-
-  function buildWeeklyReportText() {
-    const data = loadWeeklyCalcData();
-    const start = getWeekStartDate();
-    let morningTotal = 0, nightTotal = 0;
-    const lines = [];
-    lines.push('七日財運盈虧報表');
-    lines.push(`週期：${getLocalISODate(start)} ~ ${getLocalISODate(new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6))}`);
-    lines.push('');
-    lines.push('| 天數 | 早場輸贏 | 晚場輸贏 | 當日小計 |');
-    lines.push('|---|---:|---:|---:|');
-    data.forEach((row, idx) => {
-      const morning = parseMoneyValue(row.morning);
-      const night = parseMoneyValue(row.night);
-      const total = morning + night;
-      morningTotal += morning;
-      nightTotal += night;
-      lines.push(`| ${WEEKLY_DAYS[idx]} | ${formatMoneyValue(morning)} | ${formatMoneyValue(night)} | ${formatMoneyValue(total)} |`);
-    });
-    lines.push('|---|---:|---:|---:|');
-    lines.push(`| 合計 | ${formatMoneyValue(morningTotal)} | ${formatMoneyValue(nightTotal)} | ${formatMoneyValue(morningTotal + nightTotal)} |`);
-    return lines.join('\n');
-  }
-
-  function copyTextToClipboard(text) {
-    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok ? Promise.resolve() : Promise.reject(new Error('copy failed'));
   }
 
   function loadWeeklyCalcData() {
@@ -1420,15 +1526,15 @@
     const todayIdx = getTodayWeeklyIndex();
     weeklyCalcBody.innerHTML = WEEKLY_DAYS.map((day, idx) => `
       <tr class="${idx === todayIdx ? 'weekly-today-row' : ''}">
-        <th>${getDateLabelForWeeklyIndex(idx)}${idx === todayIdx ? '（今天）' : ''}</th>
+        <th>${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(idx) : day}${idx === todayIdx ? '（今天）' : ''}</th>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="morning" placeholder="0" value="${data[idx].morning}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="night" placeholder="0" value="${data[idx].night}"></td>
         <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
       </tr>
     `).join('');
-    if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${getDateLabelForWeeklyIndex(todayIdx)}早場輸贏`;
-    if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${getDateLabelForWeeklyIndex(todayIdx)}晚場輸贏`;
-    if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${getDateLabelForWeeklyIndex(todayIdx)}。`;
+    if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}早場輸贏`;
+    if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}晚場輸贏`;
+    if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}。`;
     applyWeeklyViewMode();
     updateWeeklyCalcTotals();
   }
@@ -1469,16 +1575,12 @@
       el.textContent = formatMoneyValue(value);
       el.className = `weekly-money ${moneyClass(value)}`;
     });
-    syncWeeklyProfitHistoryFromCurrentWeek(data);
-    renderProfitTrendChart();
-    syncWeeklyHistoryFromCurrentData();
-    drawWeeklyProfitChart();
   }
 
 
   function buildWeeklyLineReportText() {
     const data = loadWeeklyCalcData();
-    const monday = getMondayOfCurrentWeek();
+    const monday = typeof getMondayOfCurrentWeek === 'function' ? getMondayOfCurrentWeek() : new Date();
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     const rows = [];
@@ -1486,15 +1588,18 @@
     let nightTotal = 0;
     let grandTotal = 0;
 
+    const startText = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(monday)}（${getWeekdayNameFromDate(monday)}）` : '';
+    const endText = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(sunday)}（${getWeekdayNameFromDate(sunday)}）` : '';
+
     rows.push('📊 本週損益報表');
-    rows.push(`期間：${shortDateLabelFromDate(monday)}（${getWeekdayNameFromDate(monday)}）～${shortDateLabelFromDate(sunday)}（${getWeekdayNameFromDate(sunday)}）`);
+    rows.push(`期間：${startText}～${endText}`);
     rows.push('');
     rows.push('日期　　　　　早場　　　晚場　　　小計');
     rows.push('────────────────────────');
 
     WEEKLY_DAYS.forEach((day, idx) => {
-      const d = getDateForWeeklyIndex(idx);
-      const dateLabel = `${shortDateLabelFromDate(d)}(${getWeekdayNameFromDate(d).replace('星期','週')})`;
+      const d = typeof getDateForWeeklyIndex === 'function' ? getDateForWeeklyIndex(idx) : new Date();
+      const dateLabel = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(d)}(${getWeekdayNameFromDate(d).replace('星期','週')})` : day;
       const morning = parseMoneyValue(data[idx]?.morning);
       const night = parseMoneyValue(data[idx]?.night);
       const total = morning + night;
@@ -1522,14 +1627,27 @@
     return rows.join('\n');
   }
 
+  function padTextForLine(value, size) {
+    const s = String(value ?? '');
+    const visual = s.replace(/[^\x00-\xff]/g, 'xx').length;
+    return s + ' '.repeat(Math.max(1, size - visual));
+  }
+
+  function padMoneyForLine(value, size) {
+    const n = Number(value) || 0;
+    const s = (n > 0 ? '+' : '') + formatMoneyValue(n);
+    const visual = s.replace(/[^\x00-\xff]/g, 'xx').length;
+    return ' '.repeat(Math.max(1, size - visual)) + s;
+  }
+
   async function copyWeeklyLineReport() {
-    const text = buildWeeklyLineReportText();
+    const reportText = buildWeeklyLineReportText();
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(reportText);
       } else {
         const ta = document.createElement('textarea');
-        ta.value = text;
+        ta.value = reportText;
         ta.style.position = 'fixed';
         ta.style.left = '-9999px';
         document.body.appendChild(ta);
@@ -1540,9 +1658,644 @@
       }
       alert('已複製純文字損益報表，可直接貼到 LINE');
     } catch (err) {
-      alert('複製失敗，請手動長按選取報表內容');
+      alert('複製失敗，請用 GitHub Pages HTTPS 網址開啟，或改用長按複製模式');
     }
   }
+
+  const CAISHEN_GROWTH_STORAGE_KEY = 'caishen_growth_memory_v2';
+
+  function loadCaishenGrowthMemory(){
+    try { return JSON.parse(localStorage.getItem(CAISHEN_GROWTH_STORAGE_KEY) || '{}'); } catch(e){ return {}; }
+  }
+
+  function saveCaishenGrowthMemory(data){
+    try { localStorage.setItem(CAISHEN_GROWTH_STORAGE_KEY, JSON.stringify(data)); } catch(e){}
+  }
+
+
+  function getCurrentGameModeNameForGrowth(){
+    const gm = document.getElementById('gameMode');
+    const value = gm ? gm.value : '539';
+    return value === 'dayday' ? '天天樂' : '539';
+  }
+
+  function getCurrentGameModeValueForGrowth(){
+    const gm = document.getElementById('gameMode');
+    return gm ? gm.value : '539';
+  }
+
+  function getLatestDrawKeyForGrowth(){
+    const nums = typeof getLatestDrawNumbers === 'function' ? getLatestDrawNumbers() : [];
+    return nums.length ? nums.map(pad2).join(' ') : '';
+  }
+
+  function updateBattleGameLabel(){
+    const el = document.getElementById('caishenBattleGameLabel');
+    if (!el) return;
+    el.textContent = getCurrentGameModeNameForGrowth();
+  }
+
+  function caishenParseGroupsFromElement(el){
+    if (!el) return [];
+    const pillars = Array.from(el.querySelectorAll('.pillar .nums, .nums'));
+    if (pillars.length >= 3) {
+      const groups = pillars.slice(0,3).map(p => {
+        return (p.innerText || p.textContent || '').match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g)
+          ?.map(n => Number(n))
+          .filter(n => n >= 1 && n <= 39) || [];
+      });
+      if (groups.every(g => g.length >= 5)) return groups;
+    }
+
+    const text = el.innerText || el.textContent || '';
+    const lines = text.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    const groupLines = [];
+    lines.forEach(line => {
+      if (/第[一二三123]柱|第一柱|第二柱|第三柱|10支|14支|15支/.test(line)) return;
+      const nums = (line.match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || [])
+        .map(n => Number(n))
+        .filter(n => n >= 1 && n <= 39);
+      if (nums.length >= 5) groupLines.push([...new Set(nums)]);
+    });
+    if (groupLines.length >= 3) return groupLines.slice(0,3);
+
+    const nums = (text.match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || [])
+      .map(n => Number(n))
+      .filter(n => n >= 1 && n <= 39);
+    const uniq = [];
+    nums.forEach(n => { if (!uniq.includes(n)) uniq.push(n); });
+    if (uniq.length >= 39) return [uniq.slice(0,10), uniq.slice(10,24), uniq.slice(24,39)];
+    if (uniq.length >= 35) return [uniq.slice(0,10), uniq.slice(10,24), uniq.slice(24)];
+    return [];
+  }
+
+  function caishenNormalizeInternalItem(item, idx){
+    const groups = item && Array.isArray(item.groups) ? item.groups : [];
+    const stats = item && item.stats ? item.stats : {};
+    const type = item && (item.type || item.mode || item.label || item.source || item.name) ? (item.type || item.mode || item.label || item.source || item.name) : '推薦區';
+    const text =
+`來源：${type}
+過關率：${typeof stats.passRate === 'number' ? (stats.passRate * 100).toFixed(2) + '%' : '未記錄'}
+最新連倒：${stats.latestDownStreak ?? '未記錄'}
+近5期倒數：${stats.recent5DownCount ?? stats.recentFiveDownCount ?? '未記錄'}
+第一柱：${groups[0] ? groups[0].map(pad2).join(' ') : ''}
+第二柱：${groups[1] ? groups[1].map(pad2).join(' ') : ''}
+第三柱：${groups[2] ? groups[2].map(pad2).join(' ') : ''}`;
+    return {
+      index: idx + 1,
+      text,
+      html: '',
+      groups,
+      stats,
+      source: 'internal-lastRecommended'
+    };
+  }
+
+  function getRecommendTopThreeForBattle(){
+    // 最準來源：推薦區內部資料，不靠畫面文字解析。
+    if (Array.isArray(lastRecommended) && lastRecommended.length) {
+      const internal = lastRecommended
+        .filter(item => item && Array.isArray(item.groups) && item.groups.length === 3)
+        .slice(0, 3)
+        .map((item, idx) => caishenNormalizeInternalItem(item, idx));
+      if (internal.length) return internal;
+    }
+
+    // 次準來源：手動移入/推薦手動陣列
+    if (Array.isArray(manualRecommendItems) && manualRecommendItems.length) {
+      const manual = manualRecommendItems
+        .filter(item => item && Array.isArray(item.groups) && item.groups.length === 3)
+        .slice(0, 3)
+        .map((item, idx) => caishenNormalizeInternalItem(item, idx));
+      if (manual.length) return manual;
+    }
+
+    // 最後才退回畫面解析
+    const candidates = Array.from(document.querySelectorAll('#recommendResult .recommend-item, #recommendResult .manual-recommend-item, #recommendResult .pillar-set, #recommendResult > div'));
+    const selected = [];
+    candidates.forEach((el) => {
+      if (selected.length >= 3) return;
+      const text = (el.innerText || '').trim();
+      if (!text || text.length < 10) return;
+      const groups = caishenParseGroupsFromElement(el);
+      selected.push({
+        index: selected.length + 1,
+        text,
+        html: el.innerHTML || '',
+        groups,
+        source: 'dom'
+      });
+    });
+
+    return selected.slice(0,3);
+  }
+
+  function updateCaishenGrowthLog(msg){
+    const el = document.getElementById('caishenGrowthLog');
+    if (!el) return;
+    const now = new Date();
+    const stamp = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    el.textContent = `【${stamp}】\n${msg}`;
+  }
+
+
+  function caishenExtractGroupsFromBattleText(text){
+    const nums = (String(text || '').match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || [])
+      .map(n => Number(n));
+    const uniq = [];
+    nums.forEach(n => { if (n >= 1 && n <= 39 && !uniq.includes(n)) uniq.push(n); });
+    if (uniq.length >= 39) return [uniq.slice(0,10), uniq.slice(10,24), uniq.slice(24,39)];
+    if (uniq.length >= 35) return [uniq.slice(0,10), uniq.slice(10,24), uniq.slice(24)];
+    return [];
+  }
+
+  function caishenAnalyzeOneGroup(groupItemOrText, drawNums){
+    let groups = [];
+    let groupText = '';
+    if (groupItemOrText && typeof groupItemOrText === 'object') {
+      groups = Array.isArray(groupItemOrText.groups) ? groupItemOrText.groups : [];
+      groupText = groupItemOrText.text || '';
+    } else {
+      groupText = String(groupItemOrText || '');
+    }
+
+    groups = (groups || []).map(g => Array.isArray(g) ? g.map(Number).filter(n => n >= 1 && n <= 39) : []);
+
+    if (!groups.length || groups.length < 3 || !groups.every(g => g.length > 0)) {
+      groups = caishenExtractGroupsFromBattleText(groupText);
+    }
+
+    const draw = (drawNums || []).map(Number).filter(n => n >= 1 && n <= 39);
+    if (!groups.length || groups.length < 3 || !draw.length) {
+      return { ok:false, pass:false, dist:[], line:'無法完整解析立柱或開獎號碼' };
+    }
+    const hits = groups.slice(0,3).map(g => g.filter(n => draw.includes(n)));
+    const dist = hits.map(h => h.length);
+    const pass = dist.every(v => v >= 1);
+    const hitText = hits.map((h, idx) => `第${idx+1}柱${h.length}支：${h.length ? h.map(pad2).join(' ') : '無'}`).join('｜');
+    return {
+      ok:true,
+      pass,
+      dist,
+      line:`${pass ? '過關✅' : '倒牌❌'}｜分布 ${dist.join('-')}｜${hitText}`
+    };
+  }
+
+
+  function escapeCaishenHtml(str){
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function caishenDeleteBattleRecord(index){
+    const memory = loadCaishenGrowthMemory();
+    if (!Array.isArray(memory.settles) || !memory.settles[index]) {
+      alert('找不到這筆對戰紀錄');
+      return;
+    }
+
+    const rec = memory.settles[index];
+    const d = new Date(rec.date);
+    const label = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const result = rec.allDown ? '全倒' : `${rec.passCount || 0}組過`;
+
+    if (!confirm(`確定刪除這筆對戰紀錄嗎？\n\n${label}｜${rec.gameName || ''}｜${result}`)) return;
+
+    const removed = memory.settles.splice(index, 1)[0];
+    if (Array.isArray(memory.reviews) && removed) {
+      memory.reviews = memory.reviews.filter(r => {
+        if (removed.id && r.settleId) return r.settleId !== removed.id;
+        return !(r.latest && r.latest.date === removed.date);
+      });
+    }
+    memory.lastLog = `已刪除一筆對戰紀錄：${label}\n累積對戰資料與檢討資料已重新計算。`;
+
+    saveCaishenGrowthMemory(memory);
+    updateCaishenGrowthLog(memory.lastLog);
+    caishenRenderGrowthStats();
+
+    const analysisEl = document.getElementById('caishenBattleAnalysis');
+    if (analysisEl) analysisEl.textContent = '當天對戰分析：已刪除指定紀錄，請以最新結算為準。';
+  }
+
+
+  function caishenFormatDateTime(iso){
+    if (!iso) return '未記錄';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '未記錄';
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function caishenRenderReviewRecords(memory){
+    const body = document.getElementById('caishenReviewBody');
+    if (!body) return;
+    const reviews = caishenFilterReviewsByActiveGame(memory);
+    if (!reviews.length) {
+      body.textContent = '尚無檢討紀錄。';
+      return;
+    }
+
+    body.innerHTML = reviews.slice().reverse().map((r, reverseIdx) => {
+      const originalIndex = typeof r.__index === 'number' ? r.__index : (reviews.length - 1 - reverseIdx);
+      const gameName = r.gameName || r.latest?.gameName || r.latest?.battle?.gameName || '未記錄';
+      const timeText = caishenFormatDateTime(r.date);
+      const resultText = r.latest
+        ? (r.latest.allDown ? '全倒' : `${r.latest.passCount || 0}組過`)
+        : '未記錄';
+      return `
+        <div class="caishen-review-item">
+          <div class="caishen-review-top">
+            <div><b>【${timeText}｜${escapeCaishenHtml(gameName)}】${escapeCaishenHtml(resultText)}</b><br>檢討ID：${escapeCaishenHtml(r.id || r.settleId || '未記錄')}</div>
+            <button type="button" class="caishen-review-delete-btn" data-caishen-delete-review-index="${originalIndex}">刪除檢討</button>
+          </div>
+          ${(() => {
+            const reviewCountNow = reviews.length;
+            let noteText = String(r.note || '');
+            noteText = noteText.replace(/目前累積檢討次數\s*：\s*\d+\s*次/g, `目前累積檢討次數：${reviewCountNow} 次`);
+            return `<div style="white-space:pre-wrap;">${escapeCaishenHtml(noteText).slice(0,1200)}</div>`;
+          })()}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function caishenDeleteReviewRecord(index){
+    const memory = loadCaishenGrowthMemory();
+    if (!Array.isArray(memory.reviews) || !memory.reviews[index]) {
+      alert('找不到這筆檢討紀錄');
+      return;
+    }
+    const rec = memory.reviews[index];
+    const label = caishenFormatDateTime(rec.date);
+    const gameName = rec.gameName || rec.latest?.gameName || rec.latest?.battle?.gameName || '';
+    if (!confirm(`確定刪除這筆檢討紀錄嗎？\n\n${label}｜${gameName}`)) return;
+
+    const settleId = rec.settleId || rec.latest?.id || '';
+    memory.reviews.splice(index, 1);
+
+    // 如果該對戰沒有其他檢討紀錄，解除該對戰 reviewed 狀態，讓你可重新檢討一次
+    if (settleId && Array.isArray(memory.settles)) {
+      const stillHasReview = memory.reviews.some(r => (r.settleId || r.latest?.id || '') === settleId);
+      if (!stillHasReview) {
+        memory.settles = memory.settles.map(s => {
+          if (s.id === settleId) {
+            s.reviewed = false;
+            s.reviewedAt = '';
+            s.reviewNote = '';
+          }
+          return s;
+        });
+      }
+    }
+
+    memory.lastLog = `已刪除一筆檢討紀錄：${label}\n目前累積檢討次數：${Array.isArray(memory.reviews) ? memory.reviews.length : 0} 次。`;
+    saveCaishenGrowthMemory(memory);
+    updateCaishenGrowthLog(memory.lastLog);
+    caishenRenderGrowthStats();
+  }
+
+  function caishenToggleReview(open){
+    const wrap = document.getElementById('caishenReviewWrap');
+    const btn = document.getElementById('toggleCaishenReviewBtn');
+    if (!wrap) return;
+    const next = typeof open === 'boolean' ? open : !wrap.classList.contains('open');
+    wrap.classList.toggle('open', next);
+    if (btn) btn.textContent = next ? '收起' : '展開';
+  }
+
+
+
+  function caishenActiveGameMode(){
+    return getCurrentGameModeValueForGrowth ? getCurrentGameModeValueForGrowth() : ((document.getElementById('gameMode') || {}).value || '539');
+  }
+
+  function caishenActiveGameName(){
+    return getCurrentGameModeNameForGrowth ? getCurrentGameModeNameForGrowth() : (caishenActiveGameMode() === 'dayday' ? '天天樂' : '539');
+  }
+
+  function caishenFilterSettlesByActiveGame(memory){
+    const active = caishenActiveGameMode();
+    return (memory.settles || [])
+      .map((s, index) => ({ ...s, __index: index }))
+      .filter(s => (s.gameMode || s.battle?.gameMode || '539') === active);
+  }
+
+  function caishenFilterReviewsByActiveGame(memory){
+    const active = caishenActiveGameMode();
+    return (memory.reviews || [])
+      .map((r, index) => ({ ...r, __index: index }))
+      .filter(r => (r.gameMode || r.latest?.gameMode || r.latest?.battle?.gameMode || '539') === active);
+  }
+
+
+  function caishenRenderGrowthStats(){
+    const memory = loadCaishenGrowthMemory();
+    const activeGame = caishenActiveGameMode();
+    const activeGameName = caishenActiveGameName();
+    const activeSettles = caishenFilterSettlesByActiveGame(memory);
+    const activeReviews = caishenFilterReviewsByActiveGame(memory);
+    const activeTodayBattle = memory.todayBattle && (memory.todayBattle.gameMode || '539') === activeGame ? memory.todayBattle : null;
+    const firstDate = activeTodayBattle?.date || (activeSettles.length ? activeSettles[0].date : '');
+    let days = 0;
+    if (firstDate) {
+      const start = new Date(firstDate);
+      const now = new Date();
+      days = Math.max(1, Math.floor((now - start) / 86400000) + 1);
+    }
+    const count = activeSettles.length;
+    const last = activeSettles.length ? activeSettles[activeSettles.length - 1] : null;
+    const lastText = last ? (last.allDown ? '全倒' : `${last.passCount || 0} 組過`) : '尚無';
+
+    const dEl = document.getElementById('caishenGrowthDays');
+    const cEl = document.getElementById('caishenBattleCount');
+    const lEl = document.getElementById('caishenLastResult');
+    const rEl = document.getElementById('caishenLastReviewInfo');
+    if (dEl) dEl.textContent = `第 ${days} 天`;
+    if (cEl) cEl.textContent = `${count} 場`;
+    if (lEl) lEl.textContent = lastText;
+    const reviews = activeReviews;
+    const reviewCountEl = document.getElementById('caishenReviewCount');
+    if (reviewCountEl) reviewCountEl.textContent = `${reviews.length} 次`;
+    if (rEl) {
+      const latestReview = reviews.length ? reviews[reviews.length - 1] : null;
+      if (latestReview) {
+        const gameName = latestReview.gameName || latestReview.latest?.gameName || latestReview.latest?.battle?.gameName || '';
+        rEl.textContent = `${caishenFormatDateTime(latestReview.date)}｜${gameName || '未記錄'}`;
+      } else {
+        rEl.textContent = '尚無';
+      }
+    }
+    caishenRenderReviewRecords(memory);
+
+    const recEl = document.getElementById('caishenRecordBody');
+    if (recEl) {
+      const settles = activeSettles;
+      if (!settles.length) {
+        recEl.textContent = '尚無對戰紀錄。';
+      } else {
+        recEl.innerHTML = settles.slice().reverse().map((s, reverseIdx) => {
+          const originalIndex = typeof s.__index === 'number' ? s.__index : (settles.length - 1 - reverseIdx);
+          const d = new Date(s.date);
+          const date = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          const draw = s.latestDrawKey || (s.latestDraw || []).map(pad2).join(' ');
+          const result = s.allDown ? '全倒❌' : `${s.passCount || 0}組過✅`;
+          const reviewStatus = s.reviewed ? '｜已檢討' : '｜未檢討';
+          const lines = (s.analysisLines || []).join('\n');
+          return `
+            <div class="caishen-record-item">
+              <div class="caishen-record-top">
+                <div><b>【${date}｜${escapeCaishenHtml(s.gameName || '')}】${result}${reviewStatus}</b><br>開獎：${escapeCaishenHtml(draw || '未記錄')}</div>
+                <button type="button" class="caishen-record-delete-btn" data-caishen-delete-index="${originalIndex}">刪除</button>
+              </div>
+              <div>${escapeCaishenHtml(lines).replace(/\n/g, '<br>')}</div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+  }
+
+  function caishenToggleRecord(open){
+    const wrap = document.getElementById('caishenRecordWrap');
+    const btn = document.getElementById('toggleCaishenRecordBtn');
+    if (!wrap) return;
+    const next = typeof open === 'boolean' ? open : !wrap.classList.contains('open');
+    wrap.classList.toggle('open', next);
+    if (btn) btn.textContent = next ? '收起' : '展開';
+  }
+
+
+  function initCaishenGrowthSystem(){
+    updateBattleGameLabel();
+    const gmForGrowth = document.getElementById('gameMode');
+    if (gmForGrowth) gmForGrowth.addEventListener('change', () => { updateBattleGameLabel(); caishenRenderGrowthStats(); });
+    const memory = loadCaishenGrowthMemory();
+    if (memory.lastLog) updateCaishenGrowthLog(memory.lastLog);
+
+    const saveBtn = document.getElementById('saveTodayBattleBtn');
+    const settleBtn = document.getElementById('settleTodayBattleBtn');
+    const reviewBtn = document.getElementById('reviewTodayBattleBtn');
+
+    if (saveBtn) {
+      saveBtn.onclick = () => {
+        const top3 = getRecommendTopThreeForBattle();
+        if (!top3.length) {
+          alert('推薦區目前沒有三組可記錄，請先啟動財神代理或移入推薦區。');
+          return;
+        }
+        const memory = loadCaishenGrowthMemory();
+        memory.todayBattles = memory.todayBattles || {};
+        const battleGameMode = getCurrentGameModeValueForGrowth();
+        const battleGameName = getCurrentGameModeNameForGrowth();
+        const battleData = {
+          date: new Date().toISOString(),
+          gameMode: battleGameMode,
+          gameName: battleGameName,
+          latestDrawAtSave: getLatestDrawKeyForGrowth(),
+          groups: top3
+        };
+        memory.todayBattles[battleGameMode] = battleData;
+        memory.todayBattle = battleData;
+        memory.lastLog =
+`今日出戰已建立
+來源：最終推薦區最上方三組
+彩種：${memory.todayBattle.gameName}
+出戰當下最新開獎：${memory.todayBattle.latestDrawAtSave || '未讀取'}
+出戰數量：${top3.length} 組
+
+${top3.map(g => `第${g.index}組：${g.groups && g.groups.length === 3 ? '已保存完整三柱' : '未保存完整三柱'}｜來源：${g.source || '未知'}\n${g.text.slice(0,220)}${g.text.length>220?'...':''}`).join('\n\n')}
+
+明日修正會參考：
+- 是否全倒
+- 哪種結構穿透
+- 哪一類型近期失效
+- 哪種搭配比較耐打`;
+        saveCaishenGrowthMemory(memory);
+        updateCaishenGrowthLog(memory.lastLog);
+        caishenRenderGrowthStats();
+        alert('已設為今日出戰');
+      };
+    }
+
+    if (settleBtn) {
+      settleBtn.onclick = () => {
+        const memory = loadCaishenGrowthMemory();
+        const currentGame = getCurrentGameModeValueForGrowth();
+        const currentGameName = getCurrentGameModeNameForGrowth();
+        const battleForCurrentGame = (memory.todayBattles && memory.todayBattles[currentGame]) || (memory.todayBattle && (memory.todayBattle.gameMode || '539') === currentGame ? memory.todayBattle : null);
+        if (!battleForCurrentGame) {
+          alert(`尚未建立 ${currentGameName} 今日出戰`);
+          return;
+        }
+        memory.todayBattle = battleForCurrentGame;
+        const savedGame = memory.todayBattle.gameMode || currentGame;
+        if (savedGame !== currentGame) {
+          const ok = confirm(`今日出戰彩種是 ${memory.todayBattle.gameName || savedGame}，但目前彩種是 ${currentGameName}。\n\n若直接結算，可能會把 539 / 天天樂資料混在一起。\n\n仍要繼續結算嗎？`);
+          if (!ok) return;
+        }
+
+        const latest = typeof getLatestDrawNumbers === 'function' ? getLatestDrawNumbers() : [];
+        const latestKey = latest.length ? latest.map(pad2).join(' ') : '';
+        const savedLatest = memory.todayBattle.latestDrawAtSave || '';
+        if (savedLatest && latestKey && savedLatest === latestKey) {
+          const ok = confirm(`目前最新開獎號碼與「設為今日出戰」時相同：${latestKey}\n\n如果你還沒輸入下一期開獎結果，現在結算會把舊資料拿來檢討。\n\n確定要繼續嗎？`);
+          if (!ok) return;
+        }
+
+        const battleGroups = memory.todayBattle.groups || [];
+        const analysis = battleGroups.map((g, idx) => {
+          const result = caishenAnalyzeOneGroup(g, latest);
+          return {
+            index: idx + 1,
+            pass: !!result.pass,
+            dist: result.dist || [],
+            line: `第${idx + 1}組：${result.line}`
+          };
+        });
+        const passCount = analysis.filter(x => x.pass).length;
+        const allDown = passCount === 0;
+
+        memory.settles = memory.settles || [];
+        const settleRecord = {
+          id: `settle_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+          date: new Date().toISOString(),
+          gameMode: currentGame,
+          gameName: currentGameName,
+          latestDraw: latest,
+          latestDrawKey: latestKey,
+          battle: memory.todayBattle,
+          passCount,
+          allDown,
+          analysisLines: analysis.map(x => x.line),
+          reviewed: false,
+          reviewedAt: ''
+        };
+        memory.settles.push(settleRecord);
+
+        const analysisEl = document.getElementById('caishenBattleAnalysis');
+        if (analysisEl) {
+          analysisEl.textContent =
+`當天對戰分析
+彩種：${currentGameName}
+開獎：${latestKey || '尚未讀取'}
+總結：${allDown ? '三組全倒❌' : passCount + ' 組過關✅'}
+
+${settleRecord.analysisLines.join('\n')}`;
+        }
+        memory.lastLog =
+`今日結算已記錄
+彩種：${currentGameName}
+最新開獎：${latest.length ? latest.map(pad2).join(' ') : '尚未讀取到最新開獎'}
+
+已保存：
+- 今日出戰三組
+- 最新開獎號碼
+- 各組過/倒分布
+- 等待財神檢討進行權重修正`;
+        saveCaishenGrowthMemory(memory);
+        updateCaishenGrowthLog(memory.lastLog);
+        caishenRenderGrowthStats();
+        alert('今日結算完成');
+      };
+    }
+
+
+    const recordBody = document.getElementById('caishenRecordBody');
+    if (recordBody && !recordBody.dataset.deleteBound) {
+      recordBody.dataset.deleteBound = '1';
+      recordBody.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-caishen-delete-index]');
+        if (!btn) return;
+        e.stopPropagation();
+        const idx = Number(btn.dataset.caishenDeleteIndex);
+        if (Number.isInteger(idx)) caishenDeleteBattleRecord(idx);
+      });
+    }
+
+    const reviewHead = document.getElementById('caishenReviewHead');
+    const toggleReviewBtn = document.getElementById('toggleCaishenReviewBtn');
+    const reviewBody = document.getElementById('caishenReviewBody');
+    if (reviewHead) reviewHead.onclick = () => caishenToggleReview();
+    if (toggleReviewBtn) toggleReviewBtn.onclick = (e) => { e.stopPropagation(); caishenToggleReview(); };
+    if (reviewBody && !reviewBody.dataset.deleteBound) {
+      reviewBody.dataset.deleteBound = '1';
+      reviewBody.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-caishen-delete-review-index]');
+        if (!btn) return;
+        e.stopPropagation();
+        const idx = Number(btn.dataset.caishenDeleteReviewIndex);
+        if (Number.isInteger(idx)) caishenDeleteReviewRecord(idx);
+      });
+    }
+
+    const recordHead = document.getElementById('caishenRecordHead');
+    const toggleRecordBtn = document.getElementById('toggleCaishenRecordBtn');
+    if (recordHead) recordHead.onclick = () => caishenToggleRecord();
+    if (toggleRecordBtn) toggleRecordBtn.onclick = (e) => { e.stopPropagation(); caishenToggleRecord(); };
+    caishenRenderGrowthStats();
+
+    if (reviewBtn) {
+      reviewBtn.onclick = () => {
+        const memory = loadCaishenGrowthMemory();
+        memory.reviews = memory.reviews || [];
+        const activeSettlesForReview = caishenFilterSettlesByActiveGame(memory);
+        const latestActive = activeSettlesForReview.length ? activeSettlesForReview[activeSettlesForReview.length - 1] : null;
+        const latestIndex = latestActive && typeof latestActive.__index === 'number' ? latestActive.__index : -1;
+        const latest = latestIndex >= 0 ? memory.settles[latestIndex] : null;
+
+        if (!latest) {
+          alert('尚無今日結算紀錄，請先按「今日結算」再檢討。');
+          return;
+        }
+
+        if (latest.reviewed) {
+          const oldNote = latest.reviewNote || memory.lastLog || '這筆對戰紀錄已檢討過，不會重複增加累積檢討次數。';
+          const currentReviewCount = caishenFilterReviewsByActiveGame(memory).length;
+          updateCaishenGrowthLog(`這筆對戰已檢討過，不重複增加次數。\n目前累積檢討次數：${currentReviewCount} 次。\n\n${oldNote}`);
+          alert('這筆對戰已檢討過，不會重複增加累積檢討次數');
+          return;
+        }
+
+        const note =
+`財神代理檢討完成
+
+本次檢討方向：
+1. 避免重複選到容易共同穿透的結構
+2. 若近期某類型連續失效，後續降低權重
+3. 若某類型近期耐打，後續提高權重
+4. 若三組過度相似，後續提高重疊懲罰
+5. 若最新一期倒優先失效，後續保守調整
+
+本期結果：${latest.allDown ? '三組全倒' : (latest.passCount || 0) + ' 組過關'}
+目前累積檢討次數：${caishenFilterReviewsByActiveGame(memory).length + 1}`;
+
+        latest.reviewed = true;
+        latest.reviewedAt = new Date().toISOString();
+        latest.reviewNote = note;
+        memory.settles[latestIndex] = latest;
+
+        memory.reviews.push({
+          id: `review_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+          settleId: latest.id || '',
+          date: new Date().toISOString(),
+          gameMode: latest.gameMode || '',
+          gameName: latest.gameName || latest.battle?.gameName || '',
+          latest,
+          note
+        });
+        memory.lastLog = note;
+        saveCaishenGrowthMemory(memory);
+        updateCaishenGrowthLog(note);
+        caishenRenderGrowthStats();
+        alert('財神代理已完成檢討');
+      };
+    }
+  }
+
 
 
   function bindWeeklyCalcEvents() {
@@ -1582,41 +2335,15 @@
         applyWeeklyViewMode();
       });
     }
-    document.querySelectorAll('[data-weekly-chart-mode]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        weeklyChartMode = btn.dataset.weeklyChartMode || 'day';
-        document.querySelectorAll('[data-weekly-chart-mode]').forEach(b => b.classList.toggle('active', b === btn));
-        drawWeeklyProfitChart();
-      });
-    });
-    if (copyWeeklyReportBtn) {
-      copyWeeklyReportBtn.addEventListener('click', async () => {
-        try {
-          await copyTextToClipboard(buildWeeklyReportText());
-          alert('已複製當週損益報表');
-        } catch (err) {
-          alert('複製失敗，請改用手動選取複製');
-        }
-      });
-    }
-    window.addEventListener('resize', () => drawWeeklyProfitChart());
 
-    const copyWeeklyLineReportBtn = document.getElementById('copyWeeklyLineReportBtn')
-      || document.getElementById('copyWeeklyReportBtn')
-      || document.getElementById('copyWeeklyProfitReportBtn')
-      || document.getElementById('copyWeeklyCalcReportBtn')
-      || document.getElementById('weeklyCopyReportBtn')
-      || document.getElementById('copyProfitReportBtn');
-    if (copyWeeklyLineReportBtn) {
-      copyWeeklyLineReportBtn.onclick = copyWeeklyLineReport;
-    }
-
+    const copyWeeklyLineReportBtn = document.getElementById('copyWeeklyLineReportBtn');
+    if (copyWeeklyLineReportBtn) copyWeeklyLineReportBtn.onclick = copyWeeklyLineReport;
 
     document.querySelectorAll('[data-profit-view]').forEach(btn => {
       btn.addEventListener('click', () => {
         profitChartViewMode = btn.dataset.profitView || 'day';
         document.querySelectorAll('[data-profit-view]').forEach(b => b.classList.toggle('active', b === btn));
-        renderProfitTrendChart();
+        if (typeof renderProfitTrendChart === 'function') renderProfitTrendChart();
       });
     });
 
@@ -1624,16 +2351,7 @@
       clearWeeklyCalcBtn.addEventListener('click', () => {
         if (!confirm('確定要清除七日財運盈虧試算表嗎？')) return;
         try { localStorage.removeItem(WEEKLY_CALC_STORAGE_KEY); } catch (err) {}
-        const history = loadWeeklyHistory();
-        const start = getWeekStartDate();
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(start);
-          d.setDate(start.getDate() + i);
-          delete history[getLocalISODate(d)];
-        }
-        saveWeeklyHistory(history);
         renderWeeklyCalcTable();
-        drawWeeklyProfitChart();
       });
     }
   }
@@ -1797,6 +2515,7 @@
       </div>`).join('')}</div>`;
   }
   let rngState = 1;
+  let CAISHEN_FAST_MODE = false; // V8：財神代理啟動時使用快速生成深度，避免手機等待10分鐘。
 
   function hashString(str) {
     let h = 2166136261 >>> 0;
@@ -2196,7 +2915,37 @@
     return mp;
   }
 
+  const EVALUATE_CACHE_LIMIT = 18000;
+  const evaluateCacheByDraws = new WeakMap();
+  function getDrawsCache(draws) {
+    let cache = evaluateCacheByDraws.get(draws);
+    if (!cache) {
+      cache = { map: new Map(), hits: 0, misses: 0 };
+      evaluateCacheByDraws.set(draws, cache);
+    }
+    return cache;
+  }
+  function fastGroupsKey(groups) {
+    return (groups || []).map(g => (g || []).join(',')).join('+');
+  }
+  function cloneStatsObject(stats) {
+    if (!stats || typeof stats !== 'object') return stats;
+    return {
+      ...stats,
+      recentDownFlags: Array.isArray(stats.recentDownFlags) ? stats.recentDownFlags.slice() : stats.recentDownFlags,
+      patterns: stats.patterns ? { ...stats.patterns } : stats.patterns
+    };
+  }
+
   function evaluate(groups, draws) {
+    const cache = getDrawsCache(draws);
+    const cacheKey = fastGroupsKey(groups);
+    const cached = cache.map.get(cacheKey);
+    if (cached) {
+      cache.hits++;
+      return cloneStatsObject(cached);
+    }
+    cache.misses++;
     const mp = pillarToMap(groups);
     let pass = 0;
     let fail = 0;
@@ -2250,7 +2999,7 @@
       (allInOne / total) * 120 -
       balancePenalty;
 
-    return {
+    const result = {
       pass,
       fail,
       passRate: pass / total,
@@ -2272,6 +3021,9 @@
       patterns,
       totalDraws: draws.length
     };
+    if (cache.map.size > EVALUATE_CACHE_LIMIT) cache.map.clear();
+    cache.map.set(cacheKey, cloneStatsObject(result));
+    return cloneStatsObject(result);
   }
 
   function cloneGroups(groups) {
@@ -2467,7 +3219,7 @@
 
   async function strictRefinePool(pool, draws, totalWanted, scorer, comparator, label, options = {}) {
     let nextPool = pool.slice();
-    const primaryCount = Math.min(nextPool.length, Math.max(42, totalWanted * 16));
+    const primaryCount = CAISHEN_FAST_MODE ? Math.min(nextPool.length, Math.max(12, totalWanted * 3)) : Math.min(nextPool.length, Math.max(42, totalWanted * 16));
     for (let i = 0; i < primaryCount; i++) {
       if (i % 8 === 0) log(`${label} 嚴格精修 ${i + 1}/${primaryCount}...`);
       const refined = refineCandidateItem(nextPool[i], draws, scorer, comparator, {
@@ -2479,7 +3231,7 @@
       if (i % 10 === 9) await new Promise(requestAnimationFrame);
     }
 
-    const eliteCount = Math.min(nextPool.length, Math.max(10, totalWanted * 5));
+    const eliteCount = CAISHEN_FAST_MODE ? Math.min(nextPool.length, Math.max(4, totalWanted)) : Math.min(nextPool.length, Math.max(10, totalWanted * 5));
     for (let i = 0; i < eliteCount; i++) {
       if (i % 4 === 0) log(`${label} 極限精修 ${i + 1}/${eliteCount}...`);
       const refined = refineCandidateItem(nextPool[i], draws, scorer, comparator, {
@@ -2633,18 +3385,18 @@
     seedForType('ai');
     const storageKey = makeStorageKey('ai_v30_deep_fixed', draws);
     let pool = [];
-    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
-    const seedCount = Math.max(960, totalWanted * 320);
+    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
+    const seedCount = CAISHEN_FAST_MODE ? Math.max(220, totalWanted * 18) : Math.max(960, totalWanted * 320);
     const freshSeeds = seedPoolFromDraws(draws, seedCount);
     for (const item of freshSeeds) {
       pool = addUniqueSorted(pool, item, keepSize, compareAiItems);
     }
 
     pool = await strictRefinePool(pool, draws, totalWanted, evaluate, compareAiItems, 'AI', {
-      primarySteps: 620,
-      eliteSteps: 1480,
-      primaryAcceptChance: 0.008,
-      eliteAcceptChance: 0.003
+      primarySteps: CAISHEN_FAST_MODE ? 120 : 620,
+      eliteSteps: CAISHEN_FAST_MODE ? 260 : 1480,
+      primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
+      eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
     });
 
     const finalItems = finalizeTopItems(pool, totalWanted, compareAiItems);
@@ -2706,8 +3458,8 @@
     seedForType('reverse');
     const storageKey = makeStorageKey('reverse_v44_unlimited_latest_down_rank', draws);
     let pool = [];
-    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
-    const seedCount = Math.max(1200, totalWanted * 360);
+    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
+    const seedCount = CAISHEN_FAST_MODE ? Math.max(260, totalWanted * 20) : Math.max(1200, totalWanted * 360);
 
     for (let i = 0; i < seedCount; i++) {
       const groups = buildBalancedRandomPillar();
@@ -2722,7 +3474,7 @@
       ...(lastRandom || [])
     ].filter(Boolean);
     for (const seed of baseSeeds) {
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < (CAISHEN_FAST_MODE ? 8 : 30); i++) {
         const groups = mutateByTimes(seed.groups, 1 + (i % 4));
         const item = reverseItemFromGroups(groups, draws);
         if (item.stats.latestDown) pool = addUniqueSorted(pool, item, keepSize, compareReverseItems);
@@ -2736,11 +3488,11 @@
       }
     }
 
-    const refineRounds = Math.min(pool.length, Math.max(36, totalWanted * 14));
+    const refineRounds = CAISHEN_FAST_MODE ? Math.min(pool.length, Math.max(10, totalWanted * 3)) : Math.min(pool.length, Math.max(36, totalWanted * 14));
     for (let i = 0; i < refineRounds; i++) {
       let current = pool[i % pool.length];
       let best = current;
-      for (let step = 0; step < 260; step++) {
+      for (let step = 0; step < (CAISHEN_FAST_MODE ? 70 : 260); step++) {
         const candidate = reverseItemFromGroups(randomSwap(current.groups), draws);
         const candidateOk = candidate.stats.latestDown;
         if (candidateOk && (compareReverseItems(candidate, current) < 0 || rand() < 0.015)) current = candidate;
@@ -2792,7 +3544,7 @@
       : buildBalancedRandomPillar();
     let bestGroups = cloneGroups(base);
     let bestEval = antiScore(bestGroups, draws);
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < (CAISHEN_FAST_MODE ? 20 : 80); i++) {
       const candidateGroups = randomSwap(bestGroups);
       const candidateEval = antiScore(candidateGroups, draws);
       if (betterAnti(candidateEval, bestEval) || rand() < 0.05) {
@@ -2826,18 +3578,18 @@
     seedForType('anti');
     const storageKey = makeStorageKey('anti_v30_deep_fixed', draws, JSON.stringify(candidateScoreData && candidateScoreData.ranking ? candidateScoreData.ranking.slice(0, 18).map(x => x.n) : []));
     let pool = [];
-    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
+    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
 
-    for (let i = 0; i < Math.max(560, totalWanted * 180); i++) {
+    for (let i = 0; i < (CAISHEN_FAST_MODE ? Math.max(150, totalWanted * 14) : Math.max(560, totalWanted * 180)); i++) {
       const seed = buildAntiSeed(draws, candidateScoreData);
       pool = addUniqueSorted(pool, seed, keepSize, compareAntiItems);
     }
 
     pool = await strictRefinePool(pool, draws, totalWanted, antiScore, compareAntiItems, '防穿透', {
-      primarySteps: 620,
-      eliteSteps: 1480,
-      primaryAcceptChance: 0.008,
-      eliteAcceptChance: 0.003
+      primarySteps: CAISHEN_FAST_MODE ? 100 : 620,
+      eliteSteps: CAISHEN_FAST_MODE ? 220 : 1480,
+      primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
+      eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
     });
 
     const finalItems = finalizeTopItems(pool, totalWanted, compareAntiItems);
@@ -2913,11 +3665,11 @@
     seedForType('highpass');
     const storageKey = makeStorageKey('highpass_v30_deep_fixed', draws);
     let pool = [];
-    const keepSize = Math.max(strictKeepSize(totalWanted), 520);
+    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
 
     const seeds = [];
     aiSeedItems.forEach(item => seeds.push({ groups: cloneGroups(item.groups), stats: highPassScore(item.groups, draws) }));
-    for (let i = 0; i < Math.max(620, totalWanted * 200); i++) {
+    for (let i = 0; i < (CAISHEN_FAST_MODE ? Math.max(170, totalWanted * 14) : Math.max(620, totalWanted * 200)); i++) {
       let groups = buildBalancedRandomPillar();
       if (i % 2 === 1 && aiSeedItems.length) groups = mutateByTimes(aiSeedItems[i % aiSeedItems.length].groups, 1 + (i % 6));
       seeds.push({ groups, stats: highPassScore(groups, draws) });
@@ -2925,10 +3677,10 @@
     for (const seed of seeds) pool = addUniqueSorted(pool, seed, keepSize, compareHighPassItems);
 
     pool = await strictRefinePool(pool, draws, totalWanted, highPassScore, compareHighPassItems, '高過關爆發', {
-      primarySteps: 620,
-      eliteSteps: 1480,
-      primaryAcceptChance: 0.008,
-      eliteAcceptChance: 0.003
+      primarySteps: CAISHEN_FAST_MODE ? 100 : 620,
+      eliteSteps: CAISHEN_FAST_MODE ? 220 : 1480,
+      primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
+      eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
     });
 
     const qualifiedPool = pool.filter(item => isQualifiedHighPassStats(item.stats));
@@ -4216,6 +4968,7 @@
       refreshRecommendArea();
       log(`已完成手動移入區最佳三組排序：檢查 ${combos.length} 種有效排列，不微調前不輸率 ${bestRateText}%，全倒率 ${bestDownText}%。`);
     } finally {
+      CAISHEN_FAST_MODE = false;
       if (buttonEl) {
         buttonEl.disabled = false;
         buttonEl.textContent = originalText || '一鍵排列最佳三組';
@@ -4533,6 +5286,532 @@
       best.isQualified = best.stats.noLoseRate >= 0.62 && best.stats.allDownRate <= 0.04;
     }
     return best;
+  }
+
+
+
+  // 財神今日代理 V8：真正加速版；財神按鈕啟動快速深度，先求有感速度，再保留你的硬門檻。
+  function comboCount(n, k) {
+    if (k < 0 || k > n) return 0;
+    let result = 1;
+    for (let i = 1; i <= k; i++) result = result * (n - k + i) / i;
+    return result;
+  }
+
+  function expectedPatternRatesForGroups(groups) {
+    const sizes = (groups || []).map(g => (g || []).length);
+    if (sizes.length !== 3) return {};
+    const total = comboCount(sizes.reduce((s, v) => s + v, 0), 5) || 1;
+    const rates = {};
+    for (let a = 0; a <= 5; a++) {
+      for (let b = 0; b <= 5 - a; b++) {
+        const c = 5 - a - b;
+        const ways = comboCount(sizes[0], a) * comboCount(sizes[1], b) * comboCount(sizes[2], c);
+        if (!ways) continue;
+        const key = [a, b, c].sort((x, y) => y - x).join('-');
+        rates[key] = (rates[key] || 0) + ways / total;
+      }
+    }
+    return rates;
+  }
+
+  function calcPatternAveragePenalty(item) {
+    if (!item || !item.groups || !item.stats) return 999;
+    const targetKeys = ['2-2-1', '3-1-1', '3-2-0', '4-1-0', '5-0-0'];
+    const expected = expectedPatternRatesForGroups(item.groups);
+    const total = item.stats.totalDraws || 1;
+    let penalty = 0;
+    targetKeys.forEach(key => {
+      const observed = ((item.stats.patterns || {})[key] || 0) / total;
+      penalty += Math.abs(observed - (expected[key] || 0));
+    });
+    return penalty;
+  }
+
+  function attachCaishenInfo(item, ruleTag) {
+    const out = { ...item, groups: cloneGroups(item.groups), stats: { ...(item.stats || {}) } };
+    out.caishenRuleTag = ruleTag || '';
+    out.patternAveragePenalty = calcPatternAveragePenalty(out);
+    out.singleDecisionScore = calcCaishenSingleScore(out);
+    return out;
+  }
+
+  function calcCaishenSingleScore(item) {
+    const s = item.stats || {};
+    const patternPenalty = Number.isFinite(item.patternAveragePenalty) ? item.patternAveragePenalty : 2;
+    const passRate = s.passRate || 0;
+    let score = 0;
+    // 你的思維：最新有倒，比一直順更值得先看。
+    if (s.latestDown) score += 180;
+    score += (s.recent5Down || 0) * 42;
+    score += Math.min(6, s.latestDownStreak || 0) * 24;
+    // 數據仍要看，但不能蓋過生存邏輯。
+    score += passRate * 80;
+    score -= (s.balancePenalty || 0) * 12;
+    score -= patternPenalty * 75;
+    return score;
+  }
+
+  function compareCaishenAiAnti(a, b) {
+    const as = a.stats || {}, bs = b.stats || {};
+    if (!!bs.latestDown !== !!as.latestDown) return Number(!!bs.latestDown) - Number(!!as.latestDown);
+    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
+    if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
+    if ((b.singleDecisionScore || 0) !== (a.singleDecisionScore || 0)) return (b.singleDecisionScore || 0) - (a.singleDecisionScore || 0);
+    if ((bs.passRate || 0) !== (as.passRate || 0)) return (bs.passRate || 0) - (as.passRate || 0);
+    return (as.balancePenalty || 0) - (bs.balancePenalty || 0);
+  }
+
+  function compareCaishenHighPass(a, b) {
+    const as = a.stats || {}, bs = b.stats || {};
+    const pa = Number.isFinite(a.patternAveragePenalty) ? a.patternAveragePenalty : 999;
+    const pb = Number.isFinite(b.patternAveragePenalty) ? b.patternAveragePenalty : 999;
+    // 高爆發：先目測分布是不是正常，再看最新倒與近5倒。
+    if (Math.abs(pa - pb) > 1e-12) return pa - pb;
+    if (!!bs.latestDown !== !!as.latestDown) return Number(!!bs.latestDown) - Number(!!as.latestDown);
+    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
+    return (bs.passRate || 0) - (as.passRate || 0);
+  }
+
+  function compareCaishenReverse(a, b) {
+    const as = a.stats || {}, bs = b.stats || {};
+    // 反指標：連倒越長越優先，再看近5倒與分布。
+    if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
+    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
+    const pa = Number.isFinite(a.patternAveragePenalty) ? a.patternAveragePenalty : 999;
+    const pb = Number.isFinite(b.patternAveragePenalty) ? b.patternAveragePenalty : 999;
+    if (Math.abs(pa - pb) > 1e-12) return pa - pb;
+    return (bs.passRate || 0) - (as.passRate || 0);
+  }
+
+  function sortAndTakeCaishen(items, sourceType, take) {
+    const list = (items || []).filter(item => item && item.sourceType === sourceType);
+    const sorter = sourceType === 'reverse' ? compareCaishenReverse : sourceType === 'highpass' ? compareCaishenHighPass : compareCaishenAiAnti;
+    return list.sort(sorter).slice(0, take || 8);
+  }
+
+
+  function caishenGeneratedRejectReasons(item, sourceType) {
+    const s = item && item.stats ? item.stats : {};
+    const reasons = [];
+    const passRate = s.passRate || 0;
+    const patternPenalty = Number.isFinite(item && item.patternAveragePenalty) ? item.patternAveragePenalty : 999;
+    const recent5Down = s.recent5Down || 0;
+    const latestDown = !!s.latestDown;
+    const latestDownStreak = s.latestDownStreak || 0;
+    const balancePenalty = s.balancePenalty || 0;
+
+    // 這裡是「生成階段」的硬淘汰：不再先丟五組垃圾給你自己目測。
+    if (sourceType === 'ai' || sourceType === 'anti') {
+      if (!latestDown && recent5Down < 2) reasons.push('沒有最新倒，近5倒也不足2次');
+      if (passRate < 0.58) reasons.push('單組回測過關率偏低');
+      if (balancePenalty > 7.5) reasons.push('結構失衡偏高');
+      if (patternPenalty > 0.30) reasons.push('分布偏離過大');
+    } else if (sourceType === 'highpass') {
+      if (patternPenalty > 0.20) reasons.push('2-2-1/3-1-1/3-2-0/4-1-0/5-0-0分布不夠平均');
+      if (passRate < 0.60) reasons.push('高爆發但基本過關率不足');
+      if (balancePenalty > 8.5) reasons.push('高爆發結構太偏');
+    } else if (sourceType === 'reverse') {
+      if (latestDownStreak < 2 && recent5Down < 3) reasons.push('反指標連倒力道不足');
+      if (patternPenalty > 0.24) reasons.push('反指標分布不耐打');
+      if (passRate < 0.50) reasons.push('反指標太弱，像垃圾不是回調');
+    }
+    return reasons;
+  }
+
+  function caishenFilterGenerated(items, sourceType, take) {
+    const list = (items || []).filter(item => item && item.sourceType === sourceType);
+    const sorter = sourceType === 'reverse' ? compareCaishenReverse : sourceType === 'highpass' ? compareCaishenHighPass : compareCaishenAiAnti;
+    const withReasons = list.map(item => ({ item, reasons: caishenGeneratedRejectReasons(item, sourceType) }));
+    const clean = withReasons.filter(row => row.reasons.length === 0).map(row => row.item).sort(sorter);
+    const soft = withReasons.filter(row => row.reasons.length > 0).map(row => {
+      row.item.caishenGeneratedRejectReasons = row.reasons;
+      return row.item;
+    }).sort(sorter);
+    const need = take || 8;
+    const picked = clean.slice(0, need);
+    // 若嚴格條件完全不足，才補缺點最少的，且會標註原因，避免看起來像合格品。
+    if (picked.length < Math.min(3, need)) {
+      const filler = soft
+        .sort((a, b) => (a.caishenGeneratedRejectReasons || []).length - (b.caishenGeneratedRejectReasons || []).length || sorter(a, b))
+        .slice(0, need - picked.length);
+      picked.push(...filler);
+    }
+    return picked.slice(0, need);
+  }
+
+  function normalizeCaishenPoolItem(item, sourceType, sourceLabel, sourceIndex, backtestMode, ruleTag) {
+    return attachCaishenInfo(normalizeBest3PoolItem(item, sourceType, sourceLabel, sourceIndex, backtestMode), ruleTag);
+  }
+
+  function appendUniqueCaishenItems(bucket, items, sourceType, sourceLabel, backtestMode, seen, ruleTag) {
+    (items || []).forEach((item, idx) => {
+      if (!item || !Array.isArray(item.groups) || item.groups.length !== 3) return;
+      const key = exportText(item.groups);
+      if (seen.has(key)) return;
+      seen.add(key);
+      bucket.push(normalizeCaishenPoolItem(item, sourceType, sourceLabel, idx, backtestMode, ruleTag));
+    });
+  }
+
+  async function buildCaishenAgentPool(allDraws) {
+    const raw = [];
+    const seen = new Set();
+    const candidateShareData = parseCandidateShares(candidateInput.value);
+    const modes = [50, 100, 150];
+    const wantedPerBuild = CAISHEN_FAST_MODE ? 12 : 32; // V8：快速模式先保留每類前12組，減少手機長時間卡住。
+    const t0 = performance.now ? performance.now() : Date.now();
+
+    for (const mode of modes) {
+      const modeDraws = allDraws.slice(0, Math.min(mode, allDraws.length));
+      if (modeDraws.length < 10) continue;
+      currentRunSignature = [getActiveDrawText(), noDrawInput.value, candidateInput.value, 'CAISHEN_AGENT_V8_REAL_FAST', String(mode)].join('\n---\n');
+      setRunSeed(currentRunSignature);
+      const candidateScoreData = buildCandidateScoreRanking(modeDraws, candidateShareData.counts);
+      log(`財神今日代理V8：生成回測 ${modeDraws.length} 期候選。`);
+
+      let aiItems = [];
+
+      // V7關鍵加速：50期只用於反指標，完全不再浪費時間生成 AI / 防穿透 / 高爆發。
+      if (modeDraws.length === 50) {
+        const reverseItems = await buildTopReverseGroups(modeDraws, wantedPerBuild);
+        appendUniqueCaishenItems(raw, reverseItems, 'reverse', '反指標排行立柱', modeDraws.length, seen, '反指標只採50+100｜連倒期數越多越優先｜再看分布是否耐打');
+        await new Promise(requestAnimationFrame);
+        continue;
+      }
+
+      // 100期：四種類型都會用到。
+      if (modeDraws.length === 100) {
+        aiItems = await buildTopAiGroups(modeDraws, wantedPerBuild);
+        appendUniqueCaishenItems(raw, aiItems, 'ai', 'AI 最佳立柱', modeDraws.length, seen, 'AI只採100+150｜最新一期倒優先｜近5期倒越多越前面｜不是只看勝率');
+        await new Promise(requestAnimationFrame);
+
+        const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, wantedPerBuild);
+        appendUniqueCaishenItems(raw, antiItems, 'anti', '防穿透立柱', modeDraws.length, seen, '防穿透只採100+150｜條件同AI｜另外用來避開AI同弱點');
+        await new Promise(requestAnimationFrame);
+
+        const highPassItems = await buildTopHighPassGroups(modeDraws, wantedPerBuild, aiItems);
+        appendUniqueCaishenItems(raw, highPassItems, 'highpass', '高過關爆發立柱', modeDraws.length, seen, '高爆發只採100+150｜先看2-2-1/3-1-1/3-2-0/4-1-0/5-0-0是否接近平均');
+        await new Promise(requestAnimationFrame);
+
+        const reverseItems = await buildTopReverseGroups(modeDraws, wantedPerBuild);
+        appendUniqueCaishenItems(raw, reverseItems, 'reverse', '反指標排行立柱', modeDraws.length, seen, '反指標只採50+100｜連倒期數越多越優先｜再看分布是否耐打');
+        await new Promise(requestAnimationFrame);
+        continue;
+      }
+
+      // 150期：只用 AI / 防穿透 / 高爆發；不再浪費時間生成反指標。
+      if (modeDraws.length === 150) {
+        aiItems = await buildTopAiGroups(modeDraws, wantedPerBuild);
+        appendUniqueCaishenItems(raw, aiItems, 'ai', 'AI 最佳立柱', modeDraws.length, seen, 'AI只採100+150｜最新一期倒優先｜近5期倒越多越前面｜不是只看勝率');
+        await new Promise(requestAnimationFrame);
+
+        const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, wantedPerBuild);
+        appendUniqueCaishenItems(raw, antiItems, 'anti', '防穿透立柱', modeDraws.length, seen, '防穿透只採100+150｜條件同AI｜另外用來避開AI同弱點');
+        await new Promise(requestAnimationFrame);
+
+        const highPassItems = await buildTopHighPassGroups(modeDraws, wantedPerBuild, aiItems);
+        appendUniqueCaishenItems(raw, highPassItems, 'highpass', '高過關爆發立柱', modeDraws.length, seen, '高爆發只採100+150｜先看2-2-1/3-1-1/3-2-0/4-1-0/5-0-0是否接近平均');
+        await new Promise(requestAnimationFrame);
+      }
+    }
+
+    const pool = [];
+    ['ai', 'anti', 'highpass', 'reverse'].forEach(type => {
+      const before = raw.filter(item => item.sourceType === type).length;
+      const picked = caishenFilterGenerated(raw, type, 10);
+      const clean = picked.filter(item => !(item.caishenGeneratedRejectReasons || []).length).length;
+      pool.push(...picked);
+      log(`財神今日代理V8：${sourceTypeLabel(type)} 生成${before}組，通過你的生成門檻${clean}組，納入排行${picked.length}組。`);
+    });
+    const t1 = performance.now ? performance.now() : Date.now();
+    log(`財神今日代理V8：已啟用V8快速生成深度，跳過無效生成並降低重複精修，候選 ${pool.length} 組，生成耗時約 ${((t1 - t0) / 1000).toFixed(1)} 秒。`);
+    return pool;
+  }
+
+  const caishenPassVectorCache = new WeakMap();
+  function getCaishenPassVector(item, judgeDraws) {
+    if (!item || !Array.isArray(item.groups)) return [];
+    let byDraws = caishenPassVectorCache.get(item);
+    if (!byDraws) {
+      byDraws = new WeakMap();
+      caishenPassVectorCache.set(item, byDraws);
+    }
+    const cached = byDraws.get(judgeDraws);
+    if (cached) return cached;
+    const safeDraws = (judgeDraws || []).filter(draw => Array.isArray(draw) && draw.length === 5);
+    const vector = safeDraws.map(draw => isDrawPassGroups(item.groups, draw) ? 1 : 0);
+    byDraws.set(judgeDraws, vector);
+    return vector;
+  }
+  function getCaishenOverlapStats(items) {
+    const crossOverlaps = [];
+    const samePillarOverlaps = [];
+    for (let a = 0; a < items.length - 1; a++) {
+      for (let b = a + 1; b < items.length; b++) {
+        crossOverlaps.push(crossOverlapRate(items[a].groups, items[b].groups));
+        samePillarOverlaps.push(pairwiseSamePillarOverlap(items[a].groups, items[b].groups));
+      }
+    }
+    return {
+      avgCrossOverlap: crossOverlaps.length ? crossOverlaps.reduce((sum, value) => sum + value, 0) / crossOverlaps.length : 0,
+      maxCrossOverlap: crossOverlaps.length ? Math.max(...crossOverlaps) : 0,
+      avgSamePillarOverlap: samePillarOverlaps.length ? samePillarOverlaps.reduce((sum, value) => sum + value, 0) / samePillarOverlaps.length : 0
+    };
+  }
+
+  function calcCaishenComboBacktest(items, judgeDraws) {
+    const safeDraws = (judgeDraws || []).filter(draw => Array.isArray(draw) && draw.length === 5);
+    const total = safeDraws.length || 1;
+    const vectors = items.map(item => getCaishenPassVector(item, judgeDraws));
+    let allWin = 0, allLose = 0, oneWin = 0, twoWin = 0, atLeastOne = 0;
+    for (let idx = 0; idx < safeDraws.length; idx++) {
+      const wins = (vectors[0][idx] || 0) + (vectors[1][idx] || 0) + (vectors[2][idx] || 0);
+      if (wins === 0) allLose++;
+      if (wins >= 1) atLeastOne++;
+      if (wins === 1) oneWin++;
+      if (wins === 2) twoWin++;
+      if (wins === 3) allWin++;
+    }
+    const overlapStats = getCaishenOverlapStats(items);
+    const totalRecent5Down = items.reduce((sum, item) => sum + ((item.stats && item.stats.recent5Down) || 0), 0);
+    const latestDownCount = items.reduce((sum, item) => sum + ((item.stats && item.stats.latestDown) ? 1 : 0), 0);
+    const latestDownStreakSum = items.reduce((sum, item) => sum + ((item.stats && item.stats.latestDownStreak) || 0), 0);
+    const sourceVariety = new Set(items.map(item => item.sourceType)).size;
+    const avgPatternPenalty = items.reduce((sum, item) => sum + (Number.isFinite(item.patternAveragePenalty) ? item.patternAveragePenalty : 1), 0) / items.length;
+    return {
+      total, allWin, allLose, oneWin, twoWin, atLeastOne,
+      noLoseRate: atLeastOne / total,
+      allDownRate: allLose / total,
+      ...overlapStats,
+      totalRecent5Down,
+      latestDownCount,
+      latestDownStreakSum,
+      sourceVariety,
+      avgPatternPenalty
+    };
+  }
+
+  function caishenComboStatus(stats) {
+    const reasons = [];
+    if ((stats.noLoseRate || 0) < 0.62) reasons.push('不輸率低於62%');
+    if ((stats.allDownRate || 0) > 0.04) reasons.push('全倒率高於4%');
+    if ((stats.latestDownCount || 0) < 1) reasons.push('最新一期倒數不足');
+    if ((stats.totalRecent5Down || 0) < 3) reasons.push('近5期回調不足');
+    if ((stats.avgCrossOverlap || 0) > 0.34) reasons.push('穿插重複偏高');
+    if ((stats.avgPatternPenalty || 0) > 0.22) reasons.push('分布偏離平均');
+    return reasons;
+  }
+
+  function compareCaishenCombo(a, b) {
+    if (!b) return -1;
+    const ar = caishenComboStatus(a.stats);
+    const br = caishenComboStatus(b.stats);
+    const aQualified = (a.stats.noLoseRate || 0) >= 0.62 && (a.stats.allDownRate || 0) <= 0.04;
+    const bQualified = (b.stats.noLoseRate || 0) >= 0.62 && (b.stats.allDownRate || 0) <= 0.04;
+    if (aQualified !== bQualified) return aQualified ? -1 : 1;
+    // 像你手動挑：先淘汰缺點多的組，再排序。
+    if (ar.length !== br.length) return ar.length - br.length;
+    const eps = 1e-12;
+    if (Math.abs((a.stats.allDownRate || 0) - (b.stats.allDownRate || 0)) > eps) return (a.stats.allDownRate || 0) - (b.stats.allDownRate || 0);
+    if ((a.stats.latestDownCount || 0) !== (b.stats.latestDownCount || 0)) return (b.stats.latestDownCount || 0) - (a.stats.latestDownCount || 0);
+    if ((a.stats.totalRecent5Down || 0) !== (b.stats.totalRecent5Down || 0)) return (b.stats.totalRecent5Down || 0) - (a.stats.totalRecent5Down || 0);
+    if (Math.abs((a.stats.noLoseRate || 0) - (b.stats.noLoseRate || 0)) > eps) return (b.stats.noLoseRate || 0) - (a.stats.noLoseRate || 0);
+    if ((a.stats.sourceVariety || 0) !== (b.stats.sourceVariety || 0)) return (b.stats.sourceVariety || 0) - (a.stats.sourceVariety || 0);
+    if (Math.abs((a.stats.avgCrossOverlap || 0) - (b.stats.avgCrossOverlap || 0)) > eps) return (a.stats.avgCrossOverlap || 0) - (b.stats.avgCrossOverlap || 0);
+    if (Math.abs((a.stats.avgPatternPenalty || 0) - (b.stats.avgPatternPenalty || 0)) > eps) return (a.stats.avgPatternPenalty || 0) - (b.stats.avgPatternPenalty || 0);
+    const aPass = a.items.reduce((sum, item) => sum + ((item.stats && item.stats.passRate) || 0), 0) / a.items.length;
+    const bPass = b.items.reduce((sum, item) => sum + ((item.stats && item.stats.passRate) || 0), 0) / b.items.length;
+    return bPass - aPass;
+  }
+
+  function chooseCaishenBestThree(pool, judgeDraws) {
+    let bestQualified = null;
+    let bestFallback = null;
+    const rejected = [];
+    let checked = 0;
+    let qualified = 0;
+    const usedCombos = [];
+    for (let i = 0; i < pool.length - 2; i++) {
+      for (let j = i + 1; j < pool.length - 1; j++) {
+        for (let k = j + 1; k < pool.length; k++) {
+          const picks = [pool[i], pool[j], pool[k]];
+          const types = picks.map(item => item.sourceType);
+          if (new Set(types).size !== picks.length) continue;
+          checked++;
+          const stats = calcCaishenComboBacktest(picks, judgeDraws);
+          const candidate = { items: picks, stats, rejectReasons: caishenComboStatus(stats) };
+          const isHardQualified = (stats.noLoseRate || 0) >= 0.62 && (stats.allDownRate || 0) <= 0.04;
+          if (isHardQualified) {
+            qualified++;
+            if (compareCaishenCombo(candidate, bestQualified) < 0) bestQualified = candidate;
+          }
+          if (compareCaishenCombo(candidate, bestFallback) < 0) bestFallback = candidate;
+          usedCombos.push(candidate);
+        }
+      }
+    }
+    usedCombos.sort(compareCaishenCombo);
+    const best = bestQualified || bestFallback;
+    usedCombos.filter(combo => combo !== best).slice(0, 8).forEach(combo => rejected.push(combo));
+    if (best) {
+      best.checked = checked;
+      best.qualified = qualified;
+      best.isQualified = !!bestQualified;
+      best.rejected = rejected;
+      best.rejectReasons = caishenComboStatus(best.stats);
+      best.caishen = true;
+      best.pool = pool || [];
+      best.hardGateText = bestQualified ? '已找到符合62%不輸硬門檻的主推' : '本輪沒有任何三組同時達到62%不輸＋4%全倒，以下僅顯示最接近候選，不當作合格主推';
+    }
+    return best;
+  }
+
+  function caishenPoolSourceOrder(type) {
+    const order = { ai: 1, anti: 2, highpass: 3, reverse: 4, random: 5 };
+    return order[type] || 99;
+  }
+
+  function caishenReferenceStatus(item) {
+    const s = item.stats || {};
+    const gen = (item.caishenGeneratedRejectReasons || []).length ? `補位：${item.caishenGeneratedRejectReasons.join('、')}` : '通過生成門檻';
+    const p = Number.isFinite(item.patternAveragePenalty) ? `｜分布偏差 ${(item.patternAveragePenalty * 100).toFixed(2)}%` : '';
+    return `回測${item.backtestMode || '-'}期｜最新${s.latestDown ? '倒' : '過'}｜近5倒${s.recent5Down || 0}/5｜連倒${s.latestDownStreak || 0}｜單組過關 ${(((s.passRate || 0) * 100)).toFixed(2)}%${p}｜${gen}`;
+  }
+
+  function buildCaishenReferenceHTML(pool) {
+    const refs = (pool || []).slice().sort((a, b) => {
+      const sourceDiff = caishenPoolSourceOrder(a.sourceType) - caishenPoolSourceOrder(b.sourceType);
+      if (sourceDiff) return sourceDiff;
+      if ((a.backtestMode || 0) !== (b.backtestMode || 0)) return (a.backtestMode || 0) - (b.backtestMode || 0);
+      return compareCaishenAiAnti(a, b);
+    });
+    if (!refs.length) return '<div class="small-note">本輪沒有可顯示的參考立柱。</div>';
+    return `
+      <details open style="margin-top:10px;">
+        <summary style="cursor:pointer;font-weight:900;color:#7dd3fc;">財神本輪全部參考立柱（${refs.length}組，已同步顯示到下方各區）</summary>
+        <div class="recommend-list" style="margin-top:10px;">
+          ${refs.map((item, idx) => `
+            <div class="recommend-item">
+              <div class="recommend-item-head">
+                <span>${idx + 1}. ${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${(Number(item.sourceIndex) || 0) + 1}</span>
+              </div>
+              <div class="recommend-meta">${caishenReferenceStatus(item)}<br>規則：${item.caishenRuleTag || '-'}</div>
+              ${renderGroupsHighlighted(item.groups)}
+            </div>
+          `).join('')}
+        </div>
+      </details>
+    `;
+  }
+
+  function renderCaishenReferenceSections(pool) {
+    const refs = pool || [];
+    lastAI = refs.filter(item => item.sourceType === 'ai');
+    lastAnti = refs.filter(item => item.sourceType === 'anti');
+    lastHighPass = refs.filter(item => item.sourceType === 'highpass');
+    lastReverse = refs.filter(item => item.sourceType === 'reverse');
+    lastRandom = [];
+    if (aiResult) aiResult.innerHTML = buildMultiResultHTML(lastAI, '財神參考｜AI 最佳立柱', false, 'ai');
+    if (antiResult) antiResult.innerHTML = buildMultiResultHTML(lastAnti, '財神參考｜防穿透立柱', false, 'anti');
+    if (highPassResult) highPassResult.innerHTML = buildMultiResultHTML(lastHighPass, '財神參考｜高過關爆發立柱', false, 'highpass');
+    if (reverseResult) reverseResult.innerHTML = buildMultiResultHTML(lastReverse, '財神參考｜反指標排行立柱', false, 'reverse');
+    if (randomResult) randomResult.innerHTML = '<div class="small-note">財神今日代理本輪不採隨機平衡，避免垃圾組混入判斷。</div>';
+  }
+
+  function buildCaishenAgentHTML(best, allDraws) {
+    if (!best || !best.items || best.items.length !== 3) {
+      return '<div class="bad">財神今日代理沒有找到可用組合，請先確認資料庫至少有 50 期以上資料。</div>';
+    }
+    const stats = best.stats || {};
+    const qualifyText = best.isQualified ? '✅ 通過62%不輸硬門檻' : '⛔ 未達62%硬門檻，本輪不視為合格主推';
+    const reasons = best.rejectReasons && best.rejectReasons.length ? best.rejectReasons.join('、') : '無明顯硬傷';
+    const hardGateText = best.hardGateText || '';
+    const referenceHTML = '';
+    const sourceText = best.items.map((item, idx) => {
+      const p = Number.isFinite(item.patternAveragePenalty) ? `｜分布偏差 ${(item.patternAveragePenalty * 100).toFixed(2)}%` : '';
+      const s = item.stats || {};
+      const genFlag = (item.caishenGeneratedRejectReasons || []).length ? `｜<span class="mid">補位：${item.caishenGeneratedRejectReasons.join('、')}</span>` : '｜<span class="ok">通過生成門檻</span>';
+      return `${idx + 1}.${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${(Number(item.sourceIndex) || 0) + 1} 組｜最新${s.latestDown ? '倒' : '過'}｜近5倒${s.recent5Down || 0}/5｜連倒${s.latestDownStreak || 0}${p}${genFlag}<br><span style="color:var(--muted);">採用規則：${item.caishenRuleTag || '-'}</span>`;
+    }).join('<br>');
+    const rejectedText = (best.rejected || []).slice(0, 4).map((combo, idx) => {
+      const s = combo.stats || {};
+      const why = combo.rejectReasons && combo.rejectReasons.length ? combo.rejectReasons.join('、') : '輸給主推的細節分數';
+      const types = combo.items.map(item => sourceTypeLabel(item.sourceType)).join(' + ');
+      return `${idx + 1}. ${types}｜不輸 ${((s.noLoseRate || 0) * 100).toFixed(2)}%｜全倒 ${((s.allDownRate || 0) * 100).toFixed(2)}%｜淘汰原因：${why}`;
+    }).join('<br>') || '沒有足夠淘汰樣本。';
+    return `
+      <div><b>財神今日代理V8｜${qualifyText}</b>｜已檢查 ${best.checked || 0} 種三組排列，符合 62%不輸＋4%全倒門檻 ${best.qualified || 0} 種。</div>
+      <div style="margin-top:6px;color:${best.isQualified ? '#86efac' : '#fca5a5'};font-weight:900;">${hardGateText}</div>
+      <div class="daily-agent-kpi">
+        <div>至少過1組<br><b>${((stats.noLoseRate || 0) * 100).toFixed(2)}%</b></div>
+        <div>三組全倒率<br><b>${((stats.allDownRate || 0) * 100).toFixed(2)}%</b></div>
+        <div>平均穿插重複<br><b>${((stats.avgCrossOverlap || 0) * 100).toFixed(2)}%</b></div>
+        <div>最新一期倒數<br><b>${stats.latestDownCount || 0}/3</b></div>
+      </div>
+      <div>柏青哥判斷：先防全倒，再看最新倒與近5倒。這次硬傷檢查：<b>${reasons}</b>。近5期倒合計 ${stats.totalRecent5Down || 0}/15，分布偏差 ${(stats.avgPatternPenalty * 100 || 0).toFixed(2)}%。</div>
+      <div style="margin-top:8px;color:#7dd3fc;">已自動移入「手動移入比較區」，可直接按「分析目前組合」看極端全倒風險。</div>
+      <div style="margin-top:8px;color:var(--muted);">主推來源：<br>${sourceText}</div>
+      <div style="margin-top:8px;color:#fcd34d;">淘汰參考：<br>${rejectedText}</div>
+      ${referenceHTML}
+    `;
+  }
+
+  async function runDailyPassAgent(buttonEl) {
+    const allDraws = parseDraws(getActiveDrawText());
+    if (!allDraws.length) {
+      alert('請先在資料庫或下方貼上欄位加入有效開獎號碼。');
+      return;
+    }
+    const originalText = buttonEl ? buttonEl.textContent : '';
+    if (buttonEl) {
+      buttonEl.disabled = true;
+      buttonEl.textContent = '財神代理V8運算中...';
+    }
+    if (dailyAgentResult) dailyAgentResult.innerHTML = '財神今日代理V8正在用你的思維「先生成篩掉垃圾」：AI/防穿透100+150先看最新倒與近5倒，高爆發先看分布，反指標先看連倒，再做三組生存排列...';
+    try {
+      resetLog();
+      log(`財神今日代理啟動：目前彩種 ${gameLabel(currentGameMode())}，資料 ${allDraws.length} 期。`);
+      CAISHEN_FAST_MODE = true;
+      const pool = await buildCaishenAgentPool(allDraws);
+      const best = chooseCaishenBestThree(pool, allDraws);
+      if (best) best.pool = pool;
+      renderCaishenReferenceSections(pool);
+      if (!best) {
+        if (dailyAgentResult) dailyAgentResult.innerHTML = '<span class="bad">沒有找到可用三組，請先補足資料或重新匯入資料庫。</span>';
+        log('財神今日代理：沒有找到可用三組。');
+        return;
+      }
+      manualRecommendItems = best.items.map((item, idx) => ({
+        ...item,
+        groups: cloneGroups(item.groups),
+        sourceLabel: `財神今日代理｜${item.sourceLabel || sourceTypeLabel(item.sourceType)}`,
+        sourceIndex: Number.isFinite(Number(item.sourceIndex)) ? Number(item.sourceIndex) : idx
+      }));
+      manualComboIndex = 0;
+      manualActiveIndexes = [0, 1, 2];
+      manualProbabilityAnalysisHTML = '';
+      manualFatalRiskAnalysisHTML = '';
+      bestComboAnalysisHTML = '';
+      manualTuneSuggestion = null;
+      manualTuneActive = false;
+      manualTuneStatus = `${best.isQualified ? '財神今日代理V8完成｜已通過62%不輸硬門檻' : '財神今日代理V8完成｜未達62%硬門檻，僅供參考'}｜生成先淘汰垃圾 > 防全倒 > 最新倒 > 近5倒 > 不輸率 > 重疊與分布｜不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%｜全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%｜平均穿插重複率 ${(best.stats.avgCrossOverlap * 100).toFixed(2)}%。`;
+      refreshRecommendArea();
+      if (dailyAgentResult) dailyAgentResult.innerHTML = buildCaishenAgentHTML(best, allDraws);
+      log(`財神今日代理完成：不輸率 ${(best.stats.noLoseRate * 100).toFixed(2)}%，全倒率 ${(best.stats.allDownRate * 100).toFixed(2)}%，達標 ${best.qualified}/${best.checked}。`);
+      const target = document.getElementById('manualSection') || recommendResult;
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      console.error(err);
+      if (dailyAgentResult) dailyAgentResult.innerHTML = '<span class="bad">財神今日代理執行錯誤：' + escapeHtml(err && err.message ? err.message : err) + '</span>';
+      alert('財神今日代理執行時發生錯誤：' + (err && err.message ? err.message : err));
+      log('財神今日代理錯誤：' + (err && err.message ? err.message : err));
+    } finally {
+      if (buttonEl) {
+        buttonEl.disabled = false;
+        buttonEl.textContent = originalText || '啟動財神今日代理';
+      }
+    }
   }
 
   async function analyzeBestThreeCombo(buttonEl) {
@@ -5214,7 +6493,83 @@
     log('已手動清除目前資料的鎖定最佳。');
   });
 
+  if (moveAllToRecommendBtn) {
+    moveAllToRecommendBtn.addEventListener('click', () => {
+      try {
+        const allCards = document.querySelectorAll('.move-to-recommend-btn');
+        let moved = 0;
+
+        allCards.forEach(btn => {
+          try {
+            btn.click();
+            moved++;
+          } catch(err) {}
+        });
+
+        if (moved > 0) {
+          alert(`已一鍵移入 ${moved} 組至推薦區`);
+        } else {
+          alert('目前沒有可移入推薦區的結果');
+        }
+      } catch(err) {
+        alert('一鍵移入失敗');
+      }
+    });
+  }
+
+
+  if (moveAllCaishenBtn) {
+    moveAllCaishenBtn.addEventListener('click', () => {
+      try {
+
+        // 財神代理生成後，下方真正可操作的按鈕
+        // 實際上都共用 data-move-to-recommend
+        // 直接抓下方結果區即可
+
+        const resultAreas = [
+          document.getElementById('aiResult'),
+          document.getElementById('antiResult'),
+          document.getElementById('highPassResult'),
+          document.getElementById('reverseResult'),
+          document.getElementById('randomResult')
+        ].filter(Boolean);
+
+        const btns = [];
+
+        resultAreas.forEach(area => {
+          area.querySelectorAll('[data-move-to-recommend], button').forEach(btn => {
+            const txt = (btn.textContent || '').trim();
+            if (txt.includes('移至推薦區')) {
+              btns.push(btn);
+            }
+          });
+        });
+
+        let moved = 0;
+
+        btns.forEach(btn => {
+          try {
+            btn.click();
+            moved++;
+          } catch(err) {}
+        });
+
+        if (moved > 0) {
+          alert(`已將 ${moved} 組財神參考立柱移入推薦區`);
+        } else {
+          alert('目前沒有財神參考立柱可移入');
+        }
+
+      } catch(err) {
+        console.error(err);
+        alert('財神參考移入失敗');
+      }
+    });
+  }
+
+
   runBtn.addEventListener('click', run);
+  if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
   initDrawDatabase();
 
   function legacyCopyText(text) {
@@ -5576,7 +6931,34 @@
       return;
     }
   });
+  if (typeof initCaishenGrowthSystem === 'function') initCaishenGrowthSystem();
 })();
 </script>
+
+<button id="goCaishenBattleBtn" type="button">財神對戰</button>
+
+
+<script>
+(function(){
+  const btn=document.getElementById('goCaishenBattleBtn');
+
+  function findBattleBox(){
+    return document.querySelector('.caishen-growth-box');
+  }
+
+  if(btn){
+    btn.addEventListener('click',()=>{
+      const target=findBattleBox();
+      if(target){
+        target.scrollIntoView({
+          behavior:'smooth',
+          block:'start'
+        });
+      }
+    });
+  }
+})();
+</script>
+
 </body>
 </html>
