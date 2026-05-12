@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v58 手動排列準確加速版</title>
+  <title>吸金穩贏 APP v59 最新連倒修正版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -937,7 +937,7 @@
 <body>
   <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜手動排列準確加速版</div>
+    <div class="title">吸金穩贏 APP｜最新連倒修正版</div>
     <div class="sub">
       七日財運盈虧試算表：你只要自己輸入每次下注的輸贏金額，系統會自動加總早場、晚場、每日小計與整週總損益。<br>
       <b>資料保存說明：</b>本試算表會存在這台裝置的瀏覽器 localStorage，只要不按「清除試算表」按鈕，關閉或重啟網頁後資料都會保留，不會自動重製。
@@ -3223,14 +3223,19 @@ ${settleRecord.analysisLines.join('\n')}`;
     let fail = 0;
     let allInOne = 0;
     let recentPass = 0;
+    let recent10Pass = 0;
+    let recent10Down = 0;
     let recent5Pass = 0;
     let recent5Down = 0;
     const recentSize = Math.min(20, draws.length);
+    const recent10Size = Math.min(10, draws.length);
     const recent5Size = Math.min(5, draws.length);
     let latestPass = false;
     let latestDown = false;
     let latestPattern = '';
     let latestDownStreak = 0;
+    let maxDownStreak = 0;
+    let currentDownStreak = 0;
     const recentDownFlags = [];
 
     const patterns = {};
@@ -3245,9 +3250,19 @@ ${settleRecord.analysisLines.join('\n')}`;
         latestDown = !ok;
         latestPattern = sortedPattern;
       }
-      if (ok) pass++; else fail++;
+      if (ok) {
+        pass++;
+        currentDownStreak = 0;
+      } else {
+        fail++;
+        currentDownStreak++;
+        if (currentDownStreak > maxDownStreak) maxDownStreak = currentDownStreak;
+      }
       if (counts.includes(5)) allInOne++;
       if (i < recentSize && ok) recentPass++;
+      if (i < recent10Size) {
+        if (ok) recent10Pass++; else recent10Down++;
+      }
       if (i < recent5Size) {
         if (ok) recent5Pass++; else recent5Down++;
         recentDownFlags[i] = !ok;
@@ -3278,6 +3293,8 @@ ${settleRecord.analysisLines.join('\n')}`;
       failRate: fail / total,
       recentPass,
       recentRate,
+      recent10Pass,
+      recent10Down,
       recent5Pass,
       recent5Down,
       recent5DownRate,
@@ -3285,6 +3302,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       latestPass,
       latestDown,
       latestDownStreak,
+      maxDownStreak,
       latestPattern,
       allInOne,
       allInOneRate: allInOne / total,
@@ -3377,7 +3395,8 @@ ${settleRecord.analysisLines.join('\n')}`;
           <tr><th>預估省下成本</th><td>${removeInfo.saveCost.toLocaleString()} 元</td></tr>
           <tr><th>絕對不出分數</th><td>${removeInfo.removedScore.toFixed(2)}</td></tr>
           <tr><th>整體過關率下降</th><td>${removeInfo.passLoss.toFixed(2)}%</td></tr>
-          <tr><th>最新連倒期數</th><td>${removeInfo.stats && typeof removeInfo.stats.latestDownStreak === 'number' ? removeInfo.stats.latestDownStreak + ' / ' + (removeInfo.stats.totalDraws || '') : '-'}</td></tr>
+          <tr><th>最新連倒期數</th><td>${removeInfo.stats && typeof removeInfo.stats.latestDownStreak === 'number' ? removeInfo.stats.latestDownStreak + ' 期' : '-'}</td></tr>
+          <tr><th>歷史最長連倒</th><td>${removeInfo.stats && typeof removeInfo.stats.maxDownStreak === 'number' ? removeInfo.stats.maxDownStreak + ' 期' : '-'}</td></tr>
         </table>
       ` : ''}
       ${latestDrawLegendHTML()}
@@ -3401,7 +3420,8 @@ ${settleRecord.analysisLines.join('\n')}`;
         <tr><th>過關期數</th><td>${stats.pass} 期</td></tr>
         <tr><th>未過關期數</th><td>${stats.fail} 期</td></tr>
         <tr><th>最新一期狀態</th><td>${stats.latestDown ? '倒' : '過關'}${stats.latestPattern ? '（' + stats.latestPattern + '）' : ''}</td></tr>
-        <tr><th>最新連倒期數</th><td>${stats.latestDownStreak || 0} / ${stats.totalDraws || ''}</td></tr>
+        <tr><th>最新連倒期數</th><td>${stats.latestDownStreak || 0} 期</td></tr>
+        <tr><th>歷史最長連倒</th><td>${stats.maxDownStreak || 0} 期</td></tr>
         <tr><th>近5期倒次數</th><td>${stats.recent5Down || 0} / 5</td></tr>
         <tr><th>5號集中同一柱次數</th><td>${stats.allInOne} 期</td></tr>
         <tr><th>結構平衡懲罰</th><td>${stats.balancePenalty.toFixed(2)}</td></tr>
@@ -3694,7 +3714,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function reverseIndicatorScore(groups, draws) {
     const stats = evaluate(groups, draws);
-    const recent10Down = Math.min(10, draws.length) - stats.recentPass;
+    const recent10Down = typeof stats.recent10Down === 'number' ? stats.recent10Down : (Math.min(10, draws.length) - (stats.recent10Pass || 0));
     const topPatterns = Object.entries(stats.patterns || {}).sort((a, b) => b[1] - a[1]).slice(0, 5).map(x => x[0]);
     return {
       ...stats,
@@ -3702,8 +3722,8 @@ ${settleRecord.analysisLines.join('\n')}`;
       reverseScore:
         (stats.latestDown ? 100000000 : -100000000) +
         (stats.latestDownStreak || 0) * 1000000 +
-        (stats.recent5Down || 0) * 100000 +
-        recent10Down * 12000 +
+        recent10Down * 120000 +
+        (stats.recent5Down || 0) * 10000 +
         (stats.fail || 0) * 180 -
         (stats.balancePenalty || 0) * 2 +
         (topPatterns.includes('5-0-0') ? 500 : 0)
@@ -3714,9 +3734,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     const as = (a && a.stats) || {};
     const bs = (b && b.stats) || {};
     if (Number(!!bs.latestDown) !== Number(!!as.latestDown)) return Number(!!bs.latestDown) - Number(!!as.latestDown);
+    // 反指標核心：只認「從最新一期開始往回算」的最新連倒，不拿歷史最長連倒排序。
     if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
-    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
     if ((bs.recent10Down || 0) !== (as.recent10Down || 0)) return (bs.recent10Down || 0) - (as.recent10Down || 0);
+    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
     if ((bs.fail || 0) !== (as.fail || 0)) return (bs.fail || 0) - (as.fail || 0);
     if ((bs.reverseScore || 0) !== (as.reverseScore || 0)) return (bs.reverseScore || 0) - (as.reverseScore || 0);
     return ((as.balancePenalty || 0) - (bs.balancePenalty || 0));
@@ -4192,11 +4213,14 @@ ${settleRecord.analysisLines.join('\n')}`;
       stats: {
         ...baseStats,
         recentDownFlags: fresh.recentDownFlags,
+        recent10Pass: fresh.recent10Pass,
+        recent10Down: fresh.recent10Down,
         recent5Down: fresh.recent5Down,
         recent5DownRate: fresh.recent5DownRate,
         latestPass: fresh.latestPass,
         latestDown: fresh.latestDown,
         latestDownStreak: fresh.latestDownStreak,
+        maxDownStreak: fresh.maxDownStreak,
         latestPattern: fresh.latestPattern,
         balancePenalty: typeof baseStats.balancePenalty === 'number' ? baseStats.balancePenalty : fresh.balancePenalty
       }
@@ -4274,9 +4298,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     const as = (a && a.stats) || {};
     const bs = (b && b.stats) || {};
     if (Number(!!bs.latestDown) !== Number(!!as.latestDown)) return Number(!!bs.latestDown) - Number(!!as.latestDown);
+    // 反指標核心：只認「從最新一期開始往回算」的最新連倒，不拿歷史最長連倒排序。
     if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
-    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
     if ((bs.recent10Down || 0) !== (as.recent10Down || 0)) return (bs.recent10Down || 0) - (as.recent10Down || 0);
+    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
     if ((bs.fail || 0) !== (as.fail || 0)) return (bs.fail || 0) - (as.fail || 0);
     return (b.strengthScore || 0) - (a.strengthScore || 0) || a.sourceIndex - b.sourceIndex;
   }
@@ -5948,7 +5973,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const s = item.stats || {};
     const gen = (item.caishenGeneratedRejectReasons || []).length ? `補位：${item.caishenGeneratedRejectReasons.join('、')}` : '通過生成門檻';
     const p = Number.isFinite(item.patternAveragePenalty) ? `｜分布偏差 ${(item.patternAveragePenalty * 100).toFixed(2)}%` : '';
-    return `回測${item.backtestMode || '-'}期｜最新${s.latestDown ? '倒' : '過'}｜近5倒${s.recent5Down || 0}/5｜連倒${s.latestDownStreak || 0}｜單組過關 ${(((s.passRate || 0) * 100)).toFixed(2)}%${p}｜${gen}`;
+    return `回測${item.backtestMode || '-'}期｜最新${s.latestDown ? '倒' : '過'}｜近5倒${s.recent5Down || 0}/5｜最新連倒${s.latestDownStreak || 0}｜近10倒${s.recent10Down || 0}/10｜單組過關 ${(((s.passRate || 0) * 100)).toFixed(2)}%${p}｜${gen}`;
   }
 
   function buildCaishenReferenceHTML(pool) {
@@ -6004,7 +6029,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const p = Number.isFinite(item.patternAveragePenalty) ? `｜分布偏差 ${(item.patternAveragePenalty * 100).toFixed(2)}%` : '';
       const s = item.stats || {};
       const genFlag = (item.caishenGeneratedRejectReasons || []).length ? `｜<span class="mid">補位：${item.caishenGeneratedRejectReasons.join('、')}</span>` : '｜<span class="ok">通過生成門檻</span>';
-      return `${idx + 1}.${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${(Number(item.sourceIndex) || 0) + 1} 組｜最新${s.latestDown ? '倒' : '過'}｜近5倒${s.recent5Down || 0}/5｜連倒${s.latestDownStreak || 0}${p}${genFlag}<br><span style="color:var(--muted);">採用規則：${item.caishenRuleTag || '-'}</span>`;
+      return `${idx + 1}.${item.sourceLabel || sourceTypeLabel(item.sourceType)} 第 ${(Number(item.sourceIndex) || 0) + 1} 組｜最新${s.latestDown ? '倒' : '過'}｜近5倒${s.recent5Down || 0}/5｜最新連倒${s.latestDownStreak || 0}｜近10倒${s.recent10Down || 0}/10${p}${genFlag}<br><span style="color:var(--muted);">採用規則：${item.caishenRuleTag || '-'}</span>`;
     }).join('<br>');
     const rejectedText = (best.rejected || []).slice(0, 4).map((combo, idx) => {
       const s = combo.stats || {};
@@ -6223,7 +6248,7 @@ ${settleRecord.analysisLines.join('\n')}`;
                 <button class="btn btn-secondary single-copy-btn" data-copy-type="recommended" data-copy-index="${item.recommendRank - 1}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
               </div>
             </div>
-            <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜最新一期 ${item.stats.latestDown ? '倒' : '過關'}｜最新連倒 ${item.stats.latestDownStreak || 0}/4｜近5期倒 ${item.stats.recent5Down || 0}/5｜未過關 ${item.stats.fail} 期${item.failLimitUsed ? `（門檻≤${item.failLimitUsed}）` : ""}｜結構懲罰 ${typeof item.stats.balancePenalty === "number" ? item.stats.balancePenalty.toFixed(2) : "-"}｜強度分數 ${(item.strengthScore || 0).toFixed(2)}</div>
+            <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜最新一期 ${item.stats.latestDown ? '倒' : '過關'}｜最新連倒 ${item.stats.latestDownStreak || 0}期｜近10期倒 ${item.stats.recent10Down || 0}/10｜近5期倒 ${item.stats.recent5Down || 0}/5｜未過關 ${item.stats.fail} 期${item.failLimitUsed ? `（門檻≤${item.failLimitUsed}）` : ""}｜結構懲罰 ${typeof item.stats.balancePenalty === "number" ? item.stats.balancePenalty.toFixed(2) : "-"}｜強度分數 ${(item.strengthScore || 0).toFixed(2)}</div>
             ${renderGroupsHighlighted(item.groups)}
           </div>
         `).join('')}
@@ -6703,7 +6728,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       lastReverse = await buildTopReverseGroupsForSelectedMode(draws, wantedGroups);
       if (lastReverse.length) {
         reverseResult.innerHTML = buildMultiResultHTML(lastReverse, '反指標排行立柱', false, 'reverse');
-        log(`反指標排行立柱完成，共 ${lastReverse.length} 組。最高連倒 ${lastReverse[0].stats.latestDownStreak || 0} 期，近5期倒 ${lastReverse[0].stats.recent5Down || 0}/5。`);
+        log(`反指標排行立柱完成，共 ${lastReverse.length} 組。最高最新連倒 ${lastReverse[0].stats.latestDownStreak || 0} 期，近10期倒 ${lastReverse[0].stats.recent10Down || 0}/10，近5期倒 ${lastReverse[0].stats.recent5Down || 0}/5。`);
       } else {
         reverseResult.innerHTML = '<div class="pillar"><div class="pillar-title">未找到合格反指標</div><div class="nums">本次沒有找到「最新一期倒」的反指標立柱。</div></div>';
         log('反指標排行立柱未產生：本次沒有找到最新一期倒的結果。');
