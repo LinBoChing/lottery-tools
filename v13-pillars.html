@@ -3403,7 +3403,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <tr><th>過關期數</th><td>${stats.pass} 期</td></tr>
         <tr><th>未過關期數</th><td>${stats.fail} 期</td></tr>
         <tr><th>最新一期狀態</th><td>${stats.latestDown ? '倒' : '過關'}${stats.latestPattern ? '（' + stats.latestPattern + '）' : ''}</td></tr>
-        <tr><th>近5期倒次數</th><td>${stats.recent5Down || 0} / 5</td></tr>
+        ${title.includes('反指標') ? `<tr><th>最新連倒次數</th><td>${stats.latestDownStreak || 0} 期</td></tr>` : `<tr><th>近5期倒次數</th><td>${stats.recent5Down || 0} / 5</td></tr>`}
         ${title.includes('AI 最佳立柱') || title.includes('防穿透立柱') ? `<tr><th>近5期連倒紀錄</th><td>${recent5DownRecordText(stats)}</td></tr>` : ''}
         <tr><th>5號集中同一柱次數</th><td>${stats.allInOne} 期</td></tr>
         <tr><th>結構平衡懲罰</th><td>${stats.balancePenalty.toFixed(2)}</td></tr>
