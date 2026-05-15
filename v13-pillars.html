@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v59 記憶手動完全不跳修正版</title>
+  <title>吸金穩贏 APP v60 記憶庫即時回測修正版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -979,15 +979,27 @@
   background:rgba(30,41,59,.80);
 }
 
+
+.memory-lite-note{
+  margin-top:8px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:rgba(34,197,94,.10);
+  border:1px solid rgba(34,197,94,.35);
+  color:#bbf7d0;
+  font-size:12px;
+  line-height:1.55;
+}
+
 </style>
 </head>
 <body>
   <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜記憶手動完全不跳修正版</div>
+    <div class="title">吸金穩贏 APP｜記憶庫即時回測修正版</div>
     <div class="sub">
       七日財運盈虧試算表：你只要自己輸入每次下注的輸贏金額，系統會自動加總早場、晚場、每日小計與整週總損益。<br>
-      <b>資料保存說明：</b>本試算表會存在這台裝置的瀏覽器 localStorage，只要不按「清除試算表」按鈕，關閉或重啟網頁後資料都會保留，不會自動重製。
+      <b>資料保存說明：</b>本試算表會存在這台裝置的瀏覽器 localStorage；v60 已將記憶立柱改成輕量保存，降低出現儲存空間不足的機率。
     </div>
 
     <div class="card weekly-calc-card">
@@ -7289,18 +7301,26 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (Array.isArray(raw.dayday)) db.dayday = raw.dayday;
       if (Array.isArray(raw['天天樂'])) db.dayday = raw['天天樂'];
     }
+
     ['539','dayday'].forEach(mode => {
-      db[mode] = (db[mode] || []).filter(x => x && Array.isArray(x.groups)).map((x, idx) => ({
-        ...x,
-        id: String(x.id || `${Date.now()}_${mode}_${idx}_${Math.random().toString(36).slice(2)}`),
-        groups: (x.groups || []).map(g => (g || []).map(Number).filter(n => n >= 1 && n <= 39)),
-        stats: x.stats || {},
-        title: x.title || '記憶立柱',
-        time: x.time || '',
-        battle: !!x.battle
-      }));
+      db[mode] = (db[mode] || [])
+        .filter(x => x && Array.isArray(x.groups))
+        .map((x, idx) => ({
+          id: String(x.id || `${Date.now()}_${mode}_${idx}_${Math.random().toString(36).slice(2)}`),
+          title: x.title || '記憶立柱',
+          groups: (x.groups || []).slice(0,3).map(g => (g || []).map(Number).filter(n => n >= 1 && n <= 39)),
+          sourceBacktestLabel: x.sourceBacktestLabel || '',
+          savedAt: x.savedAt || new Date().toISOString(),
+          time: x.time || '',
+          battle: !!x.battle
+        }));
     });
+
     return db;
+  }
+
+  function makeLiteMemoryItem(x){
+    return normalizeMemoryDb({ [getMemoryMode()]: [x] })[getMemoryMode()][0];
   }
 
   function loadMemoryDb(){
@@ -7322,10 +7342,13 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function saveMemoryDb(data){
     try{
-      localStorage.setItem(MEMORY_DB_KEY, JSON.stringify(normalizeMemoryDb(data)));
+      const slim = normalizeMemoryDb(data);
+      localStorage.setItem(MEMORY_DB_KEY, JSON.stringify(slim));
+      return true;
     }catch(err){
       console.error('saveMemoryDb failed', err);
-      alert('記憶資料庫保存失敗：瀏覽器儲存空間可能已滿，請先刪除一些舊資料。');
+      alert('記憶資料庫保存失敗：瀏覽器儲存空間不足。v60 已改為輕量模式，請先重新整理頁面再試一次。');
+      return false;
     }
   }
 
@@ -7334,35 +7357,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     const mode = getMemoryMode();
     const db = loadMemoryDb();
     const list = Array.isArray(db[mode]) ? db[mode] : [];
-    if (!list.length) return;
-
-    const draws = getBacktestDraws();
-    if (!Array.isArray(draws) || !draws.length) return;
-
-    let changed = false;
-    db[mode] = list.map(item => {
-      if (!item || !Array.isArray(item.groups) || item.groups.length < 3) return item;
-      const freshStats = evaluate(item.groups, draws);
-      changed = true;
-      return {
-        ...item,
-        stats: {
-          ...(item.stats || {}),
-          ...freshStats,
-          refreshedAt: new Date().toISOString(),
-          refreshedByDrawCount: draws.length,
-          refreshedBacktestLabel: getBacktestLimitLabel()
-        }
-      };
-    });
-
-    if (changed) {
-      saveMemoryDb(db);
-      if (!options.silent) {
-        log(`記憶資料庫已依最新 ${gameLabel(mode)} 開獎資料重新回測 ${db[mode].length} 組立柱。`);
-      }
+    if (!options.silent && list.length) {
+      log(`記憶資料庫已改用輕量保存：${gameLabel(mode)} 共 ${list.length} 組，回測結果顯示時即時計算，不再寫入儲存空間。`);
     }
   }
+
 
   function getMemoryMode(){ return gameMode.value || '539'; }
 
@@ -7382,11 +7381,10 @@ ${settleRecord.analysisLines.join('\n')}`;
   function cloneMemoryItem(item){
     return JSON.parse(JSON.stringify({
       groups: item.groups || [],
-      stats: item.stats || {},
-      sourceBacktestLabel: item.sourceBacktestLabel || '',
-      rankingCount: item.rankingCount || 0
+      sourceBacktestLabel: item.sourceBacktestLabel || ''
     }));
   }
+
 
   function ensureMemoryDbPanel(){
     let wrap=document.getElementById('memoryDbWrap');
@@ -7398,14 +7396,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
           <div>
             <div class="section-title" style="margin-bottom:4px;">天天樂 / 539 財神立柱記憶資料庫</div>
-            <div class="db-mini">539 與天天樂分開保存；重新開啟或上傳 GitHub Pages 後不會只剩一組；新增最新開獎後會同步重算回測結果。</div>
+            <div class="db-mini">539 與天天樂分開保存；v60 輕量模式只保存三柱號碼與出戰狀態，回測結果顯示時即時計算，避免瀏覽器儲存空間不足。</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-dark" id="toggleMemoryDbBtn" type="button" style="width:auto;padding:8px 12px;">展開</button>
             <button class="btn btn-dark" id="clearMemoryDbBtn" type="button" style="width:auto;padding:8px 12px;">全部刪除</button>
           </div>
         </div>
-        <div class="db-chip" style="margin-top:8px;">目前彩種：<b id="memoryDbGameLabel">-</b>｜記憶筆數：<b id="memoryDbCount">0</b></div>
+        <div class="db-chip" style="margin-top:8px;">目前彩種：<b id="memoryDbGameLabel">-</b>｜記憶筆數：<b id="memoryDbCount">0</b></div><div class="memory-lite-note">輕量保存中：只儲存三柱號碼 / 標題 / 出戰狀態 / 時間；整體過關率、近5期連倒、最新倒過等會直接讀目前彩種資料庫即時計算。</div>
         <div id="memoryDbBody" style="display:none;margin-top:12px;"></div>`;
       const target=document.querySelector('.results') || document.querySelector('.compare') || document.querySelector('.wrap');
       target.parentNode.insertBefore(wrap,target);
@@ -7469,54 +7467,172 @@ function migrateMemoryDbOrderOnce(){
   }
 }
 
-function renderMemoryDb(){
-    ensureMemoryDbPanel();
-    migrateMemoryDbOrderOnce();
-    refreshMemoryDbStats({silent:true});
-    const db=loadMemoryDb();
-    const mode=getMemoryMode();
-    const list=(db[mode]||[]).slice().sort((a,b)=>{
-      if (!!a.battle !== !!b.battle) return a.battle ? -1 : 1;
-      const at = String(a.savedAt || a.time || '');
-      const bt = String(b.savedAt || b.time || '');
-      if (at && bt && at !== bt) return at.localeCompare(bt);
-      return String(a.id || '').localeCompare(String(b.id || ''));
-    });
-    const body=document.getElementById('memoryDbBody');
-    const label=document.getElementById('memoryDbGameLabel');
-    const count=document.getElementById('memoryDbCount');
-    if(label) label.textContent = mode === 'dayday' ? '天天樂' : '539';
-    if(count) count.textContent = list.length;
 
-    if(!body) return;
-    if(!list.length){
-      body.innerHTML='<div class="small-note">尚無記憶立柱。</div>';
-      return;
+function getMemoryBacktestDraws(){
+    let rawDraws = [];
+
+    try{
+      const records = loadDrawDb(getMemoryMode());
+      if(Array.isArray(records) && records.length){
+        rawDraws = records
+          .map(r => Array.isArray(r?.nums) ? r.nums.map(Number).filter(n => n >= 1 && n <= 39) : [])
+          .filter(nums => nums.length === 5);
+      }
+    }catch(err){
+      rawDraws = [];
     }
 
-    body.innerHTML=list.map((item,idx)=>{
-      const stats = memoryDefaultStats(item.stats || {});
-      const title = item.title || `記憶立柱 第${idx+1}組`;
-      const groups = item.groups || [];
-      return `
-      <div class="recommend-item" style="margin-bottom:12px;${item.battle?'border:2px solid #f59e0b;box-shadow:0 0 0 1px rgba(245,158,11,.35) inset;':''}">
-        <div class="recommend-item-head">
-          <div>
-            <b>${title}</b>
-            ${item.battle?'<span class="badge badge-ai">出戰中</span>':''}
-            <div class="recommend-meta">${item.time || ''}${item.sourceBacktestLabel ? '｜' + item.sourceBacktestLabel : ''}${item.stats && item.stats.refreshedBacktestLabel ? '｜已同步回測：' + item.stats.refreshedBacktestLabel : ''}</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="btn btn-secondary memory-to-manual-top-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">置頂到手動區</button>
-            <button class="btn btn-dark memory-battle-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">出戰</button>
-            <button class="btn btn-dark remove-memory-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">刪除</button>
-          </div>
-        </div>
-        ${buildResultHTML(title, groups, stats)}
-      </div>`;
-    }).join('');
+    if(!rawDraws.length){
+      try{
+        rawDraws = parseDraws(getActiveDrawText());
+      }catch(err){
+        rawDraws = [];
+      }
+    }
+
+    const selected = backtestLimit && backtestLimit.value ? backtestLimit.value : '100';
+
+    if(selected === 'all') return rawDraws;
+    if(selected === 'multi_50_100_150') return rawDraws.slice(0, Math.min(150, rawDraws.length));
+
+    const limit = Number(selected) || 100;
+    return rawDraws.slice(0, Math.min(limit, rawDraws.length));
   }
 
+function getMemoryRuntimeStats(item){
+    if(!item || !Array.isArray(item.groups) || item.groups.length < 3){
+      return memoryDefaultStats({});
+    }
+
+    const groups = item.groups
+      .slice(0,3)
+      .map(g => (Array.isArray(g) ? g.map(Number).filter(n => n >= 1 && n <= 39) : []));
+
+    if(groups.length < 3 || groups.some(g => !g.length)){
+      return memoryDefaultStats({});
+    }
+
+    const draws = getMemoryBacktestDraws();
+
+    if(Array.isArray(draws) && draws.length){
+      try{
+        const fresh = evaluate(groups, draws);
+        return memoryDefaultStats({
+          ...fresh,
+          refreshedAt: new Date().toISOString(),
+          refreshedByDrawCount: draws.length,
+          refreshedBacktestLabel: getBacktestLimitLabel()
+        });
+      }catch(err){
+        console.warn('memory evaluate failed', err);
+      }
+    }
+
+    return memoryDefaultStats({});
+  }
+
+function safeBuildMemoryCardHTML(title, groups, stats){
+    try{
+      return buildResultHTML(title, groups, stats);
+    }catch(err){
+      console.warn('build memory card fallback', err);
+      const safeGroups = (Array.isArray(groups) ? groups : []).slice(0,3);
+      const names = ['第一柱','第二柱','第三柱'];
+      return `
+        <div class="small-note" style="color:#fcd34d;margin:8px 0;">此筆立柱已讀取，回測卡片使用保守顯示。</div>
+        <div class="pillars">
+          ${safeGroups.map((pillar, pIdx)=>`
+            <div class="pillar">
+              <div class="pillar-title">${names[pIdx] || `第${pIdx+1}柱`}</div>
+              <div class="nums">${(pillar||[]).map(n=>{
+                const isLatest = typeof isLatestDrawNumber === 'function' && isLatestDrawNumber(n);
+                return `<span class="${isLatest ? 'latest-draw-num' : 'manual-num-chip'}">${pad2(n)}</span>`;
+              }).join('')}</div>
+            </div>
+          `).join('')}
+        </div>
+        <table class="metrics">
+          <tbody>
+            <tr><th>整體過關率</th><td>${stats && typeof stats.passRate === 'number' ? (stats.passRate*100).toFixed(2)+'%' : '即時計算中'}</td></tr>
+            <tr><th>最新倒過結果</th><td>${stats && stats.latestDown ? '倒' : '過關 / 未計算'}</td></tr>
+            <tr><th>近5期倒次數</th><td>${stats && typeof stats.recent5Down === 'number' ? stats.recent5Down + ' 次' : '即時計算中'}</td></tr>
+          </tbody>
+        </table>
+      `;
+    }
+  }
+
+function renderMemoryDb(){
+    try{
+      ensureMemoryDbPanel();
+      migrateMemoryDbOrderOnce();
+      refreshMemoryDbStats({silent:true});
+
+      const db=loadMemoryDb();
+      const mode=getMemoryMode();
+      const rawList = Array.isArray(db[mode]) ? db[mode] : [];
+      const list=rawList
+        .filter(item => item && Array.isArray(item.groups) && item.groups.length >= 3)
+        .slice()
+        .sort((a,b)=>{
+          if (!!a.battle !== !!b.battle) return a.battle ? -1 : 1;
+          const at = String(a.savedAt || a.time || '');
+          const bt = String(b.savedAt || b.time || '');
+          if (at && bt && at !== bt) return at.localeCompare(bt);
+          return String(a.id || '').localeCompare(String(b.id || ''));
+        });
+
+      const body=document.getElementById('memoryDbBody');
+      const label=document.getElementById('memoryDbGameLabel');
+      const count=document.getElementById('memoryDbCount');
+
+      if(label) label.textContent = mode === 'dayday' ? '天天樂' : '539';
+      if(count) count.textContent = list.length;
+      if(!body) return;
+
+      if(!list.length){
+        body.innerHTML='<div class="small-note">尚無記憶立柱。</div>';
+        return;
+      }
+
+      body.innerHTML = list.map((item,idx)=>{
+        let stats;
+        try{
+          stats = getMemoryRuntimeStats(item);
+        }catch(err){
+          console.warn('getMemoryRuntimeStats failed', err);
+          stats = memoryDefaultStats({});
+        }
+
+        const title = item.title || `記憶立柱 第${idx+1}組`;
+        const groups = item.groups || [];
+
+        return `
+        <div class="recommend-item" style="margin-bottom:12px;${item.battle?'border:2px solid #f59e0b;box-shadow:0 0 0 1px rgba(245,158,11,.35) inset;':''}">
+          <div class="recommend-item-head">
+            <div>
+              <b>${title}</b>
+              ${item.battle?'<span class="badge badge-ai">出戰中</span>':''}
+              <div class="recommend-meta">${item.time || ''}${item.sourceBacktestLabel ? '｜' + item.sourceBacktestLabel : ''}｜即時回測：${typeof getBacktestLimitLabel === 'function' ? getBacktestLimitLabel() : '目前期數'}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-secondary memory-to-manual-top-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">置頂到手動區</button>
+              <button class="btn btn-dark memory-battle-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">出戰</button>
+              <button class="btn btn-dark remove-memory-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">刪除</button>
+            </div>
+          </div>
+          ${safeBuildMemoryCardHTML(title, groups, stats)}
+        </div>`;
+      }).join('');
+
+    }catch(err){
+      console.error('renderMemoryDb failed', err);
+      const body=document.getElementById('memoryDbBody');
+      if(body){
+        body.innerHTML='<div class="small-note" style="color:#fca5a5;">記憶資料庫顯示時發生錯誤，但資料沒有刪除。請重新整理或切換彩種後再展開。</div>';
+      }
+    }
+  }
 
 function getMemoryItemById(id){
   const db = loadMemoryDb();
@@ -7539,7 +7655,7 @@ function addMemoryItemToManual(id, toTop=false){
   const cloned = {
     ...item,
     groups: cloneGroups(item.groups),
-    stats: { ...(item.stats || {}) },
+    stats: getMemoryRuntimeStats(item),
     sourceType: 'memory',
     sourceLabel: item.title || '記憶資料庫',
     sourceIndex: 0,
@@ -7601,22 +7717,23 @@ function moveMemoryItemToManualTop(id, triggerEl=null){
     const db=loadMemoryDb();
     const cloned=cloneMemoryItem(item);
     const now = new Date();
+    if(!Array.isArray(db[mode])) db[mode]=[];
     if(battle){
-      db[mode]=(db[mode]||[]).map(x=>({...x,battle:false}));
+      db[mode]=db[mode].map(x=>({...x,battle:false}));
     }
-    db[mode].push({
+    db[mode].push(makeLiteMemoryItem({
       id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
       title,
       groups: cloned.groups,
-      stats: cloned.stats,
       sourceBacktestLabel: cloned.sourceBacktestLabel || '',
       battle: !!battle,
       savedAt: now.toISOString(),
       time: now.toLocaleString()
-    });
+    }));
     saveMemoryDb(db);
     renderMemoryDb();
   }
+
 
   function setMemoryBattle(id){
     const mode=getMemoryMode();
@@ -7763,6 +7880,7 @@ function moveMemoryItemToManualTop(id, triggerEl=null){
     }
   });
 
+  migrateMemoryDbToLiteOnce();
   setTimeout(renderMemoryDb,300);
   gameMode.addEventListener('change', ()=>setTimeout(renderMemoryDb,50));
 
