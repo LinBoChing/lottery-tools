@@ -3428,6 +3428,8 @@ ${settleRecord.analysisLines.join('\n')}`;
             <span>${prefix} 第 ${idx + 1} 組${label ? `<span class="backtest-label-badge">${label}</span>` : ''}</span>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
               <button class="btn btn-primary move-to-recommend-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-source-label="${prefix}${label ? '｜' + label : ''}" style="padding:6px 10px; font-size:13px; width:auto;">移至推薦區</button>
+              <button class="btn btn-secondary move-to-memory-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">移至記憶資料庫</button>
+              <button class="btn btn-dark battle-memory-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">出戰</button>
               <button class="btn btn-secondary single-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">只複製這一組</button>
             </div>
           </div>
@@ -7223,11 +7225,171 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
   });
   if (typeof initCaishenGrowthSystem === 'function') initCaishenGrowthSystem();
+
+
+  const MEMORY_DB_KEY = 'caishen_memory_pillars_v1';
+
+  function loadMemoryDb(){
+    try{return JSON.parse(localStorage.getItem(MEMORY_DB_KEY)||'{}')}catch(e){return {}}
+  }
+  function saveMemoryDb(data){
+    localStorage.setItem(MEMORY_DB_KEY, JSON.stringify(data));
+  }
+  function getCurrentMemoryList(){
+    const db=loadMemoryDb();
+    const mode=gameMode.value||'539';
+    if(!Array.isArray(db[mode])) db[mode]=[];
+    return db;
+  }
+
+  function renderMemoryDb(){
+    let wrap=document.getElementById('memoryDbWrap');
+    if(!wrap){
+      wrap=document.createElement('div');
+      wrap.id='memoryDbWrap';
+      wrap.className='card';
+      wrap.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div class="section-title">天天樂 / 539 記憶資料庫</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-dark" id="toggleMemoryDbBtn" style="width:auto;padding:8px 12px;">展開</button>
+      <button class="btn btn-dark" id="clearMemoryDbBtn" style="width:auto;padding:8px 12px;">全部刪除</button>
+      </div></div>
+      <div id="memoryDbBody" style="display:none;margin-top:12px;"></div>`;
+      const target=document.querySelector('.results');
+      target.parentNode.insertBefore(wrap,target);
+    }
+    const db=loadMemoryDb();
+    const mode=gameMode.value||'539';
+    const list=Array.isArray(db[mode])?db[mode]:[];
+    const body=document.getElementById('memoryDbBody');
+    if(!list.length){body.innerHTML='<div class="small-note">尚無記憶立柱。</div>'; } else {
+    body.innerHTML=list.sort((a,b)=>(b.battle?1:0)-(a.battle?1:0)).map((item,idx)=>`
+      <div class="recommend-item" style="margin-bottom:12px;${item.battle?'border:2px solid #f59e0b;box-shadow:0 0 0 1px rgba(245,158,11,.35) inset;':''}">
+        <div class="recommend-item-head">
+          <div>
+            <b>${item.title||'記憶立柱'}</b>
+            ${item.battle?'<span class="badge badge-ai">出戰中</span>':''}
+            <div class="recommend-meta">${item.time||''}</div>
+          </div>
+
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-primary memory-to-recommend-btn" data-memory-id="${item.id}" style="padding:6px 10px;font-size:13px;width:auto;">移至推薦區</button>
+            <button class="btn btn-dark memory-battle-btn" data-memory-id="${item.id}" style="padding:6px 10px;font-size:13px;width:auto;">設為出戰</button>
+            <button class="btn btn-dark remove-memory-btn" data-memory-id="${item.id}" style="padding:6px 10px;font-size:13px;width:auto;">刪除</button>
+          </div>
+        </div>
+
+        ${buildResultHTML(item.title || '記憶立柱', item.groups || item.nums || [], item.stats || {
+          passRate:0,
+          pass:0,
+          fail:0,
+          latestDown:false,
+          recent5Down:0,
+          balancePenalty:0,
+          allInOne:0,
+          patterns:{}
+        })}
+      </div>
+    `).join('');
+    }
+  }
+
+  function saveItemToMemory(item,title,battle=false){
+    const db=getCurrentMemoryList();
+    const mode=gameMode.value||'539';
+    const latest=(parseDraws(drawInput.value||'')[0]||[]);
+    const compare=(item.groups||[]).map((g,idx)=>{
+      const hit=g.filter(n=>latest.includes(n));
+      return `第${idx+1}柱：${hit.length}中${hit.length?`（${hit.map(pad2).join(',')}）`:''}`;
+    }).join('｜');
+    db[mode].unshift({
+      id:Date.now()+Math.random(),
+      title,
+      groups:item.groups,
+      stats:item.stats,
+      passRate:item?.stats?.passRate?`${(item.stats.passRate*100).toFixed(2)}%`:'-',
+      latestCompare:compare,
+      battle,
+      stats:item.stats,
+      time:new Date().toLocaleString()
+    });
+    saveMemoryDb(db);
+    renderMemoryDb();
+  }
+
+  document.addEventListener('click', async (e)=>{
+    const memoryBtn=e.target.closest('.move-to-memory-btn');
+    if(memoryBtn){
+      const items=getItemByCopyType(memoryBtn.dataset.copyType);
+      const idx=Number(memoryBtn.dataset.copyIndex);
+      if(items[idx]){
+        saveItemToMemory(items[idx], `${memoryBtn.dataset.copyType} 第${idx+1}組`, false);
+        alert('已移至記憶資料庫');
+      }
+    }
+    const battleBtn=e.target.closest('.battle-memory-btn');
+    if(battleBtn){
+      const items=getItemByCopyType(battleBtn.dataset.copyType);
+      const idx=Number(battleBtn.dataset.copyIndex);
+      if(items[idx]){
+        saveItemToMemory(items[idx], `${battleBtn.dataset.copyType} 第${idx+1}組`, true);
+        alert('已加入出戰區');
+      }
+    }
+    if(e.target.closest('#toggleMemoryDbBtn')){
+      const body=document.getElementById('memoryDbBody');
+      const open=body.style.display==='block';
+      body.style.display=open?'none':'block';
+      e.target.textContent=open?'展開':'收起';
+    }
+    if(e.target.id==='clearMemoryDbBtn'){
+      if(confirm('確定清空目前彩種記憶資料庫？')){
+        const db=loadMemoryDb();
+        db[gameMode.value||'539']=[];
+        saveMemoryDb(db);
+        renderMemoryDb();
+      }
+    }
+    const removeBtn=e.target.closest('.remove-memory-btn');
+    if(removeBtn){
+      const id=removeBtn.dataset.memoryId;
+      const db=loadMemoryDb();
+      const mode=gameMode.value||'539';
+      db[mode]=(db[mode]||[]).filter(x=>String(x.id)!==String(id));
+      saveMemoryDb(db);
+      renderMemoryDb();
+    }
+    const battleSetBtn=e.target.closest('.memory-battle-btn');
+    if(battleSetBtn){
+      const id=battleSetBtn.dataset.memoryId;
+      const db=loadMemoryDb();
+      const mode=gameMode.value||'539';
+      (db[mode]||[]).forEach(x=>x.battle=String(x.id)===String(id));
+      saveMemoryDb(db);
+      renderMemoryDb();
+    }
+    const moveRecommend=e.target.closest('.memory-to-recommend-btn');
+    if(moveRecommend){
+      const id=moveRecommend.dataset.memoryId;
+      const db=loadMemoryDb();
+      const mode=gameMode.value||'539';
+      const found=(db[mode]||[]).find(x=>String(x.id)===String(id));
+      if(found){
+        manualRecommendItems=manualRecommendItems||[];
+        manualRecommendItems.unshift(found);
+        renderRecommendArea();
+      }
+    }
+  });
+
+  setTimeout(renderMemoryDb,300);
+  gameMode.addEventListener('change', ()=>setTimeout(renderMemoryDb,50));
+
 })();
+
 </script>
 
 <button id="goCaishenBattleBtn" type="button">財神對戰</button>
-
 
 <script>
 (function(){
@@ -7238,7 +7400,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   if(btn){
-    btn.addEventListener('click',()=>{
+    btn.addEventListener('click',function(){
       const target=findBattleBox();
       if(target){
         target.scrollIntoView({
