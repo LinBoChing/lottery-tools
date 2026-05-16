@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP v62 嚴格精選生成版</title>
+  <title>吸金穩贏 APP v60 記憶庫即時回測修正版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -649,7 +649,39 @@
         right:16px;
       }
     }
-#goManualBtn {
+
+
+    #goCaishenBattleBtn{
+      position:fixed;
+      right:18px;
+      bottom:160px;
+      z-index:9999;
+      width:auto;
+      min-width:64px;
+      padding:12px 14px;
+      border-radius:999px;
+      border:none;
+      background:linear-gradient(135deg,#f59e0b,#fcd34d);
+      color:#111827;
+      font-weight:900;
+      box-shadow:0 8px 24px rgba(245,158,11,.35);
+    }
+
+    #goCaishenBattleBtn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.03);
+    }
+
+    @media (max-width: 768px){
+      #goCaishenBattleBtn{
+        bottom:170px;
+        right:16px;
+      }
+    }
+
+
+
+    #goManualBtn {
       position: fixed;
       right: 16px;
       bottom: 82px;
@@ -964,7 +996,7 @@
 <body>
   <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜嚴格精選生成版</div>
+    <div class="title">吸金穩贏 APP｜記憶庫即時回測修正版</div>
     <div class="sub">
       七日財運盈虧試算表：你只要自己輸入每次下注的輸贏金額，系統會自動加總早場、晚場、每日小計與整週總損益。<br>
       <b>資料保存說明：</b>本試算表會存在這台裝置的瀏覽器 localStorage；v60 已將記憶立柱改成輕量保存，降低出現儲存空間不足的機率。
@@ -1089,8 +1121,24 @@
 05 11 14 23 39"></textarea>
           </div>
         </div>
-        <textarea id="noDrawInput" style="display:none;"></textarea>
-        <textarea id="candidateInput" style="display:none;"></textarea>
+        <div class="input-collapse-box">
+          <div class="input-collapse-head" data-collapse-target="noDrawInputBody">
+            <div class="section-title">今日多人分享不出牌</div>
+            <button class="btn btn-dark input-collapse-toggle" type="button" data-collapse-target="noDrawInputBody">展開</button>
+          </div>
+          <div id="noDrawInputBody" class="input-collapse-body collapsed">
+            <textarea id="noDrawInput" class="textarea-small" placeholder="每行可貼一組多人分享的不出牌，系統會統計各號碼被提到的次數，再結合百期資料，自動挑出最適合摘掉的一支。&#10;&#10;範例：&#10;01 07 18 22 31&#10;07 18 26 31&#10;04 18 22 31 39"></textarea>
+          </div>
+        </div>
+        <div class="input-collapse-box">
+          <div class="input-collapse-head" data-collapse-target="candidateInputBody">
+            <div class="section-title">今日多人分享推薦號碼</div>
+            <button class="btn btn-dark input-collapse-toggle" type="button" data-collapse-target="candidateInputBody">展開</button>
+          </div>
+          <div id="candidateInputBody" class="input-collapse-body collapsed">
+            <textarea id="candidateInput" class="textarea-small" placeholder="每行可貼一組別人分享的推薦號碼，系統會統計各號碼被提到的次數，再結合百期資料，列出各號碼的候選分數供你自己篩選。&#10;&#10;範例：&#10;03 11 17 28 35&#10;11 17 22 28 31&#10;03 17 28 31 39"></textarea>
+          </div>
+        </div>
         <div class="controls">
           <select id="groupCount" class="btn btn-dark" style="text-align:center; appearance:auto;">
             <option value="1">一次生成 1 組</option>
@@ -1101,12 +1149,13 @@
           </select>
           <button class="btn btn-primary" id="runBtn">開始分析並產生多組立柱</button>
           <button class="btn btn-dark" id="sampleBtn">載入範例</button>
-          <button id="clearLockBtn" type="button" style="display:none;"></button>
+          <button class="btn btn-dark" id="clearLockBtn">清除鎖定最佳</button>
           <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
+          <button class="btn btn-primary" id="moveAllCaishenBtn">財神參考全移入</button>
         </div>
-        <div class="recommend-box" id="manualRecommendBox">
-          <div class="recommend-title">手動移入比較區</div>
-          <div id="recommendResult" class="small-note">尚未移入立柱。請先從下方生成結果按「移入手動比較」，或從記憶庫按「置頂到手動區」。</div>
+        <div class="recommend-box">
+          <div class="recommend-title">推薦 4 組低穿透率立柱</div>
+          <div id="recommendResult" class="small-note">尚未產生。</div>
         </div>
 
         <div class="daily-agent-box">
@@ -1114,14 +1163,84 @@
             <div class="daily-agent-title">財神今日代理</div>
             <button class="btn btn-primary" id="dailyAgentBtn" type="button" style="width:auto; padding:8px 12px; font-size:13px;">啟動財神今日代理</button>
           </div>
+          <div class="small-note">按下後會照你的手動思維執行：AI/防穿透只看100+150，低於95%時從94.99%開始往下取最高勝率；高爆發必須近20期連續過關且近100期內出現5-0-0；反指標只看最新連倒最多。</div>
           <div id="dailyAgentResult" class="daily-agent-result">尚未啟動。</div>
         </div>
+<div class="caishen-growth-box">
+          <div class="caishen-growth-title">財神對戰／AI自我成長</div>
+          <div class="db-mini">每日出戰三組＝最終推薦區最上方三組。539 與天天樂的對戰、檢討、成長統計會分開累積，不互相影響。</div>
+          <div class="db-chip" style="margin-top:8px;">目前獨立成長彩種：<b id="caishenBattleGameLabel">依彩種模式判斷</b></div>
+          <div class="caishen-growth-stats">
+            <div class="caishen-growth-stat">財神成長<b id="caishenGrowthDays">第 0 天</b></div>
+            <div class="caishen-growth-stat">累積對戰<b id="caishenBattleCount">0 場</b></div>
+            <div class="caishen-growth-stat">最近結果<b id="caishenLastResult">尚無</b></div>
+            <div class="caishen-growth-stat">最新檢討<b id="caishenLastReviewInfo">尚無</b></div>
+            <div class="caishen-growth-stat">累積檢討<b id="caishenReviewCount">0 次</b></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <button class="btn btn-primary" id="saveTodayBattleBtn" type="button" style="width:auto;">設為今日出戰</button>
+            <button class="btn btn-secondary" id="settleTodayBattleBtn" type="button" style="width:auto;">今日結算</button>
+            <button class="btn btn-dark" id="reviewTodayBattleBtn" type="button" style="width:auto;">財神檢討</button>
+          </div>
+          <div class="caishen-battle-analysis" id="caishenBattleAnalysis">當天對戰分析：尚未結算。</div>
+
+          <div class="caishen-ai-box">
+            <div class="section-title" style="margin-bottom:4px;">財神代理 V2 權重學習</div>
+            <div class="db-mini">依照目前彩種的對戰結算資料學習；檢討是修正註記，真正權重以「已結算且可辨識來源的出戰組」計算。類型未識別時不會亂猜，避免錯誤學習。</div>
+
+            <div class="caishen-ai-grid">
+              <div class="caishen-ai-card">
+                <b>AI最佳權重</b><br>
+                <span id="caishenWeightAI">計算中...</span>
+              </div>
+
+              <div class="caishen-ai-card">
+                <b>防穿透權重</b><br>
+                <span id="caishenWeightDefense">計算中...</span>
+              </div>
+
+              <div class="caishen-ai-card">
+                <b>高爆發權重</b><br>
+                <span id="caishenWeightBurst">計算中...</span>
+              </div>
+
+              <div class="caishen-ai-card">
+                <b>反指標權重</b><br>
+                <span id="caishenWeightAnti">計算中...</span>
+              </div>
+
+              <div class="caishen-ai-card">
+                <b>代理學習狀態</b><br>
+                <span id="caishenLearningState">分析中...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="caishen-record-wrap" id="caishenRecordWrap">
+            <div class="caishen-record-head" id="caishenRecordHead">
+              <span>對戰紀錄</span>
+              <button class="btn btn-dark" id="toggleCaishenRecordBtn" type="button" style="width:auto;padding:6px 10px;font-size:12px;">展開</button>
+            </div>
+            <div class="caishen-record-body" id="caishenRecordBody">尚無對戰紀錄。</div>
+          </div>
+          <div class="caishen-review-wrap" id="caishenReviewWrap">
+            <div class="caishen-review-head" id="caishenReviewHead">
+              <span>檢討紀錄</span>
+              <button class="btn btn-dark" id="toggleCaishenReviewBtn" type="button" style="width:auto;padding:6px 10px;font-size:12px;">展開</button>
+            </div>
+            <div class="caishen-review-body" id="caishenReviewBody">尚無檢討紀錄。</div>
+          </div>
+          <div class="caishen-growth-log" id="caishenGrowthLog">尚未建立今日出戰紀錄。</div>
+        </div>
+
 <div class="small-note">
           規則說明：<br>
           • 每行會抓出前 5 個 01~39 的號碼當作該期開獎號碼。<br>
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
-          • 本版改為嚴格精選：AI需100期過關率≥94%且最新一期倒；防穿透需對照AI降低同柱/跨柱重疊且過關率≥94%最新倒；高爆發已移除；反指標需最新連倒20期以上；隨機需結構平衡且最新一期倒。<br>
+          • 可選擇一次生成 1~5 組，系統會依回測分數由高到低列出；AI / 防穿透若近5期連倒與近5期倒次數都為0，會繼續往下遞補。<br>
+          • 下方候選排行仍會保留，方便你自己觀察熱門候選。<br>
+          • 防補出模式會檢查號碼是否已超過自己的合理間隔，避免把『快補出的冷號』當成絕對不出。
         </div>
       </div>
 
@@ -1162,6 +1281,10 @@
         <div class="result-title">防穿透立柱 <span class="badge badge-ai">ANTI PENETRATION</span></div>
         <div id="antiResult">尚未產生。</div>
       </div>
+      <div class="card" id="highPassCard">
+        <div class="result-title">高過關爆發立柱 <span class="badge badge-ai">HIGH PASS</span></div>
+        <div id="highPassResult">尚未產生。</div>
+      </div>
       <div class="card" id="reverseCard">
         <div class="result-title">反指標排行立柱 <span class="badge badge-random">REVERSE</span></div>
         <div id="reverseResult">尚未產生。</div>
@@ -1191,7 +1314,7 @@
         </tbody>
       </table>
       <div class="footer-note">
-        說明：分數越高，代表該號碼越像今日可優先考慮的「絕對不出候選」。
+        說明：分數越高，代表該號碼越像今日可優先考慮的「絕對不出候選」。防補出模式會把『漏太久、可能補出』的號碼降權。
       </div>
     </div>
 
@@ -1217,7 +1340,28 @@
         說明：候選號碼會先由系統依近百期資料自動精選，再參考你貼上的分享號碼加分，所以排行內可能出現「別人沒貼、但系統判定值得納入」的號碼。
       </div>
     </div>
-    <table style="display:none;"><tbody id="antiAnalysisBody"></tbody></table>
+
+    <div class="card compare">
+      <div class="section-title">核心號碼池 / 防穿透分析</div>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>內容</th>
+          </tr>
+        </thead>
+        <tbody id="antiAnalysisBody">
+          <tr><td colspan="2">尚未產生結果。</td></tr>
+        </tbody>
+      </table>
+      <div class="footer-note">
+        說明：<br>
+        • 核心號碼池：依近百期熱度、近10/30期表現、目前漏期、分享候選加權後，取前 18 名。<br>
+        • 防穿透同柱重疊率：用來看防穿透立柱和 AI 最佳立柱有多少號碼還留在同一柱；越低代表越不像單純 AI 複製版。<br>
+        • 防穿透危險型態率：把 5-0-0、4-1-0、3-2-0 視為危險穿透型，越低越好。
+      </div>
+    </div>
+
   </div>
 
 <script>
@@ -1229,13 +1373,14 @@
   const sampleBtn = document.getElementById('sampleBtn');
   const clearLockBtn = document.getElementById('clearLockBtn');
   const moveAllToRecommendBtn = document.getElementById('moveAllToRecommendBtn');
+  const moveAllCaishenBtn = document.getElementById('moveAllCaishenBtn');
   const countDraws = document.getElementById('countDraws');
   const groupCount = document.getElementById('groupCount');
   const logBox = document.getElementById('logBox');
   const toggleLogBtn = document.getElementById('toggleLogBtn');
   const aiResult = document.getElementById('aiResult');
   const antiResult = document.getElementById('antiResult');
-  const highPassResult = document.getElementById('highPassResult'); // 高爆發功能已移除，保留空引用避免舊資料報錯
+  const highPassResult = document.getElementById('highPassResult');
   const randomResult = document.getElementById('randomResult');
   const reverseResult = document.getElementById('reverseResult');
   const recommendResult = document.getElementById('recommendResult');
@@ -1894,7 +2039,7 @@
   function caishenDeleteBattleRecord(index){
     const memory = loadCaishenGrowthMemory();
     if (!Array.isArray(memory.settles) || !memory.settles[index]) {
-      alert('找不到這筆');
+      alert('找不到這筆對戰紀錄');
       return;
     }
 
@@ -1903,7 +2048,7 @@
     const label = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     const result = rec.allDown ? '全倒' : `${rec.passCount || 0}組過`;
 
-    if (!confirm(`確定刪除這筆嗎？\n\n${label}｜${rec.gameName || ''}｜${result}`)) return;
+    if (!confirm(`確定刪除這筆對戰紀錄嗎？\n\n${label}｜${rec.gameName || ''}｜${result}`)) return;
 
     const removed = memory.settles.splice(index, 1)[0];
     if (Array.isArray(memory.reviews) && removed) {
@@ -1912,7 +2057,7 @@
         return !(r.latest && r.latest.date === removed.date);
       });
     }
-    memory.lastLog = `已刪除一筆：${label}\n累積對戰資料與檢討資料已重新計算。`;
+    memory.lastLog = `已刪除一筆對戰紀錄：${label}\n累積對戰資料與檢討資料已重新計算。`;
 
     saveCaishenGrowthMemory(memory);
     updateCaishenGrowthLog(memory.lastLog);
@@ -1935,7 +2080,7 @@
     if (!body) return;
     const reviews = caishenFilterReviewsByActiveGame(memory);
     if (!reviews.length) {
-      body.textContent = '尚無。';
+      body.textContent = '尚無檢討紀錄。';
       return;
     }
 
@@ -1966,18 +2111,18 @@
   function caishenDeleteReviewRecord(index){
     const memory = loadCaishenGrowthMemory();
     if (!Array.isArray(memory.reviews) || !memory.reviews[index]) {
-      alert('找不到這筆');
+      alert('找不到這筆檢討紀錄');
       return;
     }
     const rec = memory.reviews[index];
     const label = caishenFormatDateTime(rec.date);
     const gameName = rec.gameName || rec.latest?.gameName || rec.latest?.battle?.gameName || '';
-    if (!confirm(`確定刪除這筆嗎？\n\n${label}｜${gameName}`)) return;
+    if (!confirm(`確定刪除這筆檢討紀錄嗎？\n\n${label}｜${gameName}`)) return;
 
     const settleId = rec.settleId || rec.latest?.id || '';
     memory.reviews.splice(index, 1);
 
-    // 如果該對戰沒有其他，解除該對戰 reviewed 狀態，讓你可重新檢討一次
+    // 如果該對戰沒有其他檢討紀錄，解除該對戰 reviewed 狀態，讓你可重新檢討一次
     if (settleId && Array.isArray(memory.settles)) {
       const stillHasReview = memory.reviews.some(r => (r.settleId || r.latest?.id || '') === settleId);
       if (!stillHasReview) {
@@ -1992,7 +2137,7 @@
       }
     }
 
-    memory.lastLog = `已刪除一筆：${label}\n目前累積檢討次數：${Array.isArray(memory.reviews) ? memory.reviews.length : 0} 次。`;
+    memory.lastLog = `已刪除一筆檢討紀錄：${label}\n目前累積檢討次數：${Array.isArray(memory.reviews) ? memory.reviews.length : 0} 次。`;
     saveCaishenGrowthMemory(memory);
     updateCaishenGrowthLog(memory.lastLog);
     caishenRenderGrowthStats();
@@ -2216,7 +2361,7 @@
     if (recEl) {
       const settles = activeSettles;
       if (!settles.length) {
-        recEl.textContent = '尚無。';
+        recEl.textContent = '尚無對戰紀錄。';
       } else {
         recEl.innerHTML = settles.slice().reverse().map((s, reverseIdx) => {
           const originalIndex = typeof s.__index === 'number' ? s.__index : (settles.length - 1 - reverseIdx);
@@ -2437,7 +2582,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         }
 
         if (latest.reviewed) {
-          const oldNote = latest.reviewNote || memory.lastLog || '這筆已檢討過，不會重複增加累積檢討次數。';
+          const oldNote = latest.reviewNote || memory.lastLog || '這筆對戰紀錄已檢討過，不會重複增加累積檢討次數。';
           const currentReviewCount = caishenFilterReviewsByActiveGame(memory).length;
           updateCaishenGrowthLog(`這筆對戰已檢討過，不重複增加次數。\n目前累積檢討次數：${currentReviewCount} 次。\n\n${oldNote}`);
           alert('這筆對戰已檢討過，不會重複增加累積檢討次數');
@@ -3226,114 +3371,6 @@ ${settleRecord.analysisLines.join('\n')}`;
     return g;
   }
 
-  const STRICT_AI_ANTI_MIN_PASS_RATE = 0.94;
-  const STRICT_HIGHPASS_MIN_PASS_RATE = 0.95;
-  const STRICT_REVERSE_MIN_STREAK = 20;
-
-  function isStrictAiStats(stats) {
-    return !!(stats && (stats.passRate || 0) >= STRICT_AI_ANTI_MIN_PASS_RATE && stats.latestDown);
-  }
-
-  function hasRecent5Down2Plus(stats) {
-    return !!(stats && (stats.recent5Down || 0) >= 2);
-  }
-
-  function isFirstTwoDown(stats) {
-    const flags = Array.isArray(stats && stats.recentDownFlags) ? stats.recentDownFlags : [];
-    return !!(flags[0] && flags[1]);
-  }
-
-  function firstTwoDownScore(stats) {
-    if (!stats) return 0;
-    if (isFirstTwoDown(stats)) return 2;
-    return stats.latestDown ? 1 : 0;
-  }
-
-  function isStrictRandomStats(stats) {
-    return !!(stats && stats.latestDown && (stats.balancePenalty || 0) <= 6.2);
-  }
-
-  function strictFinalizeItems(pool, totalWanted, comparator, strictFilter, secondaryFilter) {
-    const base = finalizeTopItems((pool || []).filter(item => item && item.stats && strictFilter(item.stats, item)), Math.max(totalWanted * 10, totalWanted), comparator);
-    if (secondaryFilter) {
-      const strong = base.filter(item => secondaryFilter(item.stats, item));
-      if (strong.length >= totalWanted) return strong.slice(0, totalWanted);
-    }
-    return base.slice(0, totalWanted);
-  }
-
-
-  function addUniqueByGroupsInto(target, source, totalWanted) {
-    const seen = new Set(target.map(item => exportText(item.groups)));
-    for (const item of source || []) {
-      if (!item || !item.groups || !item.stats) continue;
-      const key = exportText(item.groups);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      target.push(item);
-      if (target.length >= totalWanted) break;
-    }
-    return target;
-  }
-
-  function flexibleFinalizeItems(pool, totalWanted, comparator, tiers, label) {
-    const sortedPool = finalizeTopItems((pool || []).filter(item => item && item.stats), Math.max(totalWanted * 80, 360), comparator);
-    const picked = [];
-    for (const tier of tiers) {
-      const candidates = sortedPool.filter(item => tier.filter(item.stats, item));
-      addUniqueByGroupsInto(picked, candidates, totalWanted);
-      if (picked.length >= totalWanted) break;
-    }
-    if (picked.length < totalWanted) {
-      addUniqueByGroupsInto(picked, sortedPool, totalWanted);
-    }
-    if (picked.length && label) {
-      const full = tiers[0] ? picked.filter(item => tiers[0].filter(item.stats, item)).length : 0;
-      log(`${label} 分層精選完成：完整達標 ${full}/${totalWanted}，不足部分已從最接近核心條件的候補補滿。`);
-    }
-    return picked.slice(0, totalWanted);
-  }
-
-
-  function strictCoreFinalizeItems(pool, totalWanted, comparator, coreFilter, preferredFilter, label) {
-    const sortedPool = finalizeTopItems((pool || []).filter(item => item && item.stats), Math.max(totalWanted * 220, 1200), comparator);
-    const core = sortedPool.filter(item => coreFilter(item.stats, item));
-    const preferred = preferredFilter ? core.filter(item => preferredFilter(item.stats, item)) : [];
-    const picked = [];
-    addUniqueByGroupsInto(picked, preferred, totalWanted);
-    addUniqueByGroupsInto(picked, core, totalWanted);
-    if (label) {
-      log(`${label} 嚴格精選：核心達標 ${core.length} 組，優先條件達標 ${preferred.length} 組，輸出 ${picked.length}/${totalWanted} 組。`);
-      if (picked.length < totalWanted) log(`${label} 警告：目前候選池未湊滿 ${totalWanted} 組；系統已完整深挖，不再用未達核心條件的垃圾組補位。`);
-    }
-    return picked.slice(0, totalWanted);
-  }
-
-  function ensureAtLeastWanted(pool, totalWanted, comparator, coreFilter, preferredFilter, label) {
-    return strictCoreFinalizeItems(pool, totalWanted, comparator, coreFilter, preferredFilter, label);
-  }
-
-  function aiCorePassLatest(stats) {
-    return !!(stats && (stats.passRate || 0) >= STRICT_AI_ANTI_MIN_PASS_RATE && stats.latestDown);
-  }
-
-  function highPassCore(stats) {
-    return !!(stats && (stats.passRate || 0) >= STRICT_HIGHPASS_MIN_PASS_RATE && stats.recentRate >= 1 && (stats.fiveZeroZeroAfter20Count || 0) >= 1);
-  }
-
-  function reverseCore(stats) {
-    return !!(stats && (stats.latestDownStreak || 0) >= STRICT_REVERSE_MIN_STREAK);
-  }
-
-  function strictConditionMessage(type) {
-    if (type === 'ai') return 'AI硬門檻：100期過關率≥94%，最新一期必須倒；優先近5期倒2/5以上。';
-    if (type === 'anti') return '真正防穿透硬門檻：100期過關率≥94%，最新一期必須倒；以AI最佳立柱為排斥目標，優先降低同柱重疊與跨柱穿透。';
-    if (type === 'highpass') return '高爆發硬門檻：100期過關率≥95%，最近20期連續過關，第21~100期內至少一次5-0-0。';
-    if (type === 'reverse') return '反指標硬門檻：不看勝率，只收最新連倒20期以上。';
-    if (type === 'random') return '隨機平衡硬門檻：單雙/大小/頭尾分布平均、結構懲罰低，且最新一期倒；優先最新兩期都倒。';
-    return '';
-  }
-
   function aiPriorityScore(stats) {
     return (
       stats.passRate * 20000 +
@@ -3422,7 +3459,6 @@ ${settleRecord.analysisLines.join('\n')}`;
         ${typeof stats.reverseScore === 'number' ? `<tr><th>反指標分數</th><td>${stats.reverseScore.toFixed(2)}</td></tr>` : ''}
         ${typeof stats.highPassScore === 'number' ? `<tr><th>連續20期過關率</th><td>${(stats.recentRate * 100).toFixed(2)}%${stats.recentRate >= 1 ? '（符合）' : '（不符合）'}</td></tr>` : ''}
         ${typeof stats.fiveZeroZeroCount === 'number' ? `<tr><th>5-0-0 次數</th><td>${stats.fiveZeroZeroCount} 期</td></tr>` : ''}
-        ${typeof stats.fiveZeroZeroAfter20Count === 'number' ? `<tr><th>第21~100期 5-0-0</th><td>${stats.fiveZeroZeroAfter20Count} 期</td></tr>` : ''}
         <tr><th>過關期數</th><td>${stats.pass} 期</td></tr>
         <tr><th>未過關期數</th><td>${stats.fail} 期</td></tr>
         <tr><th>最新一期狀態</th><td>${stats.latestDown ? '倒' : '過關'}${stats.latestPattern ? '（' + stats.latestPattern + '）' : ''}</td></tr>
@@ -3452,9 +3488,23 @@ ${settleRecord.analysisLines.join('\n')}`;
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
               <button class="btn btn-primary move-to-recommend-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-source-label="${prefix}${label ? '｜' + label : ''}" style="padding:6px 10px; font-size:13px; width:auto;">移至推薦區</button>
               <button class="btn btn-secondary move-to-memory-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">移至記憶資料庫</button>
+              <button class="btn btn-dark battle-memory-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">出戰</button>
               <button class="btn btn-secondary single-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">只複製這一組</button>
             </div>
           </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-dark single-pillar-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-pillar-index="0" style="padding:6px 10px; font-size:13px;">複製第一柱</button>
+            <button class="btn btn-dark single-pillar-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-pillar-index="1" style="padding:6px 10px; font-size:13px;">複製第二柱</button>
+            <button class="btn btn-dark single-pillar-copy-btn" data-copy-type="${copyType}" data-copy-index="${idx}" data-pillar-index="2" style="padding:6px 10px; font-size:13px;">複製第三柱</button>
+          </div>
+  <div>
+    <label style="font-size:13px;">防補出模式：</label>
+    <select id="antiRefillModeSelect" class="btn btn-dark" style="padding:6px 10px; font-size:13px;">
+      <option value="safe" selected>保守</option>
+      <option value="normal">一般</option>
+      <option value="aggressive">激進</option>
+    </select>
+  </div>
 </div>
 
         </div>
@@ -3495,18 +3545,16 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function topListCapacity(totalWanted) {
-    // v64：恢復深度候選池。之前為了加速把池子縮太小，會太早拿到未達標組合。
-    return Math.max(totalWanted * 120, 900);
+    return Math.max(totalWanted * 28, 180);
   }
 
   function strictKeepSize(totalWanted) {
-    // v64：嚴格生成優先，寧可慢一點也保留足夠候選，不再快速降級成垃圾立柱。
-    return Math.max(totalWanted * 180, 1400);
+    return Math.max(totalWanted * 36, 240);
   }
 
   async function strictRefinePool(pool, draws, totalWanted, scorer, comparator, label, options = {}) {
     let nextPool = pool.slice();
-    const primaryCount = CAISHEN_FAST_MODE ? Math.min(nextPool.length, Math.max(24, totalWanted * 8)) : Math.min(nextPool.length, Math.max(120, totalWanted * 60));
+    const primaryCount = CAISHEN_FAST_MODE ? Math.min(nextPool.length, Math.max(12, totalWanted * 3)) : Math.min(nextPool.length, Math.max(42, totalWanted * 16));
     for (let i = 0; i < primaryCount; i++) {
       if (i % 8 === 0) log(`${label} 嚴格精修 ${i + 1}/${primaryCount}...`);
       const refined = refineCandidateItem(nextPool[i], draws, scorer, comparator, {
@@ -3518,7 +3566,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (i % 10 === 9) await new Promise(requestAnimationFrame);
     }
 
-    const eliteCount = CAISHEN_FAST_MODE ? Math.min(nextPool.length, Math.max(12, totalWanted * 4)) : Math.min(nextPool.length, Math.max(36, totalWanted * 18));
+    const eliteCount = CAISHEN_FAST_MODE ? Math.min(nextPool.length, Math.max(4, totalWanted)) : Math.min(nextPool.length, Math.max(10, totalWanted * 5));
     for (let i = 0; i < eliteCount; i++) {
       if (i % 4 === 0) log(`${label} 極限精修 ${i + 1}/${eliteCount}...`);
       const refined = refineCandidateItem(nextPool[i], draws, scorer, comparator, {
@@ -3533,16 +3581,12 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function comparePassRateFirst(as, bs) {
-    const aStrict = isStrictAiStats(as) ? 1 : 0;
-    const bStrict = isStrictAiStats(bs) ? 1 : 0;
-    if (bStrict !== aStrict) return bStrict - aStrict;
-    const aR5Strong = hasRecent5Down2Plus(as) ? 1 : 0;
-    const bR5Strong = hasRecent5Down2Plus(bs) ? 1 : 0;
-    if (bR5Strong !== aR5Strong) return bR5Strong - aR5Strong;
     const ap = as.passRate || 0;
     const bp = bs.passRate || 0;
+    // 財神排序修正：達不到95%時，不再亂用近倒補位，而是從94.99%、94.98%一路往下找最高勝率。
     if (bp !== ap) return bp - ap;
     if (!!bs.latestDown !== !!as.latestDown) return Number(!!bs.latestDown) - Number(!!as.latestDown);
+    // 排序4/5修正：近5期倒次數先於最新連倒。
     if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
     if ((bs.latestDownStreak || 0) !== (as.latestDownStreak || 0)) return (bs.latestDownStreak || 0) - (as.latestDownStreak || 0);
     return 0;
@@ -3569,7 +3613,8 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function isQualifiedHighPassStats(stats) {
-    return !!(stats && (stats.passRate || 0) >= STRICT_HIGHPASS_MIN_PASS_RATE && stats.recentRate >= 1 && (stats.fiveZeroZeroAfter20Count || 0) >= 1);
+    // 財神排序修正：高爆發必要條件＝近20期連續過關，且回測期內至少出現過一次 5-0-0。
+    return !!(stats && stats.fiveZeroZeroCount > 0 && stats.recentRate >= 1);
   }
 
   function compareHighPassItems(a, b) {
@@ -3578,7 +3623,6 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (Number(bQualified) !== Number(aQualified)) return Number(bQualified) - Number(aQualified);
     if (b.stats.passRate !== a.stats.passRate) return b.stats.passRate - a.stats.passRate;
     if (b.stats.recentRate !== a.stats.recentRate) return b.stats.recentRate - a.stats.recentRate;
-    if ((b.stats.fiveZeroZeroAfter20Count || 0) !== (a.stats.fiveZeroZeroAfter20Count || 0)) return (b.stats.fiveZeroZeroAfter20Count || 0) - (a.stats.fiveZeroZeroAfter20Count || 0);
     if (b.stats.fiveZeroZeroCount !== a.stats.fiveZeroZeroCount) return b.stats.fiveZeroZeroCount - a.stats.fiveZeroZeroCount;
     return b.stats.highPassScore - a.stats.highPassScore;
   }
@@ -3642,7 +3686,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function lockTypeItems(type, items, draws, totalWanted, candidateText = '', noDrawText = '') {
-    const key = makeStorageKey(`locked_type_${type}_v64`, draws, candidateText, noDrawText);
+    const key = makeStorageKey(`locked_type_${type}_v30`, draws, candidateText, noDrawText);
     const guard = passRateGuard(draws);
     let pool = loadStoredItems(key).concat(items || []);
     const unique = [];
@@ -3660,7 +3704,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function getLockedTypeItems(type, draws, totalWanted, candidateText = '', noDrawText = '') {
-    const key = makeStorageKey(`locked_type_${type}_v64`, draws, candidateText, noDrawText);
+    const key = makeStorageKey(`locked_type_${type}_v30`, draws, candidateText, noDrawText);
     const guard = passRateGuard(draws);
     const stored = loadStoredItems(key)
       .filter(item => item && Array.isArray(item.groups) && item.stats)
@@ -3674,9 +3718,9 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function clearAllLockedBestForCurrentInputs(draws, candidateText = '', noDrawText = '') {
     const keys = [
-      makeStorageKey('locked_type_ai_v64', draws, candidateText, noDrawText),
-      makeStorageKey('locked_type_anti_v64', draws, candidateText, noDrawText),
-      makeStorageKey('locked_type_highpass_v64', draws, candidateText, noDrawText),
+      makeStorageKey('locked_type_ai_v30', draws, candidateText, noDrawText),
+      makeStorageKey('locked_type_anti_v30', draws, candidateText, noDrawText),
+      makeStorageKey('locked_type_highpass_v30', draws, candidateText, noDrawText),
       makeStorageKey('reverse_v44_unlimited_latest_down_rank', draws, candidateText, noDrawText),
       makeStorageKey('recommend_original_pool_v38_structure_priority', draws, candidateText, noDrawText)
     ];
@@ -3687,61 +3731,40 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   async function buildTopAiGroups(draws, totalWanted) {
     seedForType('ai');
-    const storageKey = makeStorageKey('ai_v64_full_strict_search', draws);
+    const storageKey = makeStorageKey('ai_v30_deep_fixed', draws);
     let pool = [];
-    const keepSize = CAISHEN_FAST_MODE ? Math.max(strictKeepSize(totalWanted), 900) : Math.max(strictKeepSize(totalWanted), 1800);
-    const seedCount = CAISHEN_FAST_MODE ? Math.max(1200, totalWanted * 420) : Math.max(6800, totalWanted * 2600);
+    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
+    const seedCount = CAISHEN_FAST_MODE ? Math.max(220, totalWanted * 18) : Math.max(960, totalWanted * 320);
     const freshSeeds = seedPoolFromDraws(draws, seedCount);
     for (const item of freshSeeds) {
       pool = addUniqueSorted(pool, item, keepSize, compareAiItems);
     }
 
     pool = await strictRefinePool(pool, draws, totalWanted, evaluate, compareAiItems, 'AI', {
-      primarySteps: CAISHEN_FAST_MODE ? 420 : 1500,
-      eliteSteps: CAISHEN_FAST_MODE ? 900 : 3200,
+      primarySteps: CAISHEN_FAST_MODE ? 120 : 620,
+      eliteSteps: CAISHEN_FAST_MODE ? 260 : 1480,
       primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
       eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
     });
 
-    const finalItems = ensureAtLeastWanted(pool, totalWanted, compareAiItems,
-      (stats) => aiCorePassLatest(stats),
-      (stats) => hasRecent5Down2Plus(stats),
-      'AI'
-    );
-    saveStoredItems(storageKey, finalizeTopItems(pool.filter(item => item.stats && aiCorePassLatest(item.stats)), Math.min(36, keepSize), compareAiItems));
+    const finalItems = finalizeTopItems(pool, totalWanted, compareAiItems);
+    saveStoredItems(storageKey, finalizeTopItems(pool, Math.min(36, keepSize), compareAiItems));
     return finalItems;
-  }
-
-  function compareRandomBalancedItems(a, b) {
-    const as = (a && a.stats) || {};
-    const bs = (b && b.stats) || {};
-    const aStrict = isStrictRandomStats(as) ? 1 : 0;
-    const bStrict = isStrictRandomStats(bs) ? 1 : 0;
-    if (bStrict !== aStrict) return bStrict - aStrict;
-    const f2 = firstTwoDownScore(bs) - firstTwoDownScore(as);
-    if (f2) return f2;
-    if ((as.balancePenalty || 0) !== (bs.balancePenalty || 0)) return (as.balancePenalty || 0) - (bs.balancePenalty || 0);
-    if ((bs.recent5Down || 0) !== (as.recent5Down || 0)) return (bs.recent5Down || 0) - (as.recent5Down || 0);
-    return exportText(a.groups).localeCompare(exportText(b.groups));
   }
 
   function buildTopRandomGroups(draws, totalWanted) {
     seedForType('random');
-    const storageKey = makeStorageKey('random_v64_strict_balanced_latest_down', draws);
+    const storageKey = makeStorageKey('random_v30_deep_fixed', draws);
     let pool = [];
-    const keepSize = Math.max(topListCapacity(totalWanted), 1400);
-    const attempts = Math.max(totalWanted * 3600, 12000);
+    const keepSize = Math.max(topListCapacity(totalWanted), 360);
+    const attempts = Math.max(totalWanted * 520, 1800);
     for (let i = 0; i < attempts; i++) {
       const groups = buildBalancedRandomPillar();
       const stats = evaluate(groups, draws);
-      pool = addUniqueSorted(pool, { groups, stats }, keepSize, compareRandomBalancedItems);
+      pool = addUniqueSorted(pool, { groups, stats }, keepSize, compareAiItems);
     }
-    const finalItems = ensureAtLeastWanted(pool, totalWanted, compareRandomBalancedItems,
-      (stats) => isStrictRandomStats(stats),
-      (stats) => isFirstTwoDown(stats),
-      '隨機平衡'
-    );
-    saveStoredItems(storageKey, finalizeTopItems(pool.filter(item => item.stats && isStrictRandomStats(item.stats)), Math.min(28, keepSize), compareRandomBalancedItems));
+    const finalItems = finalizeTopItems(pool, totalWanted, compareAiItems);
+    saveStoredItems(storageKey, finalizeTopItems(pool, Math.min(20, keepSize), compareAiItems));
     return finalItems;
   }
 
@@ -3776,10 +3799,10 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   async function buildTopReverseGroups(draws, totalWanted) {
     seedForType('reverse');
-    const storageKey = makeStorageKey('reverse_v64_full_streak20', draws);
+    const storageKey = makeStorageKey('reverse_v44_unlimited_latest_down_rank', draws);
     let pool = [];
-    const keepSize = CAISHEN_FAST_MODE ? Math.max(strictKeepSize(totalWanted), 900) : Math.max(strictKeepSize(totalWanted), 1800);
-    const seedCount = CAISHEN_FAST_MODE ? Math.max(1600, totalWanted * 520) : Math.max(9000, totalWanted * 3200);
+    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
+    const seedCount = CAISHEN_FAST_MODE ? Math.max(260, totalWanted * 20) : Math.max(1200, totalWanted * 360);
 
     for (let i = 0; i < seedCount; i++) {
       const groups = buildBalancedRandomPillar();
@@ -3808,11 +3831,11 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
     }
 
-    const refineRounds = CAISHEN_FAST_MODE ? Math.min(pool.length, Math.max(28, totalWanted * 10)) : Math.min(pool.length, Math.max(120, totalWanted * 54));
+    const refineRounds = CAISHEN_FAST_MODE ? Math.min(pool.length, Math.max(10, totalWanted * 3)) : Math.min(pool.length, Math.max(36, totalWanted * 14));
     for (let i = 0; i < refineRounds; i++) {
       let current = pool[i % pool.length];
       let best = current;
-      for (let step = 0; step < (CAISHEN_FAST_MODE ? 220 : 900); step++) {
+      for (let step = 0; step < (CAISHEN_FAST_MODE ? 70 : 260); step++) {
         const candidate = reverseItemFromGroups(randomSwap(current.groups), draws);
         const candidateOk = candidate.stats.latestDown;
         if (candidateOk && (compareReverseItems(candidate, current) < 0 || rand() < 0.015)) current = candidate;
@@ -3822,11 +3845,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (i % 8 === 7) await new Promise(requestAnimationFrame);
     }
 
-    const finalItems = ensureAtLeastWanted(pool, totalWanted, compareReverseItems,
-      (stats) => reverseCore(stats),
-      null,
-      '反指標'
-    );
+    const finalItems = finalizeTopItems(pool.filter(item => item.stats && item.stats.latestDown), totalWanted, compareReverseItems);
     saveStoredItems(storageKey, finalizeTopItems(pool, Math.min(28, keepSize), compareReverseItems));
     return finalItems;
   }
@@ -3898,146 +3917,26 @@ ${settleRecord.analysisLines.join('\n')}`;
     return finalizeTopItems(pool, 1, compareAntiItems)[0];
   }
 
-  function makeAntiAgainstAiEvaluator(draws, aiItems = []) {
-    const aiTargets = (aiItems || []).filter(x => x && x.groups).map(x => x.groups);
-    return function evalAntiAgainstAi(groups) {
-      const stats = antiScore(groups, draws);
-      let same = 0;
-      let cross = 0;
-      if (aiTargets.length) {
-        same = Math.min(...aiTargets.map(ai => samePillarOverlapRate(groups, ai)));
-        cross = Math.min(...aiTargets.map(ai => crossOverlapRate(groups, ai)));
-      }
-      stats.sameOverlapVsAI = same;
-      stats.crossOverlapVsAI = cross;
-      stats.trueDefenseScore = (stats.antiTotalScore || 0) - same * 1450 - cross * 520 + (aiCorePassLatest(stats) ? 900 : -900) + (hasRecent5Down2Plus(stats) ? 120 : 0);
-      return stats;
-    };
-  }
-
-  function compareTrueDefenseItems(a, b) {
-    const as = a.stats || {};
-    const bs = b.stats || {};
-    const aCore = aiCorePassLatest(as);
-    const bCore = aiCorePassLatest(bs);
-    if (aCore !== bCore) return bCore - aCore;
-    const aRecent = hasRecent5Down2Plus(as);
-    const bRecent = hasRecent5Down2Plus(bs);
-    if (aRecent !== bRecent) return bRecent - aRecent;
-    const aSame = typeof as.sameOverlapVsAI === 'number' ? as.sameOverlapVsAI : 1;
-    const bSame = typeof bs.sameOverlapVsAI === 'number' ? bs.sameOverlapVsAI : 1;
-    if (Math.abs(aSame - bSame) > 0.0001) return aSame - bSame;
-    const aCross = typeof as.crossOverlapVsAI === 'number' ? as.crossOverlapVsAI : 1;
-    const bCross = typeof bs.crossOverlapVsAI === 'number' ? bs.crossOverlapVsAI : 1;
-    if (Math.abs(aCross - bCross) > 0.0001) return aCross - bCross;
-    if ((bs.trueDefenseScore || 0) !== (as.trueDefenseScore || 0)) return (bs.trueDefenseScore || 0) - (as.trueDefenseScore || 0);
-    return compareAntiItems(a, b);
-  }
-
-  async function rescueTrueDefenseCandidates(pool, draws, totalWanted, evalAnti, aiItems, keepSize) {
-    // v67：防穿透不能空白。先保留 AI 的核心門檻（100期≥94%、最新一期倒），
-    // 但把「與 AI 低重疊」當排序目標，不再因為過度追求低重疊而把合格候選全部排掉。
-    let resultPool = Array.isArray(pool) ? pool.slice() : [];
-    const aiSeeds = (aiItems || []).filter(x => x && Array.isArray(x.groups));
-    const strictNeed = Math.max(2, totalWanted || 2);
-    const strictCount = () => resultPool.filter(x => x && x.stats && aiCorePassLatest(x.stats)).length;
-    if (strictCount() >= strictNeed) return resultPool;
-
-    const baseSeeds = aiSeeds.length ? aiSeeds : [{ groups: buildBalancedRandomPillar() }];
-    const rounds = CAISHEN_FAST_MODE ? 36000 : 120000;
-    for (let i = 0; i < rounds && strictCount() < strictNeed; i++) {
-      let groups;
-      if (i % 5 === 0) {
-        groups = buildBalancedRandomPillar();
-      } else {
-        const base = baseSeeds[i % baseSeeds.length].groups;
-        groups = mutateByTimes(base, 4 + (i % 23));
-      }
-      const item = { groups, stats: evalAnti(groups) };
-      if (item.stats && aiCorePassLatest(item.stats)) {
-        resultPool = addUniqueSorted(resultPool, item, keepSize, compareTrueDefenseItems);
-      } else if (i % 19 === 0) {
-        // 仍保留少量接近候補，給後續 refine 繼續爬到 94% 最新倒。
-        resultPool = addUniqueSorted(resultPool, item, keepSize, compareTrueDefenseItems);
-      }
-      if (i > 0 && i % 6000 === 0) {
-        log(`防穿透補強搜尋：已掃描 ${i}/${rounds}，合格 ${strictCount()}/${strictNeed}`);
-        await new Promise(requestAnimationFrame);
-      }
-    }
-
-    if (strictCount() < strictNeed && resultPool.length) {
-      const refineBase = finalizeTopItems(resultPool, Math.min(resultPool.length, CAISHEN_FAST_MODE ? 80 : 180), compareTrueDefenseItems);
-      for (let r = 0; r < refineBase.length && strictCount() < strictNeed; r++) {
-        let current = refineBase[r];
-        let best = current;
-        const steps = CAISHEN_FAST_MODE ? 900 : 2600;
-        for (let step = 0; step < steps; step++) {
-          const candGroups = randomSwap(current.groups);
-          const cand = { groups: candGroups, stats: evalAnti(candGroups) };
-          if (compareTrueDefenseItems(cand, current) < 0 || rand() < 0.01) current = cand;
-          if (compareTrueDefenseItems(cand, best) < 0) best = cand;
-          if (best.stats && aiCorePassLatest(best.stats) && strictCount() >= strictNeed) break;
-        }
-        resultPool = addUniqueSorted(resultPool, best, keepSize, compareTrueDefenseItems);
-        if (r % 8 === 7) await new Promise(requestAnimationFrame);
-      }
-    }
-    return resultPool;
-  }
-
-  async function buildTopAntiGroups(draws, candidateScoreData, totalWanted, aiItems = []) {
+  async function buildTopAntiGroups(draws, candidateScoreData, totalWanted) {
     seedForType('anti');
-    const evalAnti = makeAntiAgainstAiEvaluator(draws, aiItems);
-    const storageKey = makeStorageKey('anti_v65_true_defense_vs_ai', draws, JSON.stringify((aiItems || []).map(x => fastGroupsKey(x.groups || [])).slice(0, 5)));
+    const storageKey = makeStorageKey('anti_v30_deep_fixed', draws, JSON.stringify(candidateScoreData && candidateScoreData.ranking ? candidateScoreData.ranking.slice(0, 18).map(x => x.n) : []));
     let pool = [];
-    const keepSize = CAISHEN_FAST_MODE ? Math.max(strictKeepSize(totalWanted), 1100) : Math.max(strictKeepSize(totalWanted), 2200);
+    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
 
-    if (aiItems && aiItems.length) {
-      for (const ai of aiItems.slice(0, Math.max(2, totalWanted))) {
-        const ex = buildExtremeAntiFromAi(ai.groups, candidateScoreData, draws);
-        ex.stats = evalAnti(ex.groups);
-        pool = addUniqueSorted(pool, ex, keepSize, compareTrueDefenseItems);
-        for (let k = 0; k < 18; k++) {
-          const g = mutateByTimes(ex.groups, 1 + (k % 7));
-          pool = addUniqueSorted(pool, { groups: g, stats: evalAnti(g) }, keepSize, compareTrueDefenseItems);
-        }
-      }
+    for (let i = 0; i < (CAISHEN_FAST_MODE ? Math.max(150, totalWanted * 14) : Math.max(560, totalWanted * 180)); i++) {
+      const seed = buildAntiSeed(draws, candidateScoreData);
+      pool = addUniqueSorted(pool, seed, keepSize, compareAntiItems);
     }
 
-    for (let i = 0; i < (CAISHEN_FAST_MODE ? Math.max(1300, totalWanted * 460) : Math.max(7800, totalWanted * 2800)); i++) {
-      let seed = buildAntiSeed(draws, candidateScoreData);
-      seed.stats = evalAnti(seed.groups);
-      pool = addUniqueSorted(pool, seed, keepSize, compareTrueDefenseItems);
-      if ((i + 1) % 1600 === 0) await new Promise(requestAnimationFrame);
-    }
-
-    pool = await strictRefinePool(pool, draws, totalWanted, evalAnti, compareTrueDefenseItems, '真正防穿透', {
-      primarySteps: CAISHEN_FAST_MODE ? 420 : 1700,
-      eliteSteps: CAISHEN_FAST_MODE ? 900 : 3600,
-      primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.007,
+    pool = await strictRefinePool(pool, draws, totalWanted, antiScore, compareAntiItems, '防穿透', {
+      primarySteps: CAISHEN_FAST_MODE ? 100 : 620,
+      eliteSteps: CAISHEN_FAST_MODE ? 220 : 1480,
+      primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
       eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
     });
 
-    pool = await rescueTrueDefenseCandidates(pool, draws, totalWanted, evalAnti, aiItems, keepSize);
-
-    const qualified = pool.filter(item => item.stats && aiCorePassLatest(item.stats));
-    let finalItems = finalizeTopItems(qualified, totalWanted, compareTrueDefenseItems);
-    // v67：如果仍不足，才用最接近 94% 且最新倒的候補補畫面；排序仍會把真正合格的放最上面。
-    if (finalItems.length < totalWanted) {
-      const near = pool
-        .filter(item => item && item.stats && item.stats.latestDown && (item.stats.passRate || 0) >= 0.93)
-        .sort(compareTrueDefenseItems);
-      finalItems = finalizeTopItems(finalItems.concat(near), totalWanted, compareTrueDefenseItems);
-    }
-    if (finalItems.length < totalWanted) {
-      finalItems = ensureAtLeastWanted(pool, totalWanted, compareTrueDefenseItems,
-        (stats) => aiCorePassLatest(stats),
-        (stats) => hasRecent5Down2Plus(stats),
-        '真正防穿透'
-      );
-    }
-    saveStoredItems(storageKey, finalizeTopItems(qualified.length ? qualified : finalItems, Math.min(60, keepSize), compareTrueDefenseItems));
+    const finalItems = finalizeTopItems(pool, totalWanted, compareAntiItems);
+    saveStoredItems(storageKey, finalizeTopItems(pool, Math.min(36, keepSize), compareAntiItems));
     return finalItems;
   }
 
@@ -4045,30 +3944,23 @@ ${settleRecord.analysisLines.join('\n')}`;
   function highPassScore(groups, draws) {
     const stats = evaluate(groups, draws);
     const fiveZeroZeroCount = stats.patterns['5-0-0'] || 0;
-    const mp = new Map();
-    groups.forEach((g, idx) => g.forEach(n => mp.set(n, idx)));
-    let fiveZeroZeroAfter20Count = 0;
-    const end = Math.min(100, draws.length);
-    for (let i = 20; i < end; i++) {
-      const counts = [0, 0, 0];
-      for (const n of draws[i] || []) counts[mp.get(n)]++;
-      if (counts.includes(5)) fiveZeroZeroAfter20Count++;
-    }
-    const passAbove95Bonus = stats.passRate >= STRICT_HIGHPASS_MIN_PASS_RATE ? 180 + (stats.passRate - STRICT_HIGHPASS_MIN_PASS_RATE) * 1800 : (stats.passRate - STRICT_HIGHPASS_MIN_PASS_RATE) * 700;
-    const recentPerfectBonus = stats.recentRate >= 1 ? 260 : (stats.recentRate - 1) * 900;
-    const fiveZeroZeroBonus = fiveZeroZeroAfter20Count >= 1 ? 220 + fiveZeroZeroAfter20Count * 8 : -520;
+    const topPatterns = Object.entries(stats.patterns).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k]) => k);
+    const hasTopFiveZeroZero = topPatterns.includes('5-0-0');
+    const passAbove93Bonus = stats.passRate >= 0.93 ? 80 + (stats.passRate - 0.93) * 1200 : (stats.passRate - 0.93) * 220;
+    const recentPerfectBonus = stats.recentRate >= 1 ? 95 : (stats.recentRate - 1) * 420;
+    const fiveZeroZeroBonus = hasTopFiveZeroZero ? 42 + fiveZeroZeroCount * 2.6 : -28 + fiveZeroZeroCount * 0.8;
     const score =
-      stats.passRate * 1550 +
-      passAbove95Bonus +
+      stats.passRate * 1250 +
+      stats.recentRate * 240 +
+      passAbove93Bonus +
       recentPerfectBonus +
       fiveZeroZeroBonus -
-      stats.balancePenalty * 0.65 -
-      stats.allInOneRate * 28;
+      stats.balancePenalty * 0.85 -
+      stats.allInOneRate * 45;
     return {
       ...stats,
       fiveZeroZeroCount,
-      fiveZeroZeroAfter20Count,
-      hasTopFiveZeroZero: fiveZeroZeroAfter20Count >= 1,
+      hasTopFiveZeroZero,
       recent20Perfect: stats.recentRate >= 1,
       highPassScore: score
     };
@@ -4114,13 +4006,13 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   async function buildTopHighPassGroups(draws, totalWanted, aiSeedItems = []) {
     seedForType('highpass');
-    const storageKey = makeStorageKey('highpass_v64_full_strict_search', draws);
+    const storageKey = makeStorageKey('highpass_v30_deep_fixed', draws);
     let pool = [];
-    const keepSize = CAISHEN_FAST_MODE ? Math.max(strictKeepSize(totalWanted), 900) : Math.max(strictKeepSize(totalWanted), 1800);
+    const keepSize = CAISHEN_FAST_MODE ? Math.max(totalWanted * 12, 120) : Math.max(strictKeepSize(totalWanted), 520);
 
     const seeds = [];
     aiSeedItems.forEach(item => seeds.push({ groups: cloneGroups(item.groups), stats: highPassScore(item.groups, draws) }));
-    for (let i = 0; i < (CAISHEN_FAST_MODE ? Math.max(1300, totalWanted * 420) : Math.max(7200, totalWanted * 2600)); i++) {
+    for (let i = 0; i < (CAISHEN_FAST_MODE ? Math.max(170, totalWanted * 14) : Math.max(620, totalWanted * 200)); i++) {
       let groups = buildBalancedRandomPillar();
       if (i % 2 === 1 && aiSeedItems.length) groups = mutateByTimes(aiSeedItems[i % aiSeedItems.length].groups, 1 + (i % 6));
       seeds.push({ groups, stats: highPassScore(groups, draws) });
@@ -4128,19 +4020,15 @@ ${settleRecord.analysisLines.join('\n')}`;
     for (const seed of seeds) pool = addUniqueSorted(pool, seed, keepSize, compareHighPassItems);
 
     pool = await strictRefinePool(pool, draws, totalWanted, highPassScore, compareHighPassItems, '高過關爆發', {
-      primarySteps: CAISHEN_FAST_MODE ? 380 : 1500,
-      eliteSteps: CAISHEN_FAST_MODE ? 840 : 3200,
+      primarySteps: CAISHEN_FAST_MODE ? 100 : 620,
+      eliteSteps: CAISHEN_FAST_MODE ? 220 : 1480,
       primaryAcceptChance: CAISHEN_FAST_MODE ? 0.012 : 0.008,
       eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
     });
 
     const qualifiedPool = pool.filter(item => isQualifiedHighPassStats(item.stats));
-    const finalItems = ensureAtLeastWanted(pool, totalWanted, compareHighPassItems,
-      (stats) => highPassCore(stats),
-      null,
-      '高爆發'
-    );
-    saveStoredItems(storageKey, finalizeTopItems(qualifiedPool, Math.min(60, keepSize), compareHighPassItems));
+    const finalItems = finalizeTopItems(qualifiedPool, totalWanted, compareHighPassItems);
+    saveStoredItems(storageKey, finalizeTopItems(qualifiedPool, Math.min(36, keepSize), compareHighPassItems));
     return finalItems;
   }
 
@@ -5664,11 +5552,12 @@ ${settleRecord.analysisLines.join('\n')}`;
       appendUniqueBest3Items(pool, aiItems, 'ai', 'AI 最佳立柱', modeDraws.length, seen);
       await new Promise(requestAnimationFrame);
 
-      const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, 5, aiItems);
+      const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, 5);
       appendUniqueBest3Items(pool, antiItems, 'anti', '防穿透立柱', modeDraws.length, seen);
       await new Promise(requestAnimationFrame);
 
-      const highPassItems = [];
+      const highPassItems = await buildTopHighPassGroups(modeDraws, 5, aiItems);
+      appendUniqueBest3Items(pool, highPassItems, 'highpass', '高過關爆發立柱', modeDraws.length, seen);
       await new Promise(requestAnimationFrame);
 
       const reverseItems = await buildTopReverseGroups(modeDraws, 5);
@@ -5864,20 +5753,17 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     // 這裡是「生成階段」的硬淘汰：不再先丟五組垃圾給你自己目測。
     if (sourceType === 'ai' || sourceType === 'anti') {
-      if (passRate < STRICT_AI_ANTI_MIN_PASS_RATE) reasons.push('過關率未達94%');
-      if (!latestDown) reasons.push('最新一期沒有倒');
-      if (recent5Down < 2) reasons.push('近5期倒未達2/5（次要優先條件）');
+      // 不硬淘汰95%以下；若無95%，排序會自動從94.99%往下找最高勝率。
+      // v61：AI / 防穿透補位不能只看勝率；近5期連倒與近5期倒次數兩者都為0時，直接跳過並繼續往下遞補。
+      if (!hasAiAntiRecent5Signal(s)) reasons.push('AI/防穿透近5期無倒訊號');
       if (balancePenalty > 7.5) reasons.push('結構失衡偏高');
       if (patternPenalty > 0.30) reasons.push('分布偏離過大');
     } else if (sourceType === 'highpass') {
-      if (passRate < STRICT_HIGHPASS_MIN_PASS_RATE) reasons.push('高爆發過關率未達95%');
-      if (s.recentRate < 1) reasons.push('高爆發必要條件不足：最近20期未連續過關');
-      if ((s.fiveZeroZeroAfter20Count || 0) < 1) reasons.push('高爆發必要條件不足：第21~100期內沒有5-0-0');
+      if (s.recentRate < 1) reasons.push('高爆發必要條件不足：近20期未連續過關');
+      if ((s.fiveZeroZeroCount || 0) < 1) reasons.push('高爆發必要條件不足：近100期內沒有5-0-0');
+      if (balancePenalty > 8.5) reasons.push('高爆發結構太偏');
     } else if (sourceType === 'reverse') {
-      if (latestDownStreak < STRICT_REVERSE_MIN_STREAK) reasons.push('反指標必要條件不足：最新連倒未達20期');
-    } else if (sourceType === 'random') {
-      if (!latestDown) reasons.push('隨機平衡必要條件不足：最新一期沒有倒');
-      if (balancePenalty > 6.2) reasons.push('隨機平衡結構懲罰偏高');
+      if (latestDownStreak < 1) reasons.push('反指標必要條件不足：最新一期沒有倒');
     }
     return reasons;
   }
@@ -5896,6 +5782,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     }).sort(sorter);
     const need = take || 8;
     const picked = clean.slice(0, need);
+    // 若嚴格條件完全不足，才補缺點最少的，且會標註原因，避免看起來像合格品。
+    if (picked.length < Math.min(3, need)) {
+      const filler = soft
+        .sort((a, b) => (a.caishenGeneratedRejectReasons || []).length - (b.caishenGeneratedRejectReasons || []).length || sorter(a, b))
+        .slice(0, need - picked.length);
+      picked.push(...filler);
+    }
     return picked.slice(0, need);
   }
 
@@ -5945,7 +5838,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         appendUniqueCaishenItems(raw, aiItems, 'ai', 'AI 最佳立柱', modeDraws.length, seen, 'AI只採100+150｜勝率優先；無95%則94.99%往下找最高｜最新連倒優先於近5倒');
         await new Promise(requestAnimationFrame);
 
-        const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, wantedPerBuild, aiItems);
+        const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, wantedPerBuild);
         appendUniqueCaishenItems(raw, antiItems, 'anti', '防穿透立柱', modeDraws.length, seen, '防穿透只採100+150｜條件同AI｜勝率優先並避開AI同弱點');
         await new Promise(requestAnimationFrame);
 
@@ -5965,7 +5858,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         appendUniqueCaishenItems(raw, aiItems, 'ai', 'AI 最佳立柱', modeDraws.length, seen, 'AI只採100+150｜勝率優先；無95%則94.99%往下找最高｜最新連倒優先於近5倒');
         await new Promise(requestAnimationFrame);
 
-        const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, wantedPerBuild, aiItems);
+        const antiItems = await buildTopAntiGroups(modeDraws, candidateScoreData, wantedPerBuild);
         appendUniqueCaishenItems(raw, antiItems, 'anti', '防穿透立柱', modeDraws.length, seen, '防穿透只採100+150｜條件同AI｜勝率優先並避開AI同弱點');
         await new Promise(requestAnimationFrame);
 
@@ -6173,7 +6066,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     lastRandom = [];
     if (aiResult) aiResult.innerHTML = buildMultiResultHTML(lastAI, '財神參考｜AI 最佳立柱', false, 'ai');
     if (antiResult) antiResult.innerHTML = buildMultiResultHTML(lastAnti, '財神參考｜防穿透立柱', false, 'anti');
-
+    if (highPassResult) highPassResult.innerHTML = buildMultiResultHTML(lastHighPass, '財神參考｜高過關爆發立柱', false, 'highpass');
     if (reverseResult) reverseResult.innerHTML = buildMultiResultHTML(lastReverse, '財神參考｜反指標排行立柱', false, 'reverse');
     if (randomResult) randomResult.innerHTML = '<div class="small-note">財神今日代理本輪不採隨機平衡，避免垃圾組混入判斷。</div>';
   }
@@ -6327,7 +6220,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     } finally {
       if (buttonEl) {
         buttonEl.disabled = false;
-        buttonEl.textContent = originalText || '';
+        buttonEl.textContent = originalText || '一鍵挑選最佳三組（50/100/150）';
       }
     }
   }
@@ -6358,8 +6251,8 @@ ${settleRecord.analysisLines.join('\n')}`;
               <div class="recommend-item-head">
                 <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)}${item.sourceType === 'memory' ? '' : ` 第 ${Number(item.sourceIndex) + 1} 組`}${(manualActiveIndexes || []).includes(idx) ? '｜目前分析中' : ''}</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                  <button class="btn btn-secondary single-copy-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
                   <button class="btn btn-primary battle-memory-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">出戰</button>
+                  <button class="btn btn-secondary single-copy-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
                   <button class="btn btn-dark move-manual-up-btn" data-manual-index="${idx}" ${idx === 0 ? 'disabled' : ''} style="padding:6px 10px; font-size:13px; width:auto;">順序上調</button>
                   <button class="btn btn-dark remove-manual-recommend-btn" data-manual-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">移除</button>
                 </div>
@@ -6378,15 +6271,67 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function renderRecommendedItems(items) {
-    // 推薦4組低穿透率區已移除，但手動移入比較區必須保留。
-    if (!recommendResult) return;
-    const manualHtml = buildManualRecommendHTML();
-    recommendResult.innerHTML = manualHtml || '<div class="small-note">尚未移入立柱。請先從下方生成結果按「移入手動比較」，或從記憶庫按「置頂到手動區」。</div>';
+    const bestComboButtonHTML = `
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+        <button class="btn btn-secondary best-three-combo-btn" style="padding:8px 12px; font-size:13px; width:auto;">一鍵挑選最佳三組（50/100/150）</button>
+      </div>
+    `;
+    if (!items || items.length < 4) {
+      const manualHtml = buildManualRecommendHTML();
+      recommendResult.innerHTML = bestComboButtonHTML + (manualHtml || '<div class="small-note">尚未產生。請先生成下方立柱，再按一鍵挑最佳三組。</div>');
+      return;
+    }
+    const avgCrossOverlap = ((items[0].avgCrossOverlap || 0) * 100).toFixed(2);
+    const maxCrossOverlap = ((items[0].maxCrossOverlap || 0) * 100).toFixed(2);
+    const avgSamePillarOverlap = ((items[0].avgSamePillarOverlap || 0) * 100).toFixed(2);
+    const avgLatestDownStreak = (items[0].avgLatestDownStreak || 0).toFixed(2);
+    const latestDownCount = items[0].latestDownCount || 0;
+    const comboAllDownStreak = items[0].comboAllDownStreak || 0;
+    const streakProfile = items[0].streakProfile || [0, 0, 0, 0];
+    const comboDownCoverage4 = items[0].comboDownCoverage4 || 0;
+    const totalRecent5Down = items[0].totalRecent5Down || 0;
+    recommendResult.innerHTML = `
+      ${bestComboButtonHTML}
+      <div class="small-note">只從 AI最佳 / 防穿透 / 高過關爆發 / 反指標排行 中挑選，完全排除隨機平衡；v43：反指標不看勝率，只看連續倒排行，且最新一期必須倒。AI / 防穿透仍先強制篩選未過關≤3，若無才≤4，再無才≤5；高爆發完全隔離。<br>四期倒覆蓋：<b>${comboDownCoverage4}/4</b>｜平均同柱重複率：<b>${avgSamePillarOverlap}%</b>｜三組平均全柱穿插重複率：<b>${avgCrossOverlap}%</b>｜最高單對全柱穿插重複率：<b>${maxCrossOverlap}%</b>｜最新一期倒：<b>${latestDownCount}/4</b></div>
+      ${latestDrawLegendHTML()}
+      <div class="recommend-list">
+        ${items.map(item => `
+          <div class="recommend-item">
+            <div class="recommend-item-head">
+              <span class="${item.labelClass || ''}">推薦第 ${item.recommendRank} 組｜${sourceTypeLabel(item.sourceType)} 第 ${item.sourceIndex + 1} 組</span>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button class="btn btn-primary move-to-recommend-btn" data-copy-type="recommended" data-copy-index="${item.recommendRank - 1}" data-source-label="推薦區" style="padding:6px 10px; font-size:13px; width:auto;">移入手動比較</button>
+                <button class="btn btn-secondary single-copy-btn" data-copy-type="recommended" data-copy-index="${item.recommendRank - 1}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
+              </div>
+            </div>
+            <div class="recommend-meta">整體過關率 ${(item.stats.passRate * 100).toFixed(2)}%｜最新一期 ${item.stats.latestDown ? '倒' : '過關'}｜未過關 ${item.stats.fail} 期${item.failLimitUsed ? `（門檻≤${item.failLimitUsed}）` : ""}｜結構懲罰 ${typeof item.stats.balancePenalty === "number" ? item.stats.balancePenalty.toFixed(2) : "-"}｜強度分數 ${(item.strengthScore || 0).toFixed(2)}</div>
+            ${renderGroupsHighlighted(item.groups)}
+          </div>
+        `).join('')}
+      </div>
+      ${buildManualRecommendHTML()}
+    `;
   }
 
   function renderAntiAnalysis(candidateScoreData, aiItems, antiItems) {
-    
-    if (antiAnalysisBody) antiAnalysisBody.innerHTML = '';
+    const corePool = corePoolFromCandidateScoreData(candidateScoreData, 18);
+    const aiFirst = aiItems && aiItems.length ? aiItems[0] : null;
+    const antiFirst = antiItems && antiItems.length ? antiItems[0] : null;
+    if (!corePool.length || !antiFirst) {
+      antiAnalysisBody.innerHTML = '<tr><td colspan="2">尚未產生結果。</td></tr>';
+      return;
+    }
+    const coreSet = new Set(corePool);
+    const antiCoreCounts = antiFirst.groups.map(g => g.filter(n => coreSet.has(n)).length);
+    const overlapVsAi = aiFirst ? samePillarOverlapRate(antiFirst.groups, aiFirst.groups) : 0;
+    antiAnalysisBody.innerHTML = `
+      <tr><td>核心號碼池（前18）</td><td>${corePool.map(pad2).join(' ')}</td></tr>
+      <tr><td>防穿透首組吃到核心數</td><td>第一柱 ${antiCoreCounts[0]} 支 / 第二柱 ${antiCoreCounts[1]} 支 / 第三柱 ${antiCoreCounts[2]} 支</td></tr>
+      <tr><td>防穿透危險型態率</td><td>${((antiFirst.stats.zeroRisk || 0) * 100).toFixed(2)}%</td></tr>
+      <tr><td>防穿透同柱重疊率（對 AI 首組）</td><td>${(overlapVsAi * 100).toFixed(2)}%</td></tr>
+      <tr><td>極限防穿透模式</td><td>${antiFirst.stats && antiFirst.stats.extremeMode ? '已開啟' : '一般模式'}</td></tr>
+      <tr><td>防穿透主評分</td><td>${(antiFirst.stats.antiTotalScore || 0).toFixed(2)}</td></tr>
+    `;
   }
 
   function exportText(groups, label, removeInfo = null) {
@@ -6697,21 +6642,31 @@ ${settleRecord.analysisLines.join('\n')}`;
     return combined;
   }
 
-  async function buildTopAntiGroupsForSelectedMode(judgeDraws, candidateScoreData, wantedGroups, aiItems = []) {
-    if (!isMultiBacktestMode()) return buildTopAntiGroups(judgeDraws, candidateScoreData, wantedGroups, aiItems);
+  async function buildTopAntiGroupsForSelectedMode(judgeDraws, candidateScoreData, wantedGroups) {
+    if (!isMultiBacktestMode()) return buildTopAntiGroups(judgeDraws, candidateScoreData, wantedGroups);
     let combined = [];
     for (const set of getGenerationDrawSets()) {
-      log(`50+100+150 完整顯示：開始真正防穿透立柱 ${set.label}，預計顯示 ${wantedGroups} 組。`);
+      log(`50+100+150 完整顯示：開始防穿透立柱 ${set.label}，預計顯示 ${wantedGroups} 組。`);
       const localCandidateScoreData = buildCandidateScoreRanking(set.draws, parseCandidateShares(candidateInput.value).counts);
-      const localAiSeeds = (aiItems || []).filter(item => !item.sourceBacktestLabel || item.sourceBacktestLabel === set.label);
-      const items = await buildTopAntiGroups(set.draws, localCandidateScoreData, wantedGroups, localAiSeeds);
+      const items = await buildTopAntiGroups(set.draws, localCandidateScoreData, wantedGroups);
       combined = combined.concat(tagItemsWithBacktestLabel(items, set.label));
       await new Promise(requestAnimationFrame);
     }
     return combined;
   }
 
-
+  async function buildTopHighPassGroupsForSelectedMode(judgeDraws, wantedGroups, aiItems) {
+    if (!isMultiBacktestMode()) return buildTopHighPassGroups(judgeDraws, wantedGroups, aiItems);
+    let combined = [];
+    for (const set of getGenerationDrawSets()) {
+      log(`50+100+150 完整顯示：開始高過關爆發立柱 ${set.label}，預計顯示 ${wantedGroups} 組。`);
+      const localAiSeeds = (aiItems || []).filter(item => !item.sourceBacktestLabel || item.sourceBacktestLabel === set.label);
+      const items = await buildTopHighPassGroups(set.draws, wantedGroups, localAiSeeds);
+      combined = combined.concat(tagItemsWithBacktestLabel(items, set.label));
+      await new Promise(requestAnimationFrame);
+    }
+    return combined;
+  }
 
   async function buildTopReverseGroupsForSelectedMode(judgeDraws, wantedGroups) {
     if (!isMultiBacktestMode()) return buildTopReverseGroups(judgeDraws, wantedGroups);
@@ -6736,7 +6691,6 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   async function run() {
-    CAISHEN_FAST_MODE = false; // v64：一般生成固定使用完整嚴格搜尋，不再走加速降級路線。
     const activeDrawText = getActiveDrawText();
     const allDraws = parseDraws(activeDrawText);
     const draws = getBacktestDraws();
@@ -6756,14 +6710,15 @@ ${settleRecord.analysisLines.join('\n')}`;
     resetLog();
     log(`目前彩種：${gameLabel(currentGameMode())}。資料庫/欄位共 ${allDraws.length} 期，本次生成立柱參考：${getBacktestLimitLabel()}；判斷基準 ${draws.length} 期。`);
     if (isMultiBacktestMode()) log(`50+100+150 同時生成已啟用：會分別用 50期、100期、150期各自生成，並全部分區顯示。`);
-    log('本次啟用 v62 嚴格精選搜尋：不再用低標垃圾補位，找不到達標組就直接顯示不足。');
+    log('本次啟用 v30 深度固定搜尋：同一份資料會用固定種子逐類深度分析，清除鎖定後重新生成也會回到同一套嚴格結果。');
     log(`已讀取多人分享不出牌 ${shareData.rows} 行。`);
     log(`已讀取多人分享推薦號碼 ${candidateShareData.rows} 行。`);
-    log(isMultiBacktestMode() ? `本次將在 50期 / 100期 / 150期各生成 ${wantedGroups} 組；每一類最多顯示 ${wantedGroups * getGenerationDrawSets().length} 組。` : `本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組真正防穿透立柱、${wantedGroups} 組反指標排行立柱、${wantedGroups} 組隨機立柱。`);
-    log('v67 條件：AI≥94%且最新倒；防穿透會先對照AI做低重疊互補，再用補強搜尋避免空白；高爆發已移除；反指標連倒≥20；隨機重平衡且最新倒。');
+    log(isMultiBacktestMode() ? `本次將在 50期 / 100期 / 150期各生成 ${wantedGroups} 組；每一類最多顯示 ${wantedGroups * getGenerationDrawSets().length} 組。` : `本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組防穿透立柱、${wantedGroups} 組高過關爆發立柱、${wantedGroups} 組反指標排行立柱、${wantedGroups} 組隨機立柱。`);
+    log('v30 深度固定搜尋版已啟動：AI / 防穿透會繼續搜尋並和舊鎖定池合併；高爆發完全使用原始高爆發排序隔離鎖定，不套用連倒條件。');
 
     aiResult.innerHTML = 'AI 計算中...';
     antiResult.innerHTML = '防穿透立柱待產生...';
+    highPassResult.innerHTML = '高過關爆發立柱待產生...';
     reverseResult.innerHTML = '反指標排行立柱待產生...';
     randomResult.innerHTML = '隨機立柱待產生...';
     recommendResult.innerHTML = 'v43 四組推薦計算中...';
@@ -6787,11 +6742,11 @@ ${settleRecord.analysisLines.join('\n')}`;
         recommendAI = getLockedTypeItems('ai', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
       }
       aiResult.innerHTML = buildMultiResultHTML(lastAI, 'AI 最佳立柱', false, 'ai');
-      if (lastAI.length) { log(`AI 最佳立柱完成，共顯示 ${lastAI.length} 組；推薦池累積 ${recommendAI.length} 組。最佳整體過關率 ${(lastAI[0].stats.passRate * 100).toFixed(2)}%。`); } else { aiResult.innerHTML = '<div class="pillar"><div class="pillar-title">AI立柱精選候補不足</div><div class="nums">100期過關率需≥94%，且最新一期必須倒；v67 會自動加大補強搜尋，避免防穿透空白。</div></div>'; log('AI 最佳立柱未產生：未找到符合≥94%且最新一期倒的精選結果。'); }
+      log(`AI 最佳立柱完成，共顯示 ${lastAI.length} 組；推薦池累積 ${recommendAI.length} 組。最佳整體過關率 ${(lastAI[0].stats.passRate * 100).toFixed(2)}%。`);
 
 
       log('開始產生防穿透立柱，並與歷史鎖定池合併...（v30 會逐個深度比較）');
-      const freshAnti = await buildTopAntiGroupsForSelectedMode(draws, candidateScoreData, wantedGroups, lastAI);
+      const freshAnti = await buildTopAntiGroupsForSelectedMode(draws, candidateScoreData, wantedGroups);
       let recommendAnti = [];
       if (isMultiBacktestMode()) {
         lastAnti = freshAnti;
@@ -6803,18 +6758,27 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
       antiResult.innerHTML = buildMultiResultHTML(lastAnti, '防穿透立柱', false, 'anti');
       const antiFirst = lastAnti[0];
-      if (antiFirst && lastAI[0]) {
-        log(`防穿透立柱完成，共 ${lastAnti.length} 組。最佳整體過關率 ${(antiFirst.stats.passRate * 100).toFixed(2)}%，同柱重疊 ${(samePillarOverlapRate(antiFirst.groups, lastAI[0].groups) * 100).toFixed(2)}%。`);
-      } else if (antiFirst) {
-        log(`防穿透立柱完成，共 ${lastAnti.length} 組。最佳整體過關率 ${(antiFirst.stats.passRate * 100).toFixed(2)}%。`);
-      } else {
-        antiResult.innerHTML = '<div class="pillar"><div class="pillar-title">防穿透精選候補不足</div><div class="nums">100期過關率需≥94%，且最新一期必須倒；不足時會以最接近核心條件的精選候補補滿。</div></div>';
-        log('防穿透立柱未產生：未找到符合≥94%且最新一期倒的精選結果。');
-      }
+      log(`防穿透立柱完成，共 ${lastAnti.length} 組。最佳整體過關率 ${(antiFirst.stats.passRate * 100).toFixed(2)}%，同柱重疊 ${(samePillarOverlapRate(antiFirst.groups, lastAI[0].groups) * 100).toFixed(2)}%。`);
 
-      lastHighPass = [];
-      const recommendHighPass = [];
-      log('高爆發功能已移除：避免生成結果與AI最佳立柱長一樣，改由AI與真正防穿透負責精選。');
+      log('開始產生高過關爆發立柱，並與歷史鎖定池合併...');
+      const freshHighPass = await buildTopHighPassGroupsForSelectedMode(draws, wantedGroups, lastAI);
+      let recommendHighPass = [];
+      if (isMultiBacktestMode()) {
+        lastHighPass = freshHighPass;
+        recommendHighPass = freshHighPass;
+      } else {
+        lockTypeItems('highpass', freshHighPass, draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+        lastHighPass = getLockedTypeItems('highpass', draws, wantedGroups, candidateInput.value, noDrawInput.value);
+        recommendHighPass = getLockedTypeItems('highpass', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
+      }
+      if (lastHighPass.length) {
+        highPassResult.innerHTML = buildMultiResultHTML(lastHighPass, '高過關爆發立柱', false, 'highpass');
+        const highPassFirst = lastHighPass[0];
+        log(`高過關爆發立柱完成，共 ${lastHighPass.length} 組。最佳整體過關率 ${(highPassFirst.stats.passRate * 100).toFixed(2)}%，5-0-0 ${highPassFirst.stats.fiveZeroZeroCount} 次。`);
+      } else {
+        highPassResult.innerHTML = '<div class="pillar"><div class="pillar-title">未找到合格結果</div><div class="nums">本次搜尋未找到同時符合「常見分布前5名內包含 5-0-0」與「連續20期過關率100%」的高過關爆發立柱，因此不顯示降級版，避免和 AI 最佳立柱混在一起。</div></div>';
+        log('高過關爆發立柱未產生：本次搜尋未找到常見分布前5名內包含 5-0-0 的合格結果。');
+      }
 
       log('開始產生反指標排行立柱（不看勝率，最新一期必須倒，依連續倒排行）...');
       lastReverse = await buildTopReverseGroupsForSelectedMode(draws, wantedGroups);
@@ -6822,14 +6786,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         reverseResult.innerHTML = buildMultiResultHTML(lastReverse, '反指標排行立柱', false, 'reverse');
         log(`反指標排行立柱完成，共 ${lastReverse.length} 組。最高最新連倒 ${lastReverse[0].stats.latestDownStreak || 0} 期。`);
       } else {
-        reverseResult.innerHTML = '<div class="pillar"><div class="pillar-title">未找到合格反指標</div><div class="nums">本次沒有找到「最新連倒20期以上」的反指標立柱。</div></div>';
-        log('反指標排行立柱未產生：本次沒有找到最新連倒20期以上的結果。');
+        reverseResult.innerHTML = '<div class="pillar"><div class="pillar-title">未找到合格反指標</div><div class="nums">本次沒有找到「最新一期倒」的反指標立柱。</div></div>';
+        log('反指標排行立柱未產生：本次沒有找到最新一期倒的結果。');
       }
 
       log('開始產生隨機平衡立柱...');
       lastRandom = buildTopRandomGroupsForSelectedMode(draws, wantedGroups);
-      randomResult.innerHTML = lastRandom.length ? buildMultiResultHTML(lastRandom, '隨機平衡立柱', false, 'random') : '<div class="pillar"><div class="pillar-title">隨機平衡精選候補不足</div><div class="nums">需結構平衡且最新一期倒；優先最新兩期都倒。不足時會以最接近核心條件的精選候補補滿。</div></div>';
-      if (lastRandom.length) log(`隨機平衡立柱完成，共 ${lastRandom.length} 組。結構懲罰最低 ${lastRandom[0].stats.balancePenalty.toFixed(2)}。`); else log('隨機平衡立柱未產生：未找到結構平衡且最新一期倒的結果。');
+      randomResult.innerHTML = buildMultiResultHTML(lastRandom, '隨機平衡立柱', false, 'random');
+      log(`隨機平衡立柱完成，共 ${lastRandom.length} 組。最佳整體過關率 ${(lastRandom[0].stats.passRate * 100).toFixed(2)}%。`);
 
 
       currentRecommendStorageKey = '';
@@ -6906,6 +6870,55 @@ ${settleRecord.analysisLines.join('\n')}`;
     });
   }
 
+
+  if (moveAllCaishenBtn) {
+    moveAllCaishenBtn.addEventListener('click', () => {
+      try {
+
+        // 財神代理生成後，下方真正可操作的按鈕
+        // 實際上都共用 data-move-to-recommend
+        // 直接抓下方結果區即可
+
+        const resultAreas = [
+          document.getElementById('aiResult'),
+          document.getElementById('antiResult'),
+          document.getElementById('highPassResult'),
+          document.getElementById('reverseResult'),
+          document.getElementById('randomResult')
+        ].filter(Boolean);
+
+        const btns = [];
+
+        resultAreas.forEach(area => {
+          area.querySelectorAll('[data-move-to-recommend], button').forEach(btn => {
+            const txt = (btn.textContent || '').trim();
+            if (txt.includes('移至推薦區')) {
+              btns.push(btn);
+            }
+          });
+        });
+
+        let moved = 0;
+
+        btns.forEach(btn => {
+          try {
+            btn.click();
+            moved++;
+          } catch(err) {}
+        });
+
+        if (moved > 0) {
+          alert(`已將 ${moved} 組財神參考立柱移入推薦區`);
+        } else {
+          alert('目前沒有財神參考立柱可移入');
+        }
+
+      } catch(err) {
+        console.error(err);
+        alert('財神參考移入失敗');
+      }
+    });
+  }
 
 
   runBtn.addEventListener('click', run);
@@ -7052,8 +7065,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
   function scrollToManualSection() {
-    refreshRecommendArea();
-    const target = document.getElementById('manualSection') || document.getElementById('manualRecommendBox') || document.querySelector('.manual-recommend-zone') || recommendResult;
+    const target = document.getElementById('manualSection') || document.querySelector('.manual-recommend-zone') || recommendResult;
     if (!target) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -7272,7 +7284,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       return;
     }
   });
-  try { localStorage.removeItem('caishen_growth_memory_v2'); } catch (err) {}
+  if (typeof initCaishenGrowthSystem === 'function') initCaishenGrowthSystem();
 
 
   const MEMORY_DB_KEY = 'caishen_memory_pillars_v2';
@@ -7292,20 +7304,16 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     ['539','dayday'].forEach(mode => {
       db[mode] = (db[mode] || [])
-        .map((x, idx) => {
-          const rawGroups = Array.isArray(x?.groups) ? x.groups : (Array.isArray(x?.pillars) ? x.pillars : (Array.isArray(x?.pillarGroups) ? x.pillarGroups : []));
-          const groups = rawGroups.slice(0,3).map(g => (Array.isArray(g) ? g : String(g || '').match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || []).map(Number).filter(n => n >= 1 && n <= 39));
-          return {
-            id: String(x?.id || `${Date.now()}_${mode}_${idx}_${Math.random().toString(36).slice(2)}`),
-            title: x?.title || '記憶立柱',
-            groups,
-            sourceBacktestLabel: x?.sourceBacktestLabel || '',
-            savedAt: x?.savedAt || new Date().toISOString(),
-            time: x?.time || '',
-            battle: !!x?.battle
-          };
-        })
-        .filter(x => x.groups.length >= 3 && x.groups.every(g => Array.isArray(g) && g.length > 0));
+        .filter(x => x && Array.isArray(x.groups))
+        .map((x, idx) => ({
+          id: String(x.id || `${Date.now()}_${mode}_${idx}_${Math.random().toString(36).slice(2)}`),
+          title: x.title || '記憶立柱',
+          groups: (x.groups || []).slice(0,3).map(g => (g || []).map(Number).filter(n => n >= 1 && n <= 39)),
+          sourceBacktestLabel: x.sourceBacktestLabel || '',
+          savedAt: x.savedAt || new Date().toISOString(),
+          time: x.time || '',
+          battle: !!x.battle
+        }));
     });
 
     return db;
@@ -7879,9 +7887,37 @@ function moveMemoryItemToManualTop(id, triggerEl=null){
 })();
 
 </script>
+
+<button id="goCaishenBattleBtn" type="button">財神對戰</button>
 <button id="goMemoryDbBtn" type="button">記憶庫</button>
 
+<script>
+(function(){
+  const battleBtn=document.getElementById('goCaishenBattleBtn');
+  if(battleBtn){
+    battleBtn.addEventListener('click',function(){
+      const target=document.querySelector('.caishen-growth-box');
+      if(target){
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    });
+  }
 
+  const memoryBtn=document.getElementById('goMemoryDbBtn');
+  if(memoryBtn){
+    memoryBtn.addEventListener('click',function(){
+      const target=document.getElementById('memoryDbWrap');
+      const body=document.getElementById('memoryDbBody');
+      const toggle=document.getElementById('toggleMemoryDbBtn');
+      if(body) body.style.display='block';
+      if(toggle) toggle.textContent='收起';
+      if(target){
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    });
+  }
+})();
+</script>
 
 </body>
 </html>
