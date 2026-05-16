@@ -3934,6 +3934,58 @@ ${settleRecord.analysisLines.join('\n')}`;
     return compareAntiItems(a, b);
   }
 
+  async function rescueTrueDefenseCandidates(pool, draws, totalWanted, evalAnti, aiItems, keepSize) {
+    // v67：防穿透不能空白。先保留 AI 的核心門檻（100期≥94%、最新一期倒），
+    // 但把「與 AI 低重疊」當排序目標，不再因為過度追求低重疊而把合格候選全部排掉。
+    let resultPool = Array.isArray(pool) ? pool.slice() : [];
+    const aiSeeds = (aiItems || []).filter(x => x && Array.isArray(x.groups));
+    const strictNeed = Math.max(2, totalWanted || 2);
+    const strictCount = () => resultPool.filter(x => x && x.stats && aiCorePassLatest(x.stats)).length;
+    if (strictCount() >= strictNeed) return resultPool;
+
+    const baseSeeds = aiSeeds.length ? aiSeeds : [{ groups: buildBalancedRandomPillar() }];
+    const rounds = CAISHEN_FAST_MODE ? 36000 : 120000;
+    for (let i = 0; i < rounds && strictCount() < strictNeed; i++) {
+      let groups;
+      if (i % 5 === 0) {
+        groups = buildBalancedRandomPillar();
+      } else {
+        const base = baseSeeds[i % baseSeeds.length].groups;
+        groups = mutateByTimes(base, 4 + (i % 23));
+      }
+      const item = { groups, stats: evalAnti(groups) };
+      if (item.stats && aiCorePassLatest(item.stats)) {
+        resultPool = addUniqueSorted(resultPool, item, keepSize, compareTrueDefenseItems);
+      } else if (i % 19 === 0) {
+        // 仍保留少量接近候補，給後續 refine 繼續爬到 94% 最新倒。
+        resultPool = addUniqueSorted(resultPool, item, keepSize, compareTrueDefenseItems);
+      }
+      if (i > 0 && i % 6000 === 0) {
+        log(`防穿透補強搜尋：已掃描 ${i}/${rounds}，合格 ${strictCount()}/${strictNeed}`);
+        await new Promise(requestAnimationFrame);
+      }
+    }
+
+    if (strictCount() < strictNeed && resultPool.length) {
+      const refineBase = finalizeTopItems(resultPool, Math.min(resultPool.length, CAISHEN_FAST_MODE ? 80 : 180), compareTrueDefenseItems);
+      for (let r = 0; r < refineBase.length && strictCount() < strictNeed; r++) {
+        let current = refineBase[r];
+        let best = current;
+        const steps = CAISHEN_FAST_MODE ? 900 : 2600;
+        for (let step = 0; step < steps; step++) {
+          const candGroups = randomSwap(current.groups);
+          const cand = { groups: candGroups, stats: evalAnti(candGroups) };
+          if (compareTrueDefenseItems(cand, current) < 0 || rand() < 0.01) current = cand;
+          if (compareTrueDefenseItems(cand, best) < 0) best = cand;
+          if (best.stats && aiCorePassLatest(best.stats) && strictCount() >= strictNeed) break;
+        }
+        resultPool = addUniqueSorted(resultPool, best, keepSize, compareTrueDefenseItems);
+        if (r % 8 === 7) await new Promise(requestAnimationFrame);
+      }
+    }
+    return resultPool;
+  }
+
   async function buildTopAntiGroups(draws, candidateScoreData, totalWanted, aiItems = []) {
     seedForType('anti');
     const evalAnti = makeAntiAgainstAiEvaluator(draws, aiItems);
@@ -3967,8 +4019,17 @@ ${settleRecord.analysisLines.join('\n')}`;
       eliteAcceptChance: CAISHEN_FAST_MODE ? 0.006 : 0.003
     });
 
+    pool = await rescueTrueDefenseCandidates(pool, draws, totalWanted, evalAnti, aiItems, keepSize);
+
     const qualified = pool.filter(item => item.stats && aiCorePassLatest(item.stats));
     let finalItems = finalizeTopItems(qualified, totalWanted, compareTrueDefenseItems);
+    // v67：如果仍不足，才用最接近 94% 且最新倒的候補補畫面；排序仍會把真正合格的放最上面。
+    if (finalItems.length < totalWanted) {
+      const near = pool
+        .filter(item => item && item.stats && item.stats.latestDown && (item.stats.passRate || 0) >= 0.93)
+        .sort(compareTrueDefenseItems);
+      finalItems = finalizeTopItems(finalItems.concat(near), totalWanted, compareTrueDefenseItems);
+    }
     if (finalItems.length < totalWanted) {
       finalItems = ensureAtLeastWanted(pool, totalWanted, compareTrueDefenseItems,
         (stats) => aiCorePassLatest(stats),
@@ -3976,7 +4037,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         '真正防穿透'
       );
     }
-    saveStoredItems(storageKey, finalizeTopItems(qualified, Math.min(60, keepSize), compareTrueDefenseItems));
+    saveStoredItems(storageKey, finalizeTopItems(qualified.length ? qualified : finalItems, Math.min(60, keepSize), compareTrueDefenseItems));
     return finalItems;
   }
 
@@ -6298,6 +6359,7 @@ ${settleRecord.analysisLines.join('\n')}`;
                 <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)}${item.sourceType === 'memory' ? '' : ` 第 ${Number(item.sourceIndex) + 1} 組`}${(manualActiveIndexes || []).includes(idx) ? '｜目前分析中' : ''}</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <button class="btn btn-secondary single-copy-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
+                  <button class="btn btn-primary battle-memory-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">出戰</button>
                   <button class="btn btn-dark move-manual-up-btn" data-manual-index="${idx}" ${idx === 0 ? 'disabled' : ''} style="padding:6px 10px; font-size:13px; width:auto;">順序上調</button>
                   <button class="btn btn-dark remove-manual-recommend-btn" data-manual-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">移除</button>
                 </div>
@@ -6698,7 +6760,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     log(`已讀取多人分享不出牌 ${shareData.rows} 行。`);
     log(`已讀取多人分享推薦號碼 ${candidateShareData.rows} 行。`);
     log(isMultiBacktestMode() ? `本次將在 50期 / 100期 / 150期各生成 ${wantedGroups} 組；每一類最多顯示 ${wantedGroups * getGenerationDrawSets().length} 組。` : `本次將一次生成 ${wantedGroups} 組 AI 立柱、${wantedGroups} 組真正防穿透立柱、${wantedGroups} 組反指標排行立柱、${wantedGroups} 組隨機立柱。`);
-    log('v65 條件：AI≥94%且最新倒；防穿透必須對照AI做低重疊互補且≥94%最新倒；高爆發已移除，避免生成與AI一樣的立柱；反指標連倒≥20；隨機重平衡且最新倒。');
+    log('v67 條件：AI≥94%且最新倒；防穿透會先對照AI做低重疊互補，再用補強搜尋避免空白；高爆發已移除；反指標連倒≥20；隨機重平衡且最新倒。');
 
     aiResult.innerHTML = 'AI 計算中...';
     antiResult.innerHTML = '防穿透立柱待產生...';
@@ -6725,7 +6787,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         recommendAI = getLockedTypeItems('ai', draws, Math.max(60, wantedGroups * 12), candidateInput.value, noDrawInput.value);
       }
       aiResult.innerHTML = buildMultiResultHTML(lastAI, 'AI 最佳立柱', false, 'ai');
-      if (lastAI.length) { log(`AI 最佳立柱完成，共顯示 ${lastAI.length} 組；推薦池累積 ${recommendAI.length} 組。最佳整體過關率 ${(lastAI[0].stats.passRate * 100).toFixed(2)}%。`); } else { aiResult.innerHTML = '<div class="pillar"><div class="pillar-title">AI立柱精選候補不足</div><div class="nums">100期過關率需≥94%，且最新一期必須倒；不足時會以最接近核心條件的精選候補補滿。</div></div>'; log('AI 最佳立柱未產生：未找到符合≥94%且最新一期倒的精選結果。'); }
+      if (lastAI.length) { log(`AI 最佳立柱完成，共顯示 ${lastAI.length} 組；推薦池累積 ${recommendAI.length} 組。最佳整體過關率 ${(lastAI[0].stats.passRate * 100).toFixed(2)}%。`); } else { aiResult.innerHTML = '<div class="pillar"><div class="pillar-title">AI立柱精選候補不足</div><div class="nums">100期過關率需≥94%，且最新一期必須倒；v67 會自動加大補強搜尋，避免防穿透空白。</div></div>'; log('AI 最佳立柱未產生：未找到符合≥94%且最新一期倒的精選結果。'); }
 
 
       log('開始產生防穿透立柱，並與歷史鎖定池合併...（v30 會逐個深度比較）');
