@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP｜乾淨兩組出戰版</title>
+  <title>吸金穩贏 APP｜天天樂真正分流修正版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -1063,7 +1063,7 @@
 <body>
   <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜乾淨兩組出戰版</div>
+    <div class="title">吸金穩贏 APP｜天天樂真正分流修正版</div>
     <div class="sub">
       主畫面改成每日兩組出戰：一組主力高過關，一組輔助低重疊。<br>
       <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；本版只簡化畫面與出戰邏輯，不破壞原資料。
@@ -1221,7 +1221,7 @@
           • 每行會抓出前 5 個 01~39 的號碼當作該期開獎號碼。<br>
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
-          • 本版固定只生成兩組：天天樂自動採同步保命型，539自動採互補型；開獎結果會用來慢學習，盈虧只保留紀錄。<br>
+          • 本版固定只生成兩組：539維持互補型；天天樂改為同步保命 / 防穿透 / 高爆發 / 反轉 / 極端多核心分流；開獎結果會用來慢學習，盈虧只保留紀錄。<br>
         </div>
       </div>
 
@@ -7146,8 +7146,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     const other = pair && pair[idx === 0 ? 1 : 0];
     const same = other ? samePillarOverlapRate(item.groups, other.groups) : 0;
     const cross = other ? crossOverlapRate(item.groups, other.groups) : 0;
-    const title = idx === 0 ? '同旺主柱' : '同旺輔柱';
-    const sub = idx === 0 ? '核心共識主柱' : '共享核心輔柱';
+    const title = item.sourceLabel || (idx === 0 ? '同旺主柱' : '同旺輔柱');
+    const sub = idx === 0 ? '主力核心' : '輔助分流';
     return `
       <div class="clean-two-card ${idx === 1 ? 'defense' : ''}">
         <div class="clean-two-card-title">
@@ -7193,7 +7193,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="clean-two-grid">
         ${items.map((item, idx) => buildDailyTwoCardHTML(item, idx, items)).join('')}
       </div>
-      <div class="small-note">天選雙柱模式：不再分技術類別。同旺主柱拚最高過關；同旺輔柱在不明顯犧牲勝率下，盡量避開同旺主柱的號碼重疊。同樣資料重複生成會固定同一組；排序目標改為雙柱同過率優先、雙柱同倒率壓低，並壓低單過單倒與共死結構。</div>`;
+      <div class="small-note">天選雙柱模式：539維持互補；天天樂已修正為真正多核心：自我校正逐一回放時會鎖定單一性格，不再全部套同一個多核心結果；正式出戰時才把同步、防穿透、高爆發、反轉、極端各自候選混合比對。</div>`;
   }
 
 
@@ -7331,9 +7331,11 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function caishenProfileStyleKey() {
     const name = (caishenGameProfile().name || '').toString();
-    if (name.includes('高雙過')) return 'attack';
-    if (name.includes('低雙倒')) return 'defense';
-    if (name.includes('降單過')) return 'sync';
+    if (name.includes('高爆發') || name.includes('高雙過')) return 'attack';
+    if (name.includes('防穿透') || name.includes('低重疊') || name.includes('低雙倒')) return 'defense';
+    if (name.includes('反轉') || name.includes('反指標') || name.includes('連倒')) return 'reverse';
+    if (name.includes('極端') || name.includes('爆擊')) return 'extreme';
+    if (name.includes('降單過') || name.includes('同步')) return 'sync';
     if (name.includes('半同步')) return 'semi';
     if (name.includes('互補')) return 'complement';
     return 'base';
@@ -7364,6 +7366,8 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     if (style === 'attack') return [hot, interleave(hot, rotate(hot, 13)), rotate(order, seed)];
     if (style === 'defense') return [interleave(hot, cold), interleave(cold, hot), rotate(order, seed)];
+    if (style === 'reverse') return [cold, rotate(cold, seed % 13), interleave(cold, rotate(hot, 17))];
+    if (style === 'extreme') return [interleave(hot.slice(0,20), cold), rotate(hot, 3 + (seed % 9)), interleave(rotate(hot, 11), rotate(cold, 5))];
     if (style === 'sync') return [hot, rotate(hot, 7), interleave(hot, rotate(hot, 19))];
     if (style === 'semi') return [interleave(hot, rotate(cold, seed % 11)), rotate(order, seed), interleave(rotate(hot, 5), cold)];
     if (style === 'complement') return [interleave(hot, cold), rotate(order, seed), interleave(rotate(cold, 3), hot)];
@@ -7386,6 +7390,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     const variantBase =
       style === 'attack' ? 11 :
       style === 'defense' ? 23 :
+      style === 'reverse' ? 31 :
+      style === 'extreme' ? 43 :
       style === 'sync' ? 37 :
       style === 'semi' ? 51 :
       style === 'complement' ? 67 : 0;
@@ -7831,7 +7837,135 @@ ${settleRecord.analysisLines.join('\n')}`;
     return [first, second];
   }
 
+
+  async function caishenWithTempProfile(candidate, fn) {
+    const mode = currentGameMode();
+    const old = caishenLoadProfileOverride()[mode];
+    caishenSaveProfileOverride(mode, { name: candidate.name, params: candidate.params, temp: true });
+    try {
+      return await fn();
+    } finally {
+      if (old) caishenSaveProfileOverride(mode, old);
+      else caishenRemoveProfileOverride(mode);
+    }
+  }
+
+  function caishenDaydayStyleItemScore(item, styleName) {
+    const s = (item && item.stats) || {};
+    const patterns = s.patterns || {};
+    const latestDown = s.latestDown ? 1 : 0;
+    const recent5Down = s.recent5Down || 0;
+    const passRate = s.passRate || 0;
+    const recentRate = s.recentRate || 0;
+    const boom = (patterns['5-0-0'] || 0) + (patterns['4-1-0'] || 0) * 0.55 + (patterns['3-2-0'] || 0) * 0.25;
+    const allInOne = s.allInOneRate || 0;
+    const balancePenalty = s.balancePenalty || 0;
+    if (styleName.includes('防穿透')) {
+      return passRate * 106000 + recentRate * 9000 + latestDown * 520 + recent5Down * 520 - balancePenalty * 22 - allInOne * 1800;
+    }
+    if (styleName.includes('高爆發')) {
+      return passRate * 92000 + boom * 2600 + allInOne * 12000 + recentRate * 5000 - balancePenalty * 12;
+    }
+    if (styleName.includes('反轉')) {
+      return latestDown * 14000 + recent5Down * 5200 + passRate * 52000 - recentRate * 1200 - balancePenalty * 10;
+    }
+    if (styleName.includes('極端')) {
+      return boom * 3600 + allInOne * 16000 + passRate * 68000 + latestDown * 800 - balancePenalty * 8;
+    }
+    return passRate * 132000 + recentRate * 11000 + latestDown * 360 + recent5Down * 180 - balancePenalty * 30 - allInOne * 2200;
+  }
+
+  async function caishenTopItemsForDaydayStyle(draws, candidate, limit, take = 4) {
+    const pool = await caishenWithTempProfile(candidate, () => caishenBuildFastCandidatePool(draws, limit || 52));
+    if (!pool || !pool.length) return [];
+    pool.forEach(x => { x.sourceLabel = candidate.name; x.sourceType = 'daily'; x.styleName = candidate.name; });
+    pool.sort((a, b) => caishenDaydayStyleItemScore(b, candidate.name) - caishenDaydayStyleItemScore(a, candidate.name) || exportText(a.groups).localeCompare(exportText(b.groups)));
+    const picked = [];
+    const seen = new Set();
+    for (let i = 0; i < pool.length && picked.length < take; i++) {
+      let item = pool[i];
+      if (!window.CAISHEN_BACKTRAIN_FAST && picked.length < 2) item = await caishenLocalPolish(item, draws, 1, null);
+      const key = exportText(item.groups);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      item.sourceLabel = candidate.name;
+      item.sourceType = 'daily';
+      item.styleName = candidate.name;
+      picked.push(item);
+    }
+    return picked;
+  }
+
+  async function caishenBestItemForDaydayStyle(draws, candidate, limit) {
+    const items = await caishenTopItemsForDaydayStyle(draws, candidate, limit, 1);
+    return items[0] || null;
+  }
+
+  function caishenDaydayPairDiversityScore(a, b, draws) {
+    if (!a || !b) return -Infinity;
+    if (exportText(a.groups) === exportText(b.groups)) return -Infinity;
+    const ps = caishenPairBacktestStats(a, b, draws);
+    const same = samePillarOverlapRate(a.groups, b.groups);
+    const cross = crossOverlapRate(a.groups, b.groups);
+    const ov = caishenCellOverlapMatrix(a.groups, b.groups);
+    const avgRate = (((a.stats || {}).passRate || 0) + ((b.stats || {}).passRate || 0)) / 2;
+    const minRate = Math.min(((a.stats || {}).passRate || 0), ((b.stats || {}).passRate || 0));
+    const differentStyleBonus = (a.styleName && b.styleName && a.styleName !== b.styleName) ? 22000 : 0;
+    return ps.bothPassRate * 260000
+      - ps.bothFailRate * 430000
+      - ps.onePassRate * 125000
+      + avgRate * 42000
+      + minRate * 52000
+      + differentStyleBonus
+      - same * 76000
+      - cross * 36000
+      - Math.max(0, ov.maxCell - 7) * 18000
+      - Math.max(0, ov.samePillarShared - 13) * 12000
+      - Math.max(0, 5 - ov.samePillarShared) * 9000;
+  }
+
+  async function caishenGenerateDaydayDiverseTwo(draws) {
+    const candidates = caishenSelfTuneCandidates().filter(x => String(x.name || '').includes('天天樂'));
+    const items = [];
+    const perStyleLimit = window.CAISHEN_BACKTRAIN_FAST ? 28 : 48;
+    for (let i = 0; i < candidates.length; i++) {
+      const styleItems = await caishenTopItemsForDaydayStyle(draws, candidates[i], perStyleLimit, window.CAISHEN_BACKTRAIN_FAST ? 2 : 4);
+      styleItems.forEach(item => items.push(item));
+      await caishenYieldFrame();
+    }
+    const unique = uniqueDailyTwoPool(items);
+    if (unique.length < 2) return await caishenPickBestPairByJointStats(unique, draws);
+
+    let best = null;
+    for (let i = 0; i < unique.length; i++) {
+      for (let j = 0; j < unique.length; j++) {
+        if (i === j) continue;
+        const a = unique[i], b = unique[j];
+        const pairScore = caishenDaydayPairDiversityScore(a, b, draws);
+        const key = `${a.styleName}|${b.styleName}|${exportText(a.groups)}|${exportText(b.groups)}`;
+        if (!best || pairScore > best.score || (pairScore === best.score && key < best.key)) best = { a, b, score: pairScore, key };
+      }
+    }
+    if (!best) return unique.slice(0, 2);
+    let first = best.a, second = best.b;
+    if (((second.stats || {}).passRate || 0) > ((first.stats || {}).passRate || 0) && !String(first.styleName || '').includes('同步')) {
+      [first, second] = [second, first];
+    }
+    const pack = caishenPairScore(first, second, draws);
+    first = { ...first, sourceLabel: first.styleName || '天天樂主力分流', sourceType: 'daily', pairStats: pack.pairStats, pairPack: pack };
+    second = { ...second, sourceLabel: second.styleName || '天天樂輔助分流', sourceType: 'daily', pairStats: pack.pairStats, pairPack: pack };
+    return [first, second];
+  }
+
   async function caishenGenerateFastDailyTwo(draws) {
+    // 重要修正：天天樂一般出戰要跑「多核心分流」，但自我校正逐一測試性格時，
+    // 必須鎖定當下那一種性格單獨回放；否則五種性格都會呼叫同一個多核心結果，
+    // 畫面看起來只是改名字，雙過/單過/雙倒也會完全一樣。
+    if (currentGameMode() === 'dayday' && !window.CAISHEN_DAYDAY_DIVERSE_RUNNING && !window.CAISHEN_FORCE_SINGLE_PROFILE) {
+      window.CAISHEN_DAYDAY_DIVERSE_RUNNING = true;
+      try { return await caishenGenerateDaydayDiverseTwo(draws); }
+      finally { window.CAISHEN_DAYDAY_DIVERSE_RUNNING = false; }
+    }
     const pool = await caishenBuildFastCandidatePool(draws, window.CAISHEN_BACKTRAIN_FAST ? (caishenProfileStyleKey() === 'attack' ? 44 : 36) : (currentGameMode() === 'dayday' ? 76 : 82));
     if (!pool.length) return [];
     pool.sort((a, b) => caishenFastPrimaryScore(b) - caishenFastPrimaryScore(a) || exportText(a.groups).localeCompare(exportText(b.groups)));
@@ -8004,11 +8138,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     const mode = currentGameMode();
     if (mode === 'dayday') {
       return [
-        { name:'天天樂同步保命型', params:{ ...base } },
-        { name:'天天樂高雙過型', params:{ ...base, bothPassWeight:330000, onePassPenalty:185000, bothFailPenalty:460000, samePillarTarget:12, lowConsensusLine:9, highConsensusLine:16, sameLowLine:0.17, sameHighLine:0.42, overlapHighLine:0.50 } },
-        { name:'天天樂低雙倒型', params:{ ...base, bothPassWeight:270000, onePassPenalty:145000, bothFailPenalty:560000, maxBothFailPenalty:245000, dangerPenalty:3300, hardFail100:0.10 } },
-        { name:'天天樂降單過型', params:{ ...base, bothPassWeight:305000, onePassPenalty:230000, bothFailPenalty:450000, minBothPassWeight:125000, samePillarTarget:12, lowConsensusLine:9 } },
-        { name:'天天樂半同步型', params:{ ...base, bothPassWeight:285000, onePassPenalty:155000, bothFailPenalty:430000, samePillarTarget:10, lowConsensusLine:7, highConsensusLine:14, moveRatioLine:0.40, overlapHighLine:0.46 } }
+        { name:'天天樂同步保命型', params:{ ...base, name:'天天樂同步保命型' } },
+        { name:'天天樂防穿透低重疊型', params:{ ...base, name:'天天樂防穿透低重疊型', bothPassWeight:258000, onePassPenalty:150000, bothFailPenalty:540000, samePillarTarget:7, lowConsensusLine:4, highConsensusLine:10, moveRatioLine:0.32, sameLowLine:0.06, sameHighLine:0.26, overlapHighLine:0.34, dangerPenalty:3600, hardFail100:0.11, rejectMoveRatio:0.72 } },
+        { name:'天天樂高爆發型', params:{ ...base, name:'天天樂高爆發型', bothPassWeight:345000, onePassPenalty:118000, bothFailPenalty:365000, samePillarTarget:14, lowConsensusLine:10, highConsensusLine:18, sameLowLine:0.20, sameHighLine:0.48, overlapHighLine:0.54, dangerPenalty:1500, hardFail100:0.16 } },
+        { name:'天天樂反轉連倒型', params:{ ...base, name:'天天樂反轉連倒型', bothPassWeight:225000, onePassPenalty:105000, bothFailPenalty:420000, samePillarTarget:8, lowConsensusLine:5, highConsensusLine:12, moveRatioLine:0.34, sameLowLine:0.07, sameHighLine:0.30, overlapHighLine:0.38, dangerPenalty:2600, hardFail100:0.15 } },
+        { name:'天天樂極端爆擊型', params:{ ...base, name:'天天樂極端爆擊型', bothPassWeight:315000, onePassPenalty:90000, bothFailPenalty:330000, samePillarTarget:15, lowConsensusLine:11, highConsensusLine:20, sameLowLine:0.22, sameHighLine:0.56, overlapHighLine:0.60, dangerPenalty:900, hardFail100:0.18 } }
       ];
     }
     return [
@@ -8036,6 +8170,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     let bothPass = 0, onePass = 0, bothFail = 0, profit = 0;
     const comboStats = {};
     window.CAISHEN_BACKTRAIN_FAST = true;
+    const oldForceSingleProfile = !!window.CAISHEN_FORCE_SINGLE_PROFILE;
+    window.CAISHEN_FORCE_SINGLE_PROFILE = true;
     try {
       for (let targetIndex = trainCount - 1; targetIndex >= 0; targetIndex--) {
         const history = draws.slice(targetIndex + 1);
@@ -8052,6 +8188,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
     } finally {
       window.CAISHEN_BACKTRAIN_FAST = false;
+      window.CAISHEN_FORCE_SINGLE_PROFILE = oldForceSingleProfile;
       if (old) caishenSaveProfileOverride(mode, old);
       else caishenRemoveProfileOverride(mode);
     }
