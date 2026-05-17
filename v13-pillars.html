@@ -1222,6 +1222,7 @@
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
           • 本版固定只生成兩組：539維持互補型；天天樂改為同步保命 / 防穿透 / 高爆發 / 反轉 / 極端多核心分流；開獎結果會用來慢學習，盈虧只保留紀錄。<br>
+          • v15 已加入版本守門：第一次開啟會自動重建 GitHub 網址底下的天天樂舊快取，避免上傳後又被舊同特性結果覆蓋。<br>
         </div>
       </div>
 
@@ -6505,6 +6506,8 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   const DB_VERSION_KEY = 'pillar_app_active_game_v41';
   const DB_KEY_PREFIX = 'pillar_app_draw_db_v41_';
+  const APP_CORE_VERSION_KEY = 'pillar_app_core_version_guard';
+  const APP_CORE_VERSION = 'v15_dayday_true_multicore_storage_rebuild_20260517';
   let dbExpanded = false;
 
   function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : '539'; }
@@ -6576,26 +6579,66 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
   }
 
-  function cleanupOldStorageData() {
+  function isProtectedStorageKey(k) {
+    return k === DB_VERSION_KEY ||
+      k === APP_CORE_VERSION_KEY ||
+      k === WEEKLY_CALC_STORAGE_KEY ||
+      k === WEEKLY_HISTORY_STORAGE_KEY ||
+      k === MEMORY_DB_KEY ||
+      k === MEMORY_DB_OLD_KEY ||
+      k.startsWith(DB_KEY_PREFIX);
+  }
+
+  function isLegacyCacheStorageKey(k) {
+    if (isProtectedStorageKey(k)) return false;
+    const lower = String(k || '').toLowerCase();
+    return lower.includes('caishen') ||
+      lower.includes('pillar') ||
+      lower.includes('recommend') ||
+      lower.includes('manual') ||
+      lower.includes('daily') ||
+      lower.includes('battle') ||
+      lower.includes('growth') ||
+      lower.includes('adaptive') ||
+      lower.includes('profile') ||
+      lower.includes('memory_db') ||
+      lower.includes('bootstrap') ||
+      lower.includes('self_tuned') ||
+      lower.includes('candidatepool') ||
+      lower.includes('candidate_pool') ||
+      lower.includes('dayday') ||
+      lower.includes('天天樂');
+  }
+
+  function cleanupOldStorageData(options = {}) {
+    const silent = !!options.silent;
+    const modeOnly = options.modeOnly || '';
     let removed = 0;
     try {
       Object.keys(localStorage).forEach(k => {
-        if (
-          k.includes('caishen_adaptive') ||
-          k.includes('caishen_self_tuned') ||
-          k.includes('caishen_bootstrap') ||
-          k.includes('best_recommend') ||
-          k.includes('manual_recommend') ||
-          k.includes('memory_db')
-        ) {
-          localStorage.removeItem(k);
-          removed++;
+        if (!isLegacyCacheStorageKey(k)) return;
+        if (modeOnly === 'dayday') {
+          const lower = String(k || '').toLowerCase();
+          if (!(lower.includes('dayday') || lower.includes('天天樂') || lower.includes('caishen') || lower.includes('profile') || lower.includes('daily') || lower.includes('candidate'))) return;
         }
+        try { localStorage.removeItem(k); removed++; } catch (err) {}
       });
-      alert(`已清理舊暫存 ${removed} 筆，不會刪除539/天天樂開獎資料庫與七日盈虧。`);
+      if (!silent) alert(`已清理舊暫存 ${removed} 筆。保留：539/天天樂開獎資料庫、七日盈虧、記憶庫。`);
+      return removed;
     } catch (e) {
-      alert('清理舊暫存時發生錯誤：' + (e.message || String(e)));
+      if (!silent) alert('清理舊暫存時發生錯誤：' + (e.message || String(e)));
+      return removed;
     }
+  }
+
+  function autoRebuildDaydayCacheOnce() {
+    try {
+      const current = localStorage.getItem(APP_CORE_VERSION_KEY);
+      if (current === APP_CORE_VERSION) return;
+      const removed = cleanupOldStorageData({ silent: true, modeOnly: 'dayday' });
+      localStorage.setItem(APP_CORE_VERSION_KEY, APP_CORE_VERSION);
+      if (typeof console !== 'undefined') console.log('[v15] dayday cache rebuilt, removed=', removed);
+    } catch (e) {}
   }
 
   function formatDrawLine(record, index = 0) { const tag = record.date ? record.date + ' ' : ''; return `${tag}${formatNums(record.nums)}`.trim() || `第${index + 1}筆 ${formatNums(record.nums)}`; }
@@ -6822,6 +6865,13 @@ ${settleRecord.analysisLines.join('\n')}`;
   restoreDbBackupBtn.addEventListener('click', () => { restoreDatabaseBackup(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
   toggleDbBtn.addEventListener('click', () => { dbExpanded = !dbExpanded; dbTableWrap.classList.toggle('open', dbExpanded); toggleDbBtn.textContent = dbExpanded ? '收起資料庫檢查' : '展開資料庫檢查'; renderDrawDb(); });
   clearCurrentDbBtn.addEventListener('click', () => { if (!confirm(`確定清空 ${gameLabel(currentGameMode())} 的資料庫嗎？此動作不會清除另一個彩種。`)) return; saveDrawDb([], currentGameMode()); syncDbToTextarea(); renderDrawDb(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已清空 ${gameLabel(currentGameMode())} 資料庫。`); });
+  if (cleanupStorageBtn) cleanupStorageBtn.addEventListener('click', () => {
+    cleanupOldStorageData({ silent: false });
+    try { localStorage.setItem(APP_CORE_VERSION_KEY, APP_CORE_VERSION); } catch (e) {}
+    resetLog();
+    log('已清理舊暫存並重建天天樂/財神舊快取；開獎資料庫、盈虧、記憶庫已保留。');
+    renderDrawDb();
+  });
   dbTableBody.addEventListener('click', (e) => {
     const btn = e.target.closest('button'); if (!btn) return;
     const index = Number(btn.dataset.index); const records = loadDrawDb(); if (!Number.isInteger(index) || index < 0 || index >= records.length) return;
@@ -8654,6 +8704,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   if (backtrain50Btn) backtrain50Btn.addEventListener('click', runBacktrain50);
   if (selfTuneBtn) selfTuneBtn.addEventListener('click', runSelfTune100);
   if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
+  autoRebuildDaydayCacheOnce();
   initDrawDatabase();
 
   function legacyCopyText(text) {
