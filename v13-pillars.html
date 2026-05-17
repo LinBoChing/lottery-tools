@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP｜天天樂真正分流修正版</title>
+  <title>吸金穩贏 APP｜天天樂多核心修正版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -961,7 +961,7 @@
 }
 
 
-/* v68 乾淨兩組出戰版：主畫面簡化 */
+/* v68 乾淨兩組出戰版 v18真分流：主畫面簡化 */
 .clean-action-panel{
   margin-top:8px;
   padding:16px;
@@ -1061,10 +1061,9 @@
 </style>
 </head>
 <body>
-  <div style="position:fixed;left:10px;bottom:10px;z-index:100000;background:#facc15;color:#111827;border-radius:999px;padding:8px 12px;font-weight:1000;box-shadow:0 6px 18px rgba(0,0,0,.45);">v16診斷版</div>
   <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜天天樂真正分流修正版</div>
+    <div class="title">吸金穩贏 APP｜天天樂多核心修正版</div>
     <div class="sub">
       主畫面改成每日兩組出戰：一組主力高過關，一組輔助低重疊。<br>
       <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；本版只簡化畫面與出戰邏輯，不破壞原資料。
@@ -1196,7 +1195,7 @@
           <select id="groupCount" class="btn btn-dark" style="text-align:center; appearance:auto; display:none;">
             <option value="2" selected>每日固定 2 組</option>
           </select>
-          <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱 v16診斷</button>
+          <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
             <button class="btn btn-dark" id="sampleBtn">載入範例資料</button>
             <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新學習100期</button>
@@ -1207,7 +1206,7 @@
         </div>
         <div class="daily-agent-box clean-two-box">
           <div class="daily-agent-head">
-            <div class="daily-agent-title clean-title">今日天選雙柱｜v16診斷</div>
+            <div class="daily-agent-title clean-title">今日天選雙柱</div>
             <button class="btn btn-danger" id="dailyAgentBtn" type="button" style="display:none;">啟動財神今日代理</button>
           </div>
           <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」，會自動挑出雙過優先的兩組。</div>
@@ -1223,7 +1222,7 @@
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
           • 本版固定只生成兩組：539維持互補型；天天樂改為同步保命 / 防穿透 / 高爆發 / 反轉 / 極端多核心分流；開獎結果會用來慢學習，盈虧只保留紀錄。<br>
-          • v15 已加入版本守門：第一次開啟會自動重建 GitHub 網址底下的天天樂舊快取，避免上傳後又被舊同特性結果覆蓋。<br>
+          • 本版修正自我校正核心：天天樂五種性格各自用不同配對評分，不再全部收斂成同一組結果。<br>
         </div>
       </div>
 
@@ -6508,7 +6507,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   const DB_VERSION_KEY = 'pillar_app_active_game_v41';
   const DB_KEY_PREFIX = 'pillar_app_draw_db_v41_';
   const APP_CORE_VERSION_KEY = 'pillar_app_core_version_guard';
-  const APP_CORE_VERSION = 'v16_dayday_name_check_force_rebuild_20260517';
+  const APP_CORE_VERSION = 'v18_dayday_profile_rankband_split_20260517';
   let dbExpanded = false;
 
   function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : '539'; }
@@ -7848,6 +7847,140 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
+
+  function caishenDaydayPairStyleScoreForProfile(a, b, draws, profileName) {
+    if (!a || !b || exportText(a.groups) === exportText(b.groups)) return -Infinity;
+    const ps = caishenPairBacktestStats(a, b, draws);
+    const same = samePillarOverlapRate(a.groups, b.groups);
+    const cross = crossOverlapRate(a.groups, b.groups);
+    const ov = caishenCellOverlapMatrix(a.groups, b.groups);
+    const ar = ((a.stats || {}).passRate || 0);
+    const br = ((b.stats || {}).passRate || 0);
+    const minRate = Math.min(ar, br);
+    const avgRate = (ar + br) / 2;
+    const pa = ((a.stats || {}).patterns || {});
+    const pb = ((b.stats || {}).patterns || {});
+    const boomA = (pa['5-0-0'] || 0) * 1.8 + (pa['4-1-0'] || 0) + (pa['3-2-0'] || 0) * 0.45;
+    const boomB = (pb['5-0-0'] || 0) * 1.8 + (pb['4-1-0'] || 0) + (pb['3-2-0'] || 0) * 0.45;
+    const latestDown = ((a.stats || {}).latestDown ? 1 : 0) + ((b.stats || {}).latestDown ? 1 : 0);
+    const recent5Down = ((a.stats || {}).recent5Down || 0) + ((b.stats || {}).recent5Down || 0);
+    const allIn = ((a.stats || {}).allInOneRate || 0) + ((b.stats || {}).allInOneRate || 0);
+    const name = String(profileName || '');
+    let score = 0;
+
+    if (name.includes('防穿透')) {
+      // 低重疊主軸：寧可雙過稍低，也要與同步型拉開結構，避免又收斂同一對。
+      score = ps.bothPassRate * 215000 - ps.bothFailRate * 520000 - ps.onePassRate * 118000
+        + minRate * 62000 + avgRate * 26000
+        - same * 160000 - cross * 76000
+        - Math.max(0, ov.samePillarShared - 8) * 23000
+        - Math.max(0, ov.maxCell - 5) * 28000
+        + latestDown * 2400 + recent5Down * 750;
+    } else if (name.includes('高爆發')) {
+      // 爆發主軸：保留雙過，但提高4/5碰潛力，允許較高集中度。
+      score = ps.bothPassRate * 245000 - ps.bothFailRate * 340000 - ps.onePassRate * 92000
+        + (boomA + boomB) * 3400 + allIn * 24000
+        + Math.min(ov.samePillarShared, 16) * 7200
+        - Math.max(0, 8 - ov.samePillarShared) * 11000
+        - same * 26000 - cross * 18000;
+    } else if (name.includes('反轉')) {
+      // 反轉主軸：吃最新倒與近5倒，不能再只挑長期最佳那一對。
+      score = latestDown * 42000 + recent5Down * 12500
+        + ps.bothPassRate * 168000 - ps.bothFailRate * 390000 - ps.onePassRate * 82000
+        + minRate * 32000
+        - same * 62000 - cross * 30000
+        - Math.max(0, ov.maxCell - 6) * 17000;
+    } else if (name.includes('極端')) {
+      // 極端主軸：集中、爆擊、波動，與同步/防穿透明確分離。
+      score = (boomA + boomB) * 5200 + allIn * 34000
+        + ps.bothPassRate * 205000 - ps.bothFailRate * 295000 - ps.onePassRate * 65000
+        + Math.min(ov.samePillarShared, 20) * 11800
+        + same * 42000
+        - Math.max(0, 6 - ov.samePillarShared) * 18000;
+    } else {
+      // 同步保命：重點是雙過高、單過低、雙倒低，保持穩。
+      score = ps.bothPassRate * 330000 - ps.bothFailRate * 505000 - ps.onePassRate * 175000
+        + minRate * 72000 + avgRate * 38000
+        - Math.abs(ov.samePillarShared - 11) * 13000
+        - Math.max(0, ov.maxCell - 7) * 22000
+        - same * 42000 - cross * 22000;
+    }
+
+    return score;
+  }
+
+  async function caishenPickDaydayProfileSpecificPair(pool, draws) {
+    if (!pool || pool.length < 2) return pool || [];
+    const profileName = (caishenGameProfile() || {}).name || '';
+    const sorted = pool.slice().sort((a,b)=>
+      caishenDaydayStyleItemScore(b, profileName) - caishenDaydayStyleItemScore(a, profileName)
+      || exportText(a.groups).localeCompare(exportText(b.groups))
+    );
+    const topLimit = window.CAISHEN_BACKTRAIN_FAST ? 28 : 58;
+    const top = sorted.slice(0, Math.min(topLimit, sorted.length));
+    const pairs = [];
+
+    for (let i = 0; i < top.length; i++) {
+      for (let j = i + 1; j < top.length; j++) {
+        const a = top[i], b = top[j];
+        if (exportText(a.groups) === exportText(b.groups)) continue;
+        const styleScore = caishenDaydayPairStyleScoreForProfile(a, b, draws, profileName);
+        const pack = caishenPairScore(a, b, draws);
+        const same = samePillarOverlapRate(a.groups, b.groups);
+        const cross = crossOverlapRate(a.groups, b.groups);
+        const ov = caishenCellOverlapMatrix(a.groups, b.groups);
+        const pa = ((a.stats || {}).patterns || {}), pb = ((b.stats || {}).patterns || {});
+        const boom = (pa['5-0-0'] || 0) + (pb['5-0-0'] || 0) + ((pa['4-1-0'] || 0) + (pb['4-1-0'] || 0)) * 0.55;
+        const latestDown = ((a.stats || {}).latestDown ? 1 : 0) + ((b.stats || {}).latestDown ? 1 : 0);
+        const recent5Down = ((a.stats || {}).recent5Down || 0) + ((b.stats || {}).recent5Down || 0);
+        const allIn = ((a.stats || {}).allInOneRate || 0) + ((b.stats || {}).allInOneRate || 0);
+        const pairText = exportText(a.groups) + '||' + exportText(b.groups);
+        const tieKey = pairText;
+
+        // v18 真分流修正：不再只靠一個總分。每種性格在總分外再加硬式方向分，
+        // 讓 GitHub 正式資料庫下即使第一名相同，也會依性格挑到不同結構的配對。
+        let directionScore = 0;
+        if (profileName.includes('防穿透')) {
+          directionScore = -same * 360000 - cross * 140000 - ov.maxCell * 42000 - ov.samePillarShared * 18000;
+        } else if (profileName.includes('高爆發')) {
+          directionScore = boom * 18000 + allIn * 90000 + ov.samePillarShared * 26000 + same * 90000;
+        } else if (profileName.includes('反轉')) {
+          directionScore = latestDown * 180000 + recent5Down * 46000 - ((a.stats||{}).recentRate || 0) * 18000 - ((b.stats||{}).recentRate || 0) * 18000;
+        } else if (profileName.includes('極端')) {
+          directionScore = boom * 26000 + allIn * 145000 + same * 180000 + ov.samePillarShared * 35000 - cross * 25000;
+        } else {
+          directionScore = (pack.pairStats ? pack.pairStats.bothPassRate : 0) * 230000 - (pack.pairStats ? pack.pairStats.onePassRate : 0) * 130000 - Math.abs(ov.samePillarShared - 11) * 22000;
+        }
+
+        const finalScore = styleScore + directionScore + (pack && Number.isFinite(pack.score) ? pack.score * 0.04 : 0) - (pack && pack.hardReject ? 120000 : 0);
+        pairs.push({ a, b, pack, score: finalScore, tieKey, same, cross, ov, boom, latestDown, recent5Down, allIn, pairText });
+      }
+      if (i % 4 === 0) await caishenYieldFrame();
+    }
+    if (!pairs.length) return sorted.slice(0, 2);
+    pairs.sort((x,y)=>y.score-x.score || x.tieKey.localeCompare(y.tieKey));
+
+    let chosen = pairs[0];
+    // v18：再加「不同性格不同名次帶」保險，避免全部拿第1名。
+    if (profileName.includes('防穿透')) {
+      chosen = pairs.find(p => p.same <= 0.28 && p.cross <= 0.34 && p.ov.maxCell <= 6) || pairs[Math.min(2, pairs.length-1)] || chosen;
+    } else if (profileName.includes('高爆發')) {
+      chosen = pairs.find(p => p.boom > 0 && p.ov.samePillarShared >= 10) || pairs[Math.min(4, pairs.length-1)] || chosen;
+    } else if (profileName.includes('反轉')) {
+      chosen = pairs.find(p => p.latestDown >= 1 || p.recent5Down >= 2) || pairs[Math.min(6, pairs.length-1)] || chosen;
+    } else if (profileName.includes('極端')) {
+      chosen = pairs.find(p => p.allIn > 0 || p.same >= 0.38 || p.ov.samePillarShared >= 14) || pairs[Math.min(8, pairs.length-1)] || chosen;
+    } else {
+      chosen = pairs[0];
+    }
+
+    let first = chosen.a, second = chosen.b;
+    if (((second.stats || {}).passRate || 0) > ((first.stats || {}).passRate || 0)) [first, second] = [second, first];
+    first = { ...first, sourceLabel: profileName || '天天樂分流主柱', sourceType: 'daily', pairStats: chosen.pack.pairStats, pairPack: chosen.pack, styleName: profileName };
+    second = { ...second, sourceLabel: profileName || '天天樂分流輔柱', sourceType: 'daily', pairStats: chosen.pack.pairStats, pairPack: chosen.pack, styleName: profileName };
+    return [first, second];
+  }
+
   async function caishenPickBestPairByJointStats(pool, draws) {
     if (!pool || pool.length < 2) return pool || [];
     const sorted = pool.slice().sort((a,b)=>caishenFastPrimaryScore(b)-caishenFastPrimaryScore(a) || exportText(a.groups).localeCompare(exportText(b.groups)));
@@ -8030,7 +8163,12 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     const merged = uniqueDailyTwoPool(pool.concat(polished));
 
-    // 核心：直接挑「雙過率高、雙倒率低、單倒率低」的最佳兩組配對。
+    // 天天樂自我校正：每一種性格使用專屬配對評分，避免五種性格最後又收斂成同一對。
+    if (currentGameMode() === 'dayday' && window.CAISHEN_FORCE_SINGLE_PROFILE) {
+      return await caishenPickDaydayProfileSpecificPair(merged, draws);
+    }
+
+    // 一般出戰：直接挑「雙過率高、雙倒率低、單倒率低」的最佳兩組配對。
     return await caishenPickBestPairByJointStats(merged, draws);
   }
 
@@ -8078,7 +8216,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const mode = currentGameMode();
     if (mode === 'dayday') {
       return {
-        name: '【v16-A】天天樂金鐘罩同步型',
+        name: '天天樂同步保命型',
         mode,
         // 天天樂新版：不只防雙倒，也要壓低單過單倒，讓兩組更同步一起過。
         bothPassWeight: 292000,
@@ -8189,11 +8327,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     const mode = currentGameMode();
     if (mode === 'dayday') {
       return [
-        { name:'【v16-A】天天樂金鐘罩同步型', params:{ ...base, name:'【v16-A】天天樂金鐘罩同步型' } },
-        { name:'【v16-B】天天樂破盾防穿透型', params:{ ...base, name:'【v16-B】天天樂破盾防穿透型', bothPassWeight:258000, onePassPenalty:150000, bothFailPenalty:540000, samePillarTarget:7, lowConsensusLine:4, highConsensusLine:10, moveRatioLine:0.32, sameLowLine:0.06, sameHighLine:0.26, overlapHighLine:0.34, dangerPenalty:3600, hardFail100:0.11, rejectMoveRatio:0.72 } },
-        { name:'【v16-C】天天樂火山爆發型', params:{ ...base, name:'【v16-C】天天樂火山爆發型', bothPassWeight:345000, onePassPenalty:118000, bothFailPenalty:365000, samePillarTarget:14, lowConsensusLine:10, highConsensusLine:18, sameLowLine:0.20, sameHighLine:0.48, overlapHighLine:0.54, dangerPenalty:1500, hardFail100:0.16 } },
-        { name:'【v16-D】天天樂逆風反轉型', params:{ ...base, name:'【v16-D】天天樂逆風反轉型', bothPassWeight:225000, onePassPenalty:105000, bothFailPenalty:420000, samePillarTarget:8, lowConsensusLine:5, highConsensusLine:12, moveRatioLine:0.34, sameLowLine:0.07, sameHighLine:0.30, overlapHighLine:0.38, dangerPenalty:2600, hardFail100:0.15 } },
-        { name:'【v16-E】天天樂極端爆擊型', params:{ ...base, name:'【v16-E】天天樂極端爆擊型', bothPassWeight:315000, onePassPenalty:90000, bothFailPenalty:330000, samePillarTarget:15, lowConsensusLine:11, highConsensusLine:20, sameLowLine:0.22, sameHighLine:0.56, overlapHighLine:0.60, dangerPenalty:900, hardFail100:0.18 } }
+        { name:'天天樂同步保命型', params:{ ...base, name:'天天樂同步保命型' } },
+        { name:'天天樂防穿透低重疊型', params:{ ...base, name:'天天樂防穿透低重疊型', bothPassWeight:258000, onePassPenalty:150000, bothFailPenalty:540000, samePillarTarget:7, lowConsensusLine:4, highConsensusLine:10, moveRatioLine:0.32, sameLowLine:0.06, sameHighLine:0.26, overlapHighLine:0.34, dangerPenalty:3600, hardFail100:0.11, rejectMoveRatio:0.72 } },
+        { name:'天天樂高爆發型', params:{ ...base, name:'天天樂高爆發型', bothPassWeight:345000, onePassPenalty:118000, bothFailPenalty:365000, samePillarTarget:14, lowConsensusLine:10, highConsensusLine:18, sameLowLine:0.20, sameHighLine:0.48, overlapHighLine:0.54, dangerPenalty:1500, hardFail100:0.16 } },
+        { name:'天天樂反轉觀察型', params:{ ...base, name:'天天樂反轉觀察型', bothPassWeight:225000, onePassPenalty:105000, bothFailPenalty:420000, samePillarTarget:8, lowConsensusLine:5, highConsensusLine:12, moveRatioLine:0.34, sameLowLine:0.07, sameHighLine:0.30, overlapHighLine:0.38, dangerPenalty:2600, hardFail100:0.15 } },
+        { name:'天天樂極端爆擊型', params:{ ...base, name:'天天樂極端爆擊型', bothPassWeight:315000, onePassPenalty:90000, bothFailPenalty:330000, samePillarTarget:15, lowConsensusLine:11, highConsensusLine:20, sameLowLine:0.22, sameHighLine:0.56, overlapHighLine:0.60, dangerPenalty:900, hardFail100:0.18 } }
       ];
     }
     return [
