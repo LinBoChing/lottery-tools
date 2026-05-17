@@ -1197,6 +1197,8 @@
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
             <button class="btn btn-dark" id="sampleBtn">載入範例資料</button>
+            <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新學習100期</button>
+            <button class="btn btn-secondary" id="selfTuneBtn" type="button">財神自我校正</button>
             <button id="clearLockBtn" type="button" style="display:none;"></button>
             <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
           </div>
@@ -1218,7 +1220,7 @@
           • 每行會抓出前 5 個 01~39 的號碼當作該期開獎號碼。<br>
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
-          • 本版固定只生成兩組：用50/100/150/250分權重檢查，優先雙過率，同時壓低雙倒與單過單倒，並限制搬柱比例。<br>
+          • 本版固定只生成兩組：天天樂自動採同步保命型，539自動採互補型；開獎結果會用來慢學習，盈虧只保留紀錄。<br>
         </div>
       </div>
 
@@ -1324,6 +1326,8 @@
   const candidateInput = document.getElementById('candidateInput');
   const runBtn = document.getElementById('runBtn');
   const sampleBtn = document.getElementById('sampleBtn');
+  const backtrain50Btn = document.getElementById('backtrain50Btn');
+  const selfTuneBtn = document.getElementById('selfTuneBtn');
   const clearLockBtn = document.getElementById('clearLockBtn');
   const moveAllToRecommendBtn = document.getElementById('moveAllToRecommendBtn');
   const countDraws = document.getElementById('countDraws');
@@ -6299,6 +6303,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `
       <div><b>財神今日代理V9｜${qualifyText}</b>｜已檢查 ${best.checked || 0} 種三組排列，符合 62%不輸＋4%全倒門檻 ${best.qualified || 0} 種。</div>
       <div style="margin-top:6px;color:${best.isQualified ? '#86efac' : '#fca5a5'};font-weight:900;">${hardGateText}</div>
+      <div class="small-note"><b>目前模式：${pairPack.gameProfileName || caishenGameProfile().name}</b></div>
       <div class="daily-agent-kpi">
         <div>至少過1組<br><b>${((stats.noLoseRate || 0) * 100).toFixed(2)}%</b></div>
         <div>三組全倒率<br><b>${((stats.allDownRate || 0) * 100).toFixed(2)}%</b></div>
@@ -7475,44 +7480,34 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function caishenPairHardReject(a, b, draws) {
+    const p = caishenGameProfile();
     const ov = caishenCellOverlapMatrix(a.groups, b.groups);
 
-    // 兩組都是 01~39 的完整分柱，所以「總號碼共享」一定是39；真正要限制的是柱位搬家比例。
-    // 第一柱只有10支，10支搬家=100%，比第三柱10/15更危險，因此改用比例淘汰。
-    if (ov.maxMoveRatio >= 0.80) return '搬柱比例過高';
-    if (ov.maxMoveFrom === 0 && ov.maxMoveRatio >= 0.42) return '第一柱搬家比例過高';
-    if (ov.maxMoveFrom === 1 && ov.maxMoveRatio >= 0.46) return '第二柱搬家比例過高';
-    if (ov.maxMoveFrom === 2 && ov.maxMoveRatio >= 0.50) return '第三柱搬家比例過高';
-    if (ov.samePillarShared > 13) return '同柱共享過高';
-    if (ov.samePillarShared < 4) return '同柱共識過低';
+    if (ov.maxMoveRatio >= p.rejectMoveRatio) return '搬柱比例過高';
+    if (ov.maxMoveFrom === 0 && ov.maxMoveRatio >= p.rejectFirstRatio) return '第一柱搬家比例過高';
+    if (ov.maxMoveFrom === 1 && ov.maxMoveRatio >= p.rejectSecondRatio) return '第二柱搬家比例過高';
+    if (ov.maxMoveFrom === 2 && ov.maxMoveRatio >= p.rejectThirdRatio) return '第三柱搬家比例過高';
+    if (ov.samePillarShared > p.highConsensusLine + 5) return '同柱共享過高';
+    if (ov.samePillarShared < Math.max(2, p.lowConsensusLine - 3)) return '同柱共識過低';
 
     const ps100 = caishenPairBacktestStats(a, b, draws.slice(0, Math.min(100, draws.length)));
-    if (ps100.bothFailRate > 0.16) return '百期雙倒率過高';
+    if (ps100.bothFailRate > p.hardFail100) return '百期雙倒率過高';
     return '';
   }
 
 
-  const CAISHEN_ADAPT_STORAGE_KEY = 'caishen_adaptive_double_pillar_v1';
-
-  function caishenGetTodayDateKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
+  const CAISHEN_ADAPT_STORAGE_KEY = 'caishen_adaptive_split_outcome_v1';
 
   function caishenLoadAdaptiveState() {
     try {
       const raw = localStorage.getItem(CAISHEN_ADAPT_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && typeof parsed === 'object') return parsed;
+      if (parsed && typeof parsed === 'object') {
+        if (!Array.isArray(parsed.outcomes)) parsed.outcomes = [];
+        return parsed;
+      }
     } catch (err) {}
-    return {
-      version: 1,
-      enabled: true,
-      intensity: 1,
-      savedPairs: {},
-      lastSummary: null,
-      updatedAt: ''
-    };
+    return { version: 1, outcomes: [], updatedAt: '' };
   }
 
   function caishenSaveAdaptiveState(state) {
@@ -7522,94 +7517,64 @@ ${settleRecord.analysisLines.join('\n')}`;
     } catch (err) {}
   }
 
-  function caishenCurrentSessionKey() {
-    return `${currentGameMode()}_${caishenGetTodayDateKey()}`;
+  function caishenOutcomeStatusText(status) {
+    if (status === 'bothPass') return '雙過';
+    if (status === 'onePass') return '單過單倒';
+    if (status === 'bothFail') return '雙倒';
+    return '未判斷';
   }
 
-  function caishenSaveCurrentPair(items, draws) {
-    if (!items || items.length < 2) return;
+  function caishenRecordOutcomeForLearning(record) {
     const state = caishenLoadAdaptiveState();
-    const key = caishenCurrentSessionKey();
-    const pack = caishenPairScore(items[0], items[1], draws || getBacktestDraws());
-    state.savedPairs[key] = {
-      game: currentGameMode(),
-      date: caishenGetTodayDateKey(),
-      groups: items.map(x => cloneGroups(x.groups)),
-      pairPack: {
-        weightedBothPass: ((pack.weightedStats || {}).bothPassRate || 0),
-        weightedBothFail: ((pack.weightedStats || {}).bothFailRate || 0),
-        weightedOnePass: ((pack.weightedStats || {}).onePassRate || 0),
-        samePillarShared: pack.samePillarShared || 0,
-        maxMoveRatio: pack.maxMoveRatio || 0,
-        hardReject: pack.hardReject || ''
-      }
-    };
-    // 只保留最近60筆，避免localStorage膨脹
-    const keys = Object.keys(state.savedPairs).sort();
-    while (keys.length > 60) {
-      const k = keys.shift();
-      delete state.savedPairs[k];
-    }
+    state.outcomes.push(record);
+    state.outcomes = state.outcomes.slice(-160);
     caishenSaveAdaptiveState(state);
   }
 
-  function caishenWeeklyProfitSummary() {
-    let data = [];
-    try { data = loadWeeklyCalcData(); } catch (err) { data = []; }
-    const todayIdx = typeof getTodayWeeklyIndex === 'function' ? getTodayWeeklyIndex() : 0;
-    const vals = [];
-    (data || []).forEach((row, idx) => {
-      const morning = parseMoneyValue(row && row.morning);
-      const night = parseMoneyValue(row && row.night);
-      if (morning !== 0) vals.push({ game:'dayday', idx, value: morning });
-      if (night !== 0) vals.push({ game:'539', idx, value: night });
-    });
-    const recent = vals.filter(x => x.idx <= todayIdx);
-    const source = recent.length ? recent : vals;
-    const total = source.reduce((s,x)=>s+x.value,0);
-    const losses = source.filter(x=>x.value < -300).length;
-    const wins = source.filter(x=>x.value > 300).length;
-    const nearFlat = source.filter(x=>Math.abs(x.value) <= 300).length;
-    return { total, count: source.length, losses, wins, nearFlat, source };
+  function caishenRecentOutcomeSummary() {
+    const state = caishenLoadAdaptiveState();
+    const game = currentGameMode();
+    const list = (state.outcomes || []).filter(x => x && x.game === game).slice(-20);
+    const recent10 = list.slice(-10);
+    return {
+      count: recent10.length,
+      bothPass: recent10.filter(x => x.status === 'bothPass').length,
+      onePass: recent10.filter(x => x.status === 'onePass').length,
+      bothFail: recent10.filter(x => x.status === 'bothFail').length,
+      recent10,
+      all: list
+    };
   }
 
   function caishenAdaptiveProfile() {
-    const state = caishenLoadAdaptiveState();
-    const summary = caishenWeeklyProfitSummary();
-
-    // 慢學習：最多只微調約 5%~15%，避免短期波動把模型帶歪。
+    const s = caishenRecentOutcomeSummary();
     let riskMode = 0;
-    if (summary.count >= 2) {
-      if (summary.total < -18000 || summary.losses >= 2) riskMode = 1;
-      if (summary.total < -35000 || summary.losses >= 3) riskMode = 2;
-      if (summary.total > 18000 && summary.wins >= 2 && summary.losses === 0) riskMode = -1;
+    if (s.count >= 3) {
+      if (s.bothFail >= 1) riskMode = 1;
+      if (s.bothFail >= 2 || (s.count >= 6 && s.onePass >= 4)) riskMode = 2;
+      if (s.count >= 6 && s.bothPass >= 4 && s.bothFail === 0) riskMode = -1;
     }
-
-    const intensity = Math.max(0.35, Math.min(1.25, Number(state.intensity || 1)));
-    const riskScale = 1 + riskMode * 0.08 * intensity;
-    const attackScale = 1 - Math.max(0, riskMode) * 0.04 * intensity + (riskMode < 0 ? 0.035 * intensity : 0);
-
     return {
-      enabled: state.enabled !== false,
       riskMode,
-      riskScale: state.enabled === false ? 1 : riskScale,
-      attackScale: state.enabled === false ? 1 : attackScale,
-      summary,
-      state
+      riskScale: 1 + Math.max(0, riskMode) * 0.08,
+      onePassScale: 1 + Math.min(0.25, s.onePass * 0.035),
+      attackScale: 1 + (riskMode < 0 ? 0.045 : 0) - Math.max(0, riskMode) * 0.025,
+      summary: s
     };
   }
 
   function caishenAdaptiveText(profile) {
-    if (!profile || !profile.enabled) return '自動修正：關閉';
-    const s = profile.summary || {};
-    if (!s.count) return '自動修正：等待兩組實戰盈虧資料';
-    if (profile.riskMode >= 2) return `自動修正：防守加強（${s.count}筆，合計${formatMoneyValue(s.total)}）`;
-    if (profile.riskMode === 1) return `自動修正：小幅保守（${s.count}筆，合計${formatMoneyValue(s.total)}）`;
-    if (profile.riskMode < 0) return `自動修正：狀態穩定，微幅放開雙過（${s.count}筆，合計${formatMoneyValue(s.total)}）`;
-    return `自動修正：中性觀察（${s.count}筆，合計${formatMoneyValue(s.total)}）`;
+    const p = profile || caishenAdaptiveProfile();
+    const s = p.summary || {};
+    if (!s.count) return '開獎學習：尚無本彩種樣本';
+    if (p.riskMode >= 2) return `開獎學習：防守加強（近${s.count}場：雙過${s.bothPass}、單過${s.onePass}、雙倒${s.bothFail}）`;
+    if (p.riskMode === 1) return `開獎學習：小幅避險（近${s.count}場：雙過${s.bothPass}、單過${s.onePass}、雙倒${s.bothFail}）`;
+    if (p.riskMode < 0) return `開獎學習：方向穩定，微幅強化雙過（近${s.count}場：雙過${s.bothPass}、單過${s.onePass}、雙倒${s.bothFail}）`;
+    return `開獎學習：中性觀察（近${s.count}場：雙過${s.bothPass}、單過${s.onePass}、雙倒${s.bothFail}）`;
   }
 
   function caishenPairScore(a, b, draws) {
+    const p = caishenGameProfile();
     const hardReject = caishenPairHardReject(a, b, draws);
     const ps = caishenPairBacktestStats(a, b, draws);
     const wps = caishenWeightedPairStats(a, b, draws);
@@ -7624,35 +7589,35 @@ ${settleRecord.analysisLines.join('\n')}`;
     const overlap = dailyTwoOverlapScore(a.groups, b.groups);
     const ov = caishenCellOverlapMatrix(a.groups, b.groups);
     const dangerRisk = caishenDangerPatternRisk(a, b);
-    const adaptive = caishenAdaptiveProfile();
+
+    const adaptive = typeof caishenAdaptiveProfile === 'function'
+      ? caishenAdaptiveProfile()
+      : { riskScale: 1, onePassScale: 1, attackScale: 1, riskMode: 0 };
     const riskScale = adaptive.riskScale || 1;
+    const onePassScale = (adaptive.onePassScale || riskScale) * (p.mode === 'dayday' ? 1.18 : 1);
     const attackScale = adaptive.attackScale || 1;
 
-    // 理想是「有限同柱共識」：約 6~10；不是整盤重洗，也不是完全拆散。
-    const samePillarTargetPenalty = Math.abs(ov.samePillarShared - 8) * 10500;
-    const maxCellPenalty = Math.max(0, ov.maxCell - 7) * 22000;
-    const rowMaxPenalty = Math.max(0, ov.rowMax - 7) * 18000;
-    const moveRatioPenalty = Math.max(0, ov.maxMoveRatio - 0.36) * 180000;
-    const firstPillarMovePenalty = ov.maxMoveFrom === 0 ? Math.max(0, ov.maxMoveRatio - 0.30) * 95000 : 0;
-    const lowConsensusPenalty = Math.max(0, 5 - ov.samePillarShared) * 26000;
-    const tooMuchConsensusPenalty = Math.max(0, ov.samePillarShared - 11) * 30000;
+    const samePillarTargetPenalty = Math.abs(ov.samePillarShared - p.samePillarTarget) * p.samePillarTargetPenalty;
+    const maxCellPenalty = Math.max(0, ov.maxCell - 7) * (p.mode === 'dayday' ? 16000 : 22000);
+    const rowMaxPenalty = Math.max(0, ov.rowMax - 7) * (p.mode === 'dayday' ? 14000 : 18000);
+    const moveRatioPenalty = Math.max(0, ov.maxMoveRatio - p.moveRatioLine) * p.moveRatioPenalty;
+    const firstPillarMovePenalty = ov.maxMoveFrom === 0 ? Math.max(0, ov.maxMoveRatio - p.firstPillarMoveLine) * p.firstPillarMovePenalty : 0;
+    const lowConsensusPenalty = Math.max(0, p.lowConsensusLine - ov.samePillarShared) * p.lowConsensusPenalty;
+    const tooMuchConsensusPenalty = Math.max(0, ov.samePillarShared - p.highConsensusLine) * p.highConsensusPenalty;
 
     const score =
-      // 分權重：近期50/100較重，150/250輔助避免過度貼盤
-      wps.bothPassRate * 255000 * attackScale
-      - wps.bothFailRate * 390000 * riskScale
-      - wps.onePassRate * 92000 * riskScale
+      wps.bothPassRate * p.bothPassWeight * attackScale
+      - wps.bothFailRate * p.bothFailPenalty * riskScale
+      - wps.onePassRate * p.onePassPenalty * onePassScale
+      + (p.mode === 'dayday' ? Math.max(0, wps.bothPassRate - wps.onePassRate * 0.72) * 95000 : 0)
 
-      // 不只看加權平均，也要求各視窗穩定
-      + wps.minBothPass * 90000
-      - wps.maxBothFail * 155000 * riskScale
-      - wps.stabilitySpread * 85000 * riskScale
+      + wps.minBothPass * p.minBothPassWeight
+      - wps.maxBothFail * p.maxBothFailPenalty * riskScale
+      - wps.stabilitySpread * p.stabilityPenalty * riskScale
 
-      // 單柱基本體質
       + avgSingle * 15000
       + minSingle * 26000
 
-      // 有限共享與禁止搬柱比例
       - samePillarTargetPenalty
       - maxCellPenalty
       - rowMaxPenalty
@@ -7661,16 +7626,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       - lowConsensusPenalty
       - tooMuchConsensusPenalty
 
-      // 避免共死結構
-      - dangerRisk * 1800 * riskScale
+      - dangerRisk * p.dangerPenalty * riskScale
 
-      // 重疊不是越低越好，也不是越高越好
-      - Math.max(0, 0.08 - same) * 52000
-      - Math.max(0, same - 0.30) * 76000
+      - Math.max(0, p.sameLowLine - same) * p.sameLowPenalty
+      - Math.max(0, same - p.sameHighLine) * p.sameHighPenalty
       - Math.max(0, cross - 0.50) * 22000
-      - Math.max(0, overlap - 0.42) * 32000
+      - Math.max(0, overlap - p.overlapHighLine) * 32000
 
-      // 硬淘汰用超大扣分，保留降級空間避免完全無結果
       - (hardReject ? 10000000 : 0);
 
     return {
@@ -7694,15 +7656,17 @@ ${settleRecord.analysisLines.join('\n')}`;
       cellMatrix: ov.matrix,
       dangerRisk,
       hardReject,
-      adaptiveText: caishenAdaptiveText(adaptive),
-      adaptiveRiskMode: adaptive.riskMode
+      gameProfileName: p.name,
+      adaptiveText: typeof caishenAdaptiveText === 'function' ? caishenAdaptiveText(adaptive) : '',
+      adaptiveRiskMode: adaptive.riskMode || 0
     };
   }
 
   async function caishenPickBestPairByJointStats(pool, draws) {
     if (!pool || pool.length < 2) return pool || [];
     const sorted = pool.slice().sort((a,b)=>caishenFastPrimaryScore(b)-caishenFastPrimaryScore(a) || exportText(a.groups).localeCompare(exportText(b.groups)));
-    const top = sorted.slice(0, Math.min(120, sorted.length));
+    const topLimit = window.CAISHEN_BACKTRAIN_FAST ? 14 : (currentGameMode() === 'dayday' ? 28 : 34);
+    const top = sorted.slice(0, Math.min(topLimit, sorted.length));
     let best = null;
     let bestRelaxed = null;
 
@@ -7722,7 +7686,7 @@ ${settleRecord.analysisLines.join('\n')}`;
           bestRelaxed = { a, b, pack, tieKey };
         }
       }
-      if (i % 8 === 0) await caishenYieldFrame();
+      if (i % 4 === 0) await caishenYieldFrame();
     }
 
     const chosen = best || bestRelaxed;
@@ -7738,16 +7702,16 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   async function caishenGenerateFastDailyTwo(draws) {
-    const pool = await caishenBuildFastCandidatePool(draws, 140);
+    const pool = await caishenBuildFastCandidatePool(draws, window.CAISHEN_BACKTRAIN_FAST ? 32 : (currentGameMode() === 'dayday' ? 64 : 72));
     if (!pool.length) return [];
     pool.sort((a, b) => caishenFastPrimaryScore(b) - caishenFastPrimaryScore(a) || exportText(a.groups).localeCompare(exportText(b.groups)));
 
     // 小幅確定性修飾候選池，只保留固定結果，不用任何隨機數。
     const polished = [];
-    for (let i = 0; i < Math.min(36, pool.length); i++) {
-      const p = await caishenLocalPolish(pool[i], draws, 2, null);
+    for (let i = 0; i < Math.min(window.CAISHEN_BACKTRAIN_FAST ? 0 : (currentGameMode() === 'dayday' ? 8 : 10), pool.length); i++) {
+      const p = await caishenLocalPolish(pool[i], draws, 1, null);
       polished.push(p);
-      if (i % 8 === 0) await caishenYieldFrame();
+      if (i % 4 === 0) await caishenYieldFrame();
     }
     const merged = uniqueDailyTwoPool(pool.concat(polished));
 
@@ -7756,34 +7720,633 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
+
+
+  const CAISHEN_PROFILE_OVERRIDE_KEY = 'caishen_self_tuned_profile_v1';
+
+  function caishenLoadProfileOverride() {
+    try {
+      const raw = localStorage.getItem(CAISHEN_PROFILE_OVERRIDE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) { return {}; }
+  }
+
+  function caishenSaveProfileOverride(game, profile) {
+    try {
+      const all = caishenLoadProfileOverride();
+      all[game] = profile;
+      localStorage.setItem(CAISHEN_PROFILE_OVERRIDE_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+
+  function caishenRemoveProfileOverride(game) {
+    try {
+      const all = caishenLoadProfileOverride();
+      delete all[game];
+      localStorage.setItem(CAISHEN_PROFILE_OVERRIDE_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+
+  function caishenApplyProfileOverride(base) {
+    try {
+      const all = caishenLoadProfileOverride();
+      const selected = all[base.mode];
+      if (!selected || !selected.params) return base;
+      return { ...base, ...selected.params, name: selected.name || base.name, selfTuned: true };
+    } catch (e) {
+      return base;
+    }
+  }
+
+  function caishenBaseGameProfile() {
+    const mode = currentGameMode();
+    if (mode === 'dayday') {
+      return {
+        name: '天天樂同步保命型',
+        mode,
+        // 天天樂新版：不只防雙倒，也要壓低單過單倒，讓兩組更同步一起過。
+        bothPassWeight: 292000,
+        bothFailPenalty: 470000,
+        onePassPenalty: 168000,
+        minBothPassWeight: 105000,
+        maxBothFailPenalty: 205000,
+        stabilityPenalty: 112000,
+        samePillarTarget: 11,
+        samePillarTargetPenalty: 7200,
+        lowConsensusLine: 8,
+        lowConsensusPenalty: 30000,
+        highConsensusLine: 15,
+        highConsensusPenalty: 21000,
+        moveRatioLine: 0.46,
+        moveRatioPenalty: 108000,
+        firstPillarMoveLine: 0.40,
+        firstPillarMovePenalty: 62000,
+        sameLowLine: 0.15,
+        sameHighLine: 0.39,
+        sameLowPenalty: 84000,
+        sameHighPenalty: 56000,
+        overlapHighLine: 0.48,
+        dangerPenalty: 2550,
+        hardFail100: 0.13,
+        rejectMoveRatio: 0.88,
+        rejectFirstRatio: 0.56,
+        rejectSecondRatio: 0.60,
+        rejectThirdRatio: 0.64
+      };
+    }
+    return {
+      name: '539互補型',
+      mode,
+      bothPassWeight: 270000,
+      bothFailPenalty: 380000,
+      onePassPenalty: 108000,
+      minBothPassWeight: 96000,
+      maxBothFailPenalty: 145000,
+      stabilityPenalty: 82000,
+      samePillarTarget: 8,
+      samePillarTargetPenalty: 11000,
+      lowConsensusLine: 5,
+      lowConsensusPenalty: 26000,
+      highConsensusLine: 11,
+      highConsensusPenalty: 33000,
+      moveRatioLine: 0.36,
+      moveRatioPenalty: 185000,
+      firstPillarMoveLine: 0.30,
+      firstPillarMovePenalty: 98000,
+      sameLowLine: 0.08,
+      sameHighLine: 0.30,
+      sameLowPenalty: 52000,
+      sameHighPenalty: 78000,
+      overlapHighLine: 0.42,
+      dangerPenalty: 1800,
+      hardFail100: 0.16,
+      rejectMoveRatio: 0.80,
+      rejectFirstRatio: 0.42,
+      rejectSecondRatio: 0.46,
+      rejectThirdRatio: 0.50
+    };
+  }
+
+  function caishenGameProfile() {
+    return caishenApplyProfileOverride(caishenBaseGameProfile());
+  }
+
+
+
+
+  function caishenHitComboScore(groups, draw) {
+    if (!groups || !Array.isArray(groups) || !Array.isArray(draw)) return 0;
+    const counts = groups.map(pillar => (pillar || []).reduce((sum, n) => sum + (draw.includes(Number(n)) ? 1 : 0), 0));
+    const nonZero = counts.filter(v => v > 0).length;
+    if (nonZero < 3) return 0;
+    const c = counts.slice().sort((a,b)=>b-a);
+    // 三星碰數：每組立柱過關後，三柱命中數相乘。
+    // 2-2-1 = 4碰，3-1-1 = 3碰，其他過關型依乘積計。
+    return c[0] * c[1] * c[2];
+  }
+
+  function caishenHitComboLabel(scoreA, scoreB) {
+    if (!scoreA && !scoreB) return '0';
+    if (scoreA && scoreB) return `${scoreA}+${scoreB}`;
+    return `${Math.max(scoreA, scoreB)}+0`;
+  }
+
+  function caishenHitComboClass(scoreA, scoreB) {
+    if (scoreA && scoreB) return 'weekly-profit';
+    if (scoreA || scoreB) return 'weekly-loss';
+    return 'weekly-loss';
+  }
+
+  function caishenEvaluatePairOnDraw(items, draw) {
+    const aPass = isDrawPassGroups(items[0].groups, draw);
+    const bPass = isDrawPassGroups(items[1].groups, draw);
+    const scoreA = caishenHitComboScore(items[0].groups, draw);
+    const scoreB = caishenHitComboScore(items[1].groups, draw);
+    const comboLabel = caishenHitComboLabel(scoreA, scoreB);
+    const status = aPass && bPass ? 'bothPass' : (aPass || bPass ? 'onePass' : 'bothFail');
+    return { aPass, bPass, status, scoreA, scoreB, comboLabel };
+  }
+
+
+  function caishenSelfTuneCandidates() {
+    const base = caishenBaseGameProfile();
+    const mode = currentGameMode();
+    if (mode === 'dayday') {
+      return [
+        { name:'天天樂同步保命型', params:{ ...base } },
+        { name:'天天樂高雙過型', params:{ ...base, bothPassWeight:330000, onePassPenalty:185000, bothFailPenalty:460000, samePillarTarget:12, lowConsensusLine:9, highConsensusLine:16, sameLowLine:0.17, sameHighLine:0.42, overlapHighLine:0.50 } },
+        { name:'天天樂低雙倒型', params:{ ...base, bothPassWeight:270000, onePassPenalty:145000, bothFailPenalty:560000, maxBothFailPenalty:245000, dangerPenalty:3300, hardFail100:0.10 } },
+        { name:'天天樂降單過型', params:{ ...base, bothPassWeight:305000, onePassPenalty:230000, bothFailPenalty:450000, minBothPassWeight:125000, samePillarTarget:12, lowConsensusLine:9 } },
+        { name:'天天樂半同步型', params:{ ...base, bothPassWeight:285000, onePassPenalty:155000, bothFailPenalty:430000, samePillarTarget:10, lowConsensusLine:7, highConsensusLine:14, moveRatioLine:0.40, overlapHighLine:0.46 } }
+      ];
+    }
+    return [
+      { name:'539互補型', params:{ ...base } },
+      { name:'539半同步互補型', params:{ ...base, bothPassWeight:292000, onePassPenalty:148000, bothFailPenalty:395000, samePillarTarget:10, lowConsensusLine:7, highConsensusLine:14, sameLowLine:0.12, sameHighLine:0.36, overlapHighLine:0.45 } },
+      { name:'539降單過型', params:{ ...base, bothPassWeight:285000, onePassPenalty:205000, bothFailPenalty:390000, minBothPassWeight:115000, samePillarTarget:10, lowConsensusLine:7 } },
+      { name:'539低雙倒型', params:{ ...base, bothPassWeight:250000, onePassPenalty:130000, bothFailPenalty:520000, maxBothFailPenalty:220000, dangerPenalty:2800, hardFail100:0.11 } },
+      { name:'539高雙過型', params:{ ...base, bothPassWeight:335000, onePassPenalty:150000, bothFailPenalty:360000, samePillarTarget:11, sameLowLine:0.14, sameHighLine:0.38 } }
+    ];
+  }
+
+  function caishenProfitForComboLabel(label) {
+    const cost = 13130 * 2;
+    if (!label || label === '0') return -cost;
+    const parts = String(label).split('+').map(x => Number(x) || 0);
+    const prize = parts.reduce((sum, p) => sum + 5700 * p, 0);
+    return prize - cost;
+  }
+
+  async function caishenEvaluateProfileCandidate(candidate, draws, trainCount) {
+    const mode = currentGameMode();
+    const old = caishenLoadProfileOverride()[mode];
+    caishenSaveProfileOverride(mode, { name:candidate.name, params:candidate.params, temp:true });
+
+    let bothPass = 0, onePass = 0, bothFail = 0, profit = 0;
+    const comboStats = {};
+    window.CAISHEN_BACKTRAIN_FAST = true;
+    try {
+      for (let targetIndex = trainCount - 1; targetIndex >= 0; targetIndex--) {
+        const history = draws.slice(targetIndex + 1);
+        const targetDraw = draws[targetIndex];
+        const items = await caishenGenerateFastDailyTwo(history);
+        if (!items || items.length < 2) continue;
+        const result = caishenEvaluatePairOnDraw(items, targetDraw);
+        if (result.status === 'bothPass') bothPass++;
+        else if (result.status === 'onePass') onePass++;
+        else bothFail++;
+        comboStats[result.comboLabel] = (comboStats[result.comboLabel] || 0) + 1;
+        profit += caishenProfitForComboLabel(result.comboLabel);
+        if ((trainCount - targetIndex) % 15 === 0) await caishenYieldFrame();
+      }
+    } finally {
+      window.CAISHEN_BACKTRAIN_FAST = false;
+      if (old) caishenSaveProfileOverride(mode, old);
+      else caishenRemoveProfileOverride(mode);
+    }
+    const used = bothPass + onePass + bothFail;
+    const score = profit - bothFail * 18000 - onePass * 2500 + bothPass * 1200;
+    return { name:candidate.name, params:candidate.params, used, bothPass, onePass, bothFail, profit, comboStats, score };
+  }
+
+  async function runSelfTune100() {
+    if (!selfTuneBtn) return;
+    const draws = getBacktestDraws();
+    if (!draws || draws.length < 60) {
+      alert('資料不足，建議至少60期以上再做自我校正。');
+      return;
+    }
+
+    const mode = currentGameMode();
+    const trainCount = Math.min(100, draws.length - 1);
+    const candidates = caishenSelfTuneCandidates();
+
+    selfTuneBtn.disabled = true;
+    runBtn.disabled = true;
+    if (backtrain50Btn) backtrain50Btn.disabled = true;
+    selfTuneBtn.textContent = '校正中...';
+    resetLog();
+    log(`開始${gameLabel(mode)}財神自我校正：比較${candidates.length}種性格，每種回放${trainCount}期。`);
+    if (dailyAgentResult) dailyAgentResult.innerHTML = `財神正在自我校正...<br><span class="small-note">會比較多種性格，選出目前彩種收益/風險最好的模式。</span>`;
+
+    try {
+      const results = [];
+      const startTime = performance.now();
+      for (let i = 0; i < candidates.length; i++) {
+        log(`測試性格 ${i+1}/${candidates.length}：${candidates[i].name}`);
+        const r = await caishenEvaluateProfileCandidate(candidates[i], draws, trainCount);
+        results.push(r);
+        log(`${r.name} → 收益${r.profit}，雙過${r.bothPass}、單過${r.onePass}、雙倒${r.bothFail}`);
+        await caishenYieldFrame();
+      }
+      results.sort((a,b)=>b.score-a.score || b.profit-a.profit || a.bothFail-b.bothFail);
+      const best = results[0];
+      caishenSaveProfileOverride(mode, {
+        name: best.name,
+        params: best.params,
+        tunedAt: new Date().toISOString(),
+        trainCount,
+        result: { profit: best.profit, bothPass: best.bothPass, onePass: best.onePass, bothFail: best.bothFail, score: best.score }
+      });
+
+      const spent = ((performance.now() - startTime) / 1000).toFixed(1);
+      const rows = results.map((r, idx) => `<div class="small-note">${idx+1}. <b>${r.name}</b>｜收益 ${r.profit}｜雙過${r.bothPass}｜單過${r.onePass}｜雙倒${r.bothFail}</div>`).join('');
+      const bestCombo = Object.entries(best.comboStats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${v}`).join('，');
+
+      log(`自我校正完成：選用 ${best.name}，耗時${spent}秒。`);
+      log(`最佳結果：收益${best.profit}，雙過${best.bothPass}、單過${best.onePass}、雙倒${best.bothFail}，碰數：${bestCombo}`);
+
+      if (dailyAgentResult) {
+        dailyAgentResult.innerHTML = `
+          <div class="daily-agent-kpi">
+            <div>選用性格<br><b>${best.name}</b></div>
+            <div>回放收益<br><b>${best.profit}</b></div>
+            <div>雙過 / 單過 / 雙倒<br><b>${best.bothPass}/${best.onePass}/${best.bothFail}</b></div>
+            <div>有效期數<br><b>${best.used}</b></div>
+          </div>
+          <div class="small-note"><b>最佳碰數分布：</b>${bestCombo}</div>
+          ${rows}
+        `;
+      }
+    } catch (err) {
+      console.error(err);
+      log('自我校正錯誤：' + (err.message || String(err)));
+      alert('自我校正錯誤：' + (err.message || String(err)));
+    } finally {
+      selfTuneBtn.disabled = false;
+      runBtn.disabled = false;
+      if (backtrain50Btn) backtrain50Btn.disabled = false;
+      selfTuneBtn.textContent = '財神自我校正';
+    }
+  }
+
+  async function runBacktrain50() {
+    if (!backtrain50Btn) return;
+    const draws = getBacktestDraws();
+    if (!draws || draws.length < 25) {
+      alert('資料不足，至少需要25期以上才適合回溯訓練。');
+      return;
+    }
+
+    const mode = currentGameMode();
+    const trainCount = Math.min(100, draws.length - 1); // 資料足夠時固定100期有效訓練
+    const state = caishenLoadAdaptiveState();
+    state.outcomes = (state.outcomes || []).filter(x => !(x.game === mode && x.source === 'backtrain50'));
+    caishenSaveAdaptiveState(state);
+
+    backtrain50Btn.disabled = true;
+    runBtn.disabled = true;
+    backtrain50Btn.textContent = '訓練中...';
+    resetLog();
+    log(`開始${gameLabel(mode)}重新學習${trainCount}期：逐期執行 生成 → 開獎 → 學習；資料足夠時會固定跑滿100期。`);
+    if (dailyAgentResult) dailyAgentResult.innerHTML = `正在重新學習${trainCount}期...<br><span class="small-note">這是100期預學習引擎，會預先建立本彩種100期學習班底；天天樂會特別重扣單過單倒。</span>`;
+
+    let bothPass = 0, onePass = 0, bothFail = 0, skipped = 0;
+    const comboStats = {};
+    const rows = [];
+    window.CAISHEN_BACKTRAIN_FAST = true;
+    const startTime = performance.now();
+
+    try {
+      for (let targetIndex = trainCount - 1; targetIndex >= 0; targetIndex--) {
+        const history = draws.slice(targetIndex + 1);
+        const targetDraw = draws[targetIndex];
+
+        // 固定100期訓練：不再因早期history較短而略過。
+        // 若歷史太短，改用當下可用資料照樣生成，避免有效期數少於100。
+        const items = await caishenGenerateFastDailyTwo(history);
+        if (!items || items.length < 2) {
+          skipped++;
+          continue;
+        }
+
+        const result = caishenEvaluatePairOnDraw(items, targetDraw);
+        if (result.status === 'bothPass') bothPass++;
+        else if (result.status === 'onePass') onePass++;
+        else bothFail++;
+        comboStats[result.comboLabel] = (comboStats[result.comboLabel] || 0) + 1;
+
+        const pack = caishenPairScore(items[0], items[1], history);
+        caishenRecordOutcomeForLearning({
+          source: 'backtrain50',
+          game: mode,
+          indexFromLatest: targetIndex + 1,
+          draw: targetDraw.slice(),
+          status: result.status,
+          aPass: result.aPass,
+          bPass: result.bPass,
+          hitCombo: result.comboLabel,
+          scoreA: result.scoreA,
+          scoreB: result.scoreB,
+          pairPack: {
+            weightedBothPass: ((pack.weightedStats || {}).bothPassRate || 0),
+            weightedBothFail: ((pack.weightedStats || {}).bothFailRate || 0),
+            weightedOnePass: ((pack.weightedStats || {}).onePassRate || 0),
+            samePillarShared: pack.samePillarShared || 0,
+            maxMoveRatio: pack.maxMoveRatio || 0,
+            profile: pack.gameProfileName || caishenGameProfile().name
+          },
+          createdAt: new Date().toISOString()
+        });
+
+        rows.push({
+          no: trainCount - targetIndex,
+          draw: targetDraw.map(pad2).join(' '),
+          status: caishenOutcomeStatusText(result.status),
+          combo: result.comboLabel,
+          profile: pack.gameProfileName || caishenGameProfile().name
+        });
+
+        if (rows.length % 5 === 0) {
+          log(`已訓練 ${rows.length}/${trainCount}：雙過${bothPass}、單過${onePass}、雙倒${bothFail}，最新碰數${result.comboLabel}`);
+          await caishenYieldFrame();
+        }
+      }
+
+      const used = bothPass + onePass + bothFail;
+      const spent = ((performance.now() - startTime) / 1000).toFixed(1);
+      const comboSummary = Object.entries(comboStats).sort((a,b)=>b[1]-a[1] || String(a[0]).localeCompare(String(b[0]))).map(([k,v])=>`${k}:${v}`).join('，');
+      const summary = `100期重新學習完成：有效${used}期，略過${skipped}期，耗時${spent}秒。雙過${bothPass}（${used ? (bothPass/used*100).toFixed(1) : 0}%）、單過單倒${onePass}（${used ? (onePass/used*100).toFixed(1) : 0}%）、雙倒${bothFail}（${used ? (bothFail/used*100).toFixed(1) : 0}%）。碰數分布：${comboSummary || '無'}。`;
+      log(summary);
+      log(caishenAdaptiveText(caishenAdaptiveProfile()));
+        const incTuneLog = caishenAutoIncrementalTuneFromLatest(draws);
+        if (incTuneLog) log(incTuneLog);
+
+      if (dailyAgentResult) {
+        const recentRows = rows.slice(-15).reverse().map(r => `<div class="small-note">第${r.no}步｜${r.draw}｜<b>${r.status}</b>｜碰數 <b class="${r.combo === '0' ? 'weekly-loss' : (r.combo.includes('+0') ? 'weekly-loss' : 'weekly-profit')}">${r.combo}</b>｜${r.profile}</div>`).join('');
+        dailyAgentResult.innerHTML = `
+          <div class="daily-agent-kpi">
+            <div>回溯雙過<br><b>${bothPass}</b></div>
+            <div>單過單倒<br><b>${onePass}</b></div>
+            <div>回溯雙倒<br><b>${bothFail}</b></div>
+            <div>有效期數<br><b>${used}</b></div>
+          </div>
+          <div class="small-note">${summary}</div><div class="small-note"><b>碰數分布：</b>${comboSummary || "無"}</div>
+          <div class="small-note"><b>${caishenAdaptiveText(caishenAdaptiveProfile())}</b></div>
+          ${recentRows}
+        `;
+      }
+    } catch (err) {
+      console.error(err);
+      log('回溯訓練錯誤：' + (err.message || String(err)));
+      alert('回溯訓練錯誤：' + (err.message || String(err)));
+    } finally {
+      window.CAISHEN_BACKTRAIN_FAST = false;
+      backtrain50Btn.disabled = false;
+      runBtn.disabled = false;
+      backtrain50Btn.textContent = '重新學習100期';
+    }
+  }
+
+
+  function caishenDatasetFingerprint(draws, count=100) {
+    try {
+      return draws.slice(0, count).map(d => d.join('-')).join('|');
+    } catch (e) {
+      return 'unknown';
+    }
+  }
+
+  async function caishenBootstrapLearn100(draws) {
+    const mode = currentGameMode();
+    const usable = Math.min(100, Math.max(0, draws.length - 1));
+    if (usable < 25) return null;
+
+    const fp = mode + '::' + caishenDatasetFingerprint(draws, usable);
+    const key = 'caishen_bootstrap100_' + mode;
+
+    try {
+      const existing = localStorage.getItem(key);
+      if (existing === fp) {
+        return { skipped: true, usable };
+      }
+    } catch (e) {}
+
+    const state = caishenLoadAdaptiveState();
+    state.outcomes = (state.outcomes || []).filter(x => !(x.game === mode && x.source === 'bootstrap100'));
+    caishenSaveAdaptiveState(state);
+
+    let bothPass = 0, onePass = 0, bothFail = 0;
+    window.CAISHEN_BACKTRAIN_FAST = true;
+
+    for (let targetIndex = usable - 1; targetIndex >= 0; targetIndex--) {
+      const history = draws.slice(targetIndex + 1);
+      const targetDraw = draws[targetIndex];
+      if (history.length < 12) continue;
+
+      const items = await caishenGenerateFastDailyTwo(history);
+      if (!items || items.length < 2) continue;
+
+      const result = caishenEvaluatePairOnDraw(items, targetDraw);
+
+      if (result.status === 'bothPass') bothPass++;
+      else if (result.status === 'onePass') onePass++;
+      else bothFail++;
+
+      const pack = caishenPairScore(items[0], items[1], history);
+
+      caishenRecordOutcomeForLearning({
+        source: 'bootstrap100',
+        game: mode,
+        indexFromLatest: targetIndex + 1,
+        draw: targetDraw.slice(),
+        status: result.status,
+        hitCombo: result.comboLabel,
+        scoreA: result.scoreA,
+        scoreB: result.scoreB,
+        pairPack: {
+          weightedBothPass: ((pack.weightedStats || {}).bothPassRate || 0),
+          weightedBothFail: ((pack.weightedStats || {}).bothFailRate || 0),
+          weightedOnePass: ((pack.weightedStats || {}).onePassRate || 0),
+          profile: pack.gameProfileName || caishenGameProfile().name
+        },
+        createdAt: new Date().toISOString()
+      });
+
+      if ((usable - targetIndex) % 10 === 0) {
+        await caishenYieldFrame();
+      }
+    }
+
+    window.CAISHEN_BACKTRAIN_FAST = false;
+
+    try {
+      localStorage.setItem(key, fp);
+    } catch (e) {}
+
+    return {
+      skipped: false,
+      usable,
+      bothPass,
+      onePass,
+      bothFail
+    };
+  }
+
+
+  function caishenClampNumber(v, min, max) {
+    return Math.max(min, Math.min(max, Number(v) || 0));
+  }
+
+  function caishenApplyIncrementalDrift(profile, outcome) {
+    if (!profile || !profile.params || !outcome) return profile;
+    const p = { ...profile.params };
+    if (outcome.status === 'bothFail') {
+      p.bothFailPenalty = Math.round((p.bothFailPenalty || 400000) * 1.035);
+      p.maxBothFailPenalty = Math.round((p.maxBothFailPenalty || 160000) * 1.03);
+      p.dangerPenalty = Math.round((p.dangerPenalty || 2000) * 1.04);
+      p.moveRatioPenalty = Math.round((p.moveRatioPenalty || 130000) * 1.025);
+    } else if (outcome.status === 'onePass') {
+      p.onePassPenalty = Math.round((p.onePassPenalty || 120000) * 1.04);
+      p.bothPassWeight = Math.round((p.bothPassWeight || 260000) * 1.012);
+      p.minBothPassWeight = Math.round((p.minBothPassWeight || 90000) * 1.018);
+      p.samePillarTarget = caishenClampNumber((p.samePillarTarget || 8) + 0.25, 6, 13);
+      p.lowConsensusLine = caishenClampNumber((p.lowConsensusLine || 5) + 0.15, 4, 10);
+    } else if (outcome.status === 'bothPass') {
+      p.bothPassWeight = Math.round((p.bothPassWeight || 260000) * 1.015);
+      p.bothFailPenalty = Math.round((p.bothFailPenalty || 400000) * 0.997);
+    }
+    p.bothPassWeight = caishenClampNumber(p.bothPassWeight, 210000, 380000);
+    p.bothFailPenalty = caishenClampNumber(p.bothFailPenalty, 320000, 620000);
+    p.onePassPenalty = caishenClampNumber(p.onePassPenalty, 80000, 260000);
+    p.maxBothFailPenalty = caishenClampNumber(p.maxBothFailPenalty, 120000, 280000);
+    p.minBothPassWeight = caishenClampNumber(p.minBothPassWeight, 65000, 150000);
+    p.moveRatioPenalty = caishenClampNumber(p.moveRatioPenalty, 80000, 230000);
+    p.dangerPenalty = caishenClampNumber(p.dangerPenalty, 1200, 4200);
+    p.samePillarTarget = caishenClampNumber(p.samePillarTarget, 6, 13);
+    p.lowConsensusLine = caishenClampNumber(p.lowConsensusLine, 4, 10);
+    return { ...profile, params: p, incrementallyTuned: true, lastIncrementalOutcome: outcome, incrementUpdatedAt: new Date().toISOString() };
+  }
+
+  function caishenAutoIncrementalTuneFromLatest(draws) {
+    const mode = currentGameMode();
+    if (!draws || draws.length < 2) return '';
+    const all = caishenLoadProfileOverride();
+    let profile = all[mode];
+    if (!profile || !profile.params) {
+      const base = caishenBaseGameProfile ? caishenBaseGameProfile() : caishenGameProfile();
+      profile = { name: base.name + '（自動增量）', params: base, tunedAt: new Date().toISOString(), autoCreated: true };
+    }
+
+    const state = caishenLoadAdaptiveState();
+    const key = `${mode}_${draws.length}_${draws[0].join('-')}`;
+    if (state.lastIncrementalKey === key) {
+      caishenSaveProfileOverride(mode, profile);
+      return '增量校正：本期已處理，直接沿用目前性格。';
+    }
+
+    const summary = caishenRecentOutcomeSummary();
+    let outcome = null;
+    if (summary && summary.count) {
+      if (summary.bothFail >= 2) outcome = { status: 'bothFail', hitCombo: '0', source: 'incrementalSummary', game: mode };
+      else if (summary.onePass >= 4) outcome = { status: 'onePass', hitCombo: '3+0', source: 'incrementalSummary', game: mode };
+      else if (summary.bothPass >= 4) outcome = { status: 'bothPass', hitCombo: '4+3', source: 'incrementalSummary', game: mode };
+    }
+
+    if (!outcome) {
+      caishenSaveProfileOverride(mode, profile);
+      return '增量校正：已建立本彩種性格班底，等待更多開獎結果。';
+    }
+
+    const updated = caishenApplyIncrementalDrift(profile, outcome);
+    caishenSaveProfileOverride(mode, updated);
+    state.lastIncrementalKey = key;
+    caishenSaveAdaptiveState(state);
+    return `增量校正完成：依近期結果 ${caishenOutcomeStatusText(outcome.status)} 小幅調整 ${updated.name || caishenGameProfile().name}。`;
+  }
+
   async function runDailyTwoGroups() {
     CAISHEN_FAST_MODE = true;
-    const activeDrawText = getActiveDrawText();
-    const allDraws = parseDraws(activeDrawText);
-    const draws = getBacktestDraws();
-    countDraws.textContent = draws.length;
-    if (!allDraws.length) {
-      alert('請先在資料庫或下方貼上欄位加入有效開獎號碼，每行需能辨識出 5 個 01~39 號碼。');
-      return;
-    }
-    if (!draws.length) {
-      alert('目前沒有可回測資料，請先新增或匯入開獎號碼。');
-      return;
-    }
 
     runBtn.disabled = true;
     runBtn.textContent = '天運推演中...';
+    if (dailyAgentResult) {
+      dailyAgentResult.innerHTML = '已收到指令，正在啟動推演...<br><span class="small-note">若舊學習資料有錯，系統會自動略過，不會卡住。</span>';
+    }
     resetLog();
-    log(`天選雙柱模式：${gameLabel(currentGameMode())}，本次使用 ${getBacktestLimitLabel()}，判斷基準 ${draws.length} 期。`);
-    log('已啟用實戰雙柱引擎：分權重檢查50/100/150/250期，限制搬柱比例，淘汰共死風險，再挑雙過率較高的兩組。');
-    log(caishenAdaptiveText(caishenAdaptiveProfile()));
-    if (dailyAgentResult) dailyAgentResult.innerHTML = '財神正在推演今日雙柱...';
+    log('已啟動推演，正在讀取資料庫...');
 
     try {
+      await caishenYieldFrame();
+
+      const activeDrawText = getActiveDrawText();
+      const allDraws = parseDraws(activeDrawText);
+      const draws = getBacktestDraws();
+      countDraws.textContent = draws.length;
+
+      if (!allDraws.length) {
+        alert('請先在資料庫或下方貼上欄位加入有效開獎號碼，每行需能辨識出 5 個 01~39 號碼。');
+        return;
+      }
+      if (!draws.length) {
+        alert('目前沒有可回測資料，請先新增或匯入開獎號碼。');
+        return;
+      }
+
+      log(`天選雙柱模式：${gameLabel(currentGameMode())}，本次使用 ${getBacktestLimitLabel()}，判斷基準 ${draws.length} 期。`);
+      log(`已啟用${caishenGameProfile().name}${caishenGameProfile().selfTuned ? '（自我/增量校正選用）' : ''}：依彩種分流挑選雙柱（安全快速版）。`);
+
+      const bootstrap = await caishenBootstrapLearn100(draws);
+      if (bootstrap && !bootstrap.skipped) {
+        log(`已自動預學習${bootstrap.usable}期：雙過${bootstrap.bothPass}、單過${bootstrap.onePass}、雙倒${bootstrap.bothFail}。`);
+      } else if (bootstrap && bootstrap.skipped) {
+        log(`已載入既有100期學習班底。`);
+      }
+
+
+      try {
+        const outcomeLearningLog = caishenRecordLatestDrawOutcome(draws);
+        if (outcomeLearningLog) log(outcomeLearningLog);
+        log(caishenAdaptiveText(caishenAdaptiveProfile()));
+      } catch (learnErr) {
+        console.warn('learning skipped', learnErr);
+        log('開獎學習資料讀取略過：舊資料格式不影響本次推演。');
+      }
+
+      if (dailyAgentResult) {
+        dailyAgentResult.innerHTML = '財神正在推演今日雙柱...<br><span class="small-note">安全快速版：先求穩定生成，再慢慢加強。</span>';
+      }
+
+      await caishenYieldFrame();
       const startTime = performance.now();
-      const candidateScoreData = buildCandidateScoreRanking(draws, parseCandidateShares(candidateInput.value).counts);
-      lastCandidateScoreData = candidateScoreData;
+
+      log('建立號碼評分與候選池...');
+      let candidateScoreData = null;
+      try {
+        candidateScoreData = buildCandidateScoreRanking(draws, parseCandidateShares(candidateInput.value).counts);
+        lastCandidateScoreData = candidateScoreData;
+      } catch (scoreErr) {
+        console.warn('candidate score skipped', scoreErr);
+        log('候選排行略過：不影響雙柱推演。');
+      }
+
+      log('開始生成雙柱候選...');
       const items = await caishenGenerateFastDailyTwo(draws);
+
+      if (!items || !items.length) {
+        throw new Error('沒有產生可用雙柱，請確認資料庫期數是否足夠。');
+      }
 
       lastDailyTwo = items;
       lastAI = items[0] ? [items[0]] : [];
@@ -7793,8 +8356,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       lastRecommended = items.slice();
 
       renderDailyTwoResult(lastDailyTwo, draws);
-      caishenSaveCurrentPair(lastDailyTwo, draws);
-      refreshRecommendArea();
+
+      try { caishenSaveCurrentPair(lastDailyTwo, draws); } catch (saveErr) { console.warn('save pair skipped', saveErr); }
+      try { refreshRecommendArea(); } catch (refErr) { console.warn('recommend refresh skipped', refErr); }
 
       const spent = ((performance.now() - startTime) / 1000).toFixed(2);
       if (lastDailyTwo.length >= 2) {
@@ -7803,15 +8367,16 @@ ${settleRecord.analysisLines.join('\n')}`;
         const wsLog = pairStatsLog.weightedStats || pairStatsLog.pairStats;
         log(`加權雙過率 ${(wsLog.bothPassRate * 100).toFixed(2)}%，加權雙倒率 ${(wsLog.bothFailRate * 100).toFixed(2)}%，單過單倒率 ${(wsLog.onePassRate * 100).toFixed(2)}%。`);
         log(`同柱共識 ${pairStatsLog.samePillarShared} 支，最大搬柱比例 ${((pairStatsLog.maxMoveRatio || 0) * 100).toFixed(1)}%（${pairStatsLog.maxMoveRatioText || '0/0'}），搬柱風險 ${pairStatsLog.hardReject || '通過'}。`);
-        log(pairStatsLog.adaptiveText || caishenAdaptiveText(caishenAdaptiveProfile()));
-        log(`雙柱同柱重疊 ${(samePillarOverlapRate(lastDailyTwo[0].groups, lastDailyTwo[1].groups) * 100).toFixed(2)}%，交叉重疊 ${(crossOverlapRate(lastDailyTwo[0].groups, lastDailyTwo[1].groups) * 100).toFixed(2)}%。`);
       } else {
-        log(`天選雙柱候選不足，目前只產生到一組。耗時 ${spent} 秒。`);
+        log(`候選不足，目前只產生到一組。耗時 ${spent} 秒。`);
       }
     } catch (err) {
       console.error(err);
-      log('推演發生錯誤：' + err.message);
-      alert('推演時發生錯誤：' + err.message);
+      log('推演發生錯誤：' + (err && err.message ? err.message : String(err)));
+      if (dailyAgentResult) {
+        dailyAgentResult.innerHTML = '<div class="bad">推演發生錯誤：' + (err && err.message ? err.message : String(err)) + '</div>';
+      }
+      alert('推演時發生錯誤：' + (err && err.message ? err.message : String(err)));
     } finally {
       runBtn.disabled = false;
       runBtn.textContent = '天選雙柱';
@@ -7819,6 +8384,8 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   runBtn.addEventListener('click', runDailyTwoGroups);
+  if (backtrain50Btn) backtrain50Btn.addEventListener('click', runBacktrain50);
+  if (selfTuneBtn) selfTuneBtn.addEventListener('click', runSelfTune100);
   if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
   initDrawDatabase();
 
