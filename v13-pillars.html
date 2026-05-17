@@ -1061,6 +1061,7 @@
 </style>
 </head>
 <body>
+  <div style="position:fixed;left:10px;bottom:10px;z-index:100000;background:#facc15;color:#111827;border-radius:999px;padding:8px 12px;font-weight:1000;box-shadow:0 6px 18px rgba(0,0,0,.45);">v16診斷版</div>
   <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
     <div class="title">吸金穩贏 APP｜天天樂真正分流修正版</div>
@@ -1195,7 +1196,7 @@
           <select id="groupCount" class="btn btn-dark" style="text-align:center; appearance:auto; display:none;">
             <option value="2" selected>每日固定 2 組</option>
           </select>
-          <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
+          <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱 v16診斷</button>
           <div class="clean-tools">
             <button class="btn btn-dark" id="sampleBtn">載入範例資料</button>
             <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新學習100期</button>
@@ -1206,7 +1207,7 @@
         </div>
         <div class="daily-agent-box clean-two-box">
           <div class="daily-agent-head">
-            <div class="daily-agent-title clean-title">今日天選雙柱</div>
+            <div class="daily-agent-title clean-title">今日天選雙柱｜v16診斷</div>
             <button class="btn btn-danger" id="dailyAgentBtn" type="button" style="display:none;">啟動財神今日代理</button>
           </div>
           <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」，會自動挑出雙過優先的兩組。</div>
@@ -6507,7 +6508,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   const DB_VERSION_KEY = 'pillar_app_active_game_v41';
   const DB_KEY_PREFIX = 'pillar_app_draw_db_v41_';
   const APP_CORE_VERSION_KEY = 'pillar_app_core_version_guard';
-  const APP_CORE_VERSION = 'v15_dayday_true_multicore_storage_rebuild_20260517';
+  const APP_CORE_VERSION = 'v16_dayday_name_check_force_rebuild_20260517';
   let dbExpanded = false;
 
   function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : '539'; }
@@ -8077,7 +8078,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const mode = currentGameMode();
     if (mode === 'dayday') {
       return {
-        name: '天天樂同步保命型',
+        name: '【v16-A】天天樂金鐘罩同步型',
         mode,
         // 天天樂新版：不只防雙倒，也要壓低單過單倒，讓兩組更同步一起過。
         bothPassWeight: 292000,
@@ -8188,11 +8189,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     const mode = currentGameMode();
     if (mode === 'dayday') {
       return [
-        { name:'天天樂同步保命型', params:{ ...base, name:'天天樂同步保命型' } },
-        { name:'天天樂防穿透低重疊型', params:{ ...base, name:'天天樂防穿透低重疊型', bothPassWeight:258000, onePassPenalty:150000, bothFailPenalty:540000, samePillarTarget:7, lowConsensusLine:4, highConsensusLine:10, moveRatioLine:0.32, sameLowLine:0.06, sameHighLine:0.26, overlapHighLine:0.34, dangerPenalty:3600, hardFail100:0.11, rejectMoveRatio:0.72 } },
-        { name:'天天樂高爆發型', params:{ ...base, name:'天天樂高爆發型', bothPassWeight:345000, onePassPenalty:118000, bothFailPenalty:365000, samePillarTarget:14, lowConsensusLine:10, highConsensusLine:18, sameLowLine:0.20, sameHighLine:0.48, overlapHighLine:0.54, dangerPenalty:1500, hardFail100:0.16 } },
-        { name:'天天樂反轉連倒型', params:{ ...base, name:'天天樂反轉連倒型', bothPassWeight:225000, onePassPenalty:105000, bothFailPenalty:420000, samePillarTarget:8, lowConsensusLine:5, highConsensusLine:12, moveRatioLine:0.34, sameLowLine:0.07, sameHighLine:0.30, overlapHighLine:0.38, dangerPenalty:2600, hardFail100:0.15 } },
-        { name:'天天樂極端爆擊型', params:{ ...base, name:'天天樂極端爆擊型', bothPassWeight:315000, onePassPenalty:90000, bothFailPenalty:330000, samePillarTarget:15, lowConsensusLine:11, highConsensusLine:20, sameLowLine:0.22, sameHighLine:0.56, overlapHighLine:0.60, dangerPenalty:900, hardFail100:0.18 } }
+        { name:'【v16-A】天天樂金鐘罩同步型', params:{ ...base, name:'【v16-A】天天樂金鐘罩同步型' } },
+        { name:'【v16-B】天天樂破盾防穿透型', params:{ ...base, name:'【v16-B】天天樂破盾防穿透型', bothPassWeight:258000, onePassPenalty:150000, bothFailPenalty:540000, samePillarTarget:7, lowConsensusLine:4, highConsensusLine:10, moveRatioLine:0.32, sameLowLine:0.06, sameHighLine:0.26, overlapHighLine:0.34, dangerPenalty:3600, hardFail100:0.11, rejectMoveRatio:0.72 } },
+        { name:'【v16-C】天天樂火山爆發型', params:{ ...base, name:'【v16-C】天天樂火山爆發型', bothPassWeight:345000, onePassPenalty:118000, bothFailPenalty:365000, samePillarTarget:14, lowConsensusLine:10, highConsensusLine:18, sameLowLine:0.20, sameHighLine:0.48, overlapHighLine:0.54, dangerPenalty:1500, hardFail100:0.16 } },
+        { name:'【v16-D】天天樂逆風反轉型', params:{ ...base, name:'【v16-D】天天樂逆風反轉型', bothPassWeight:225000, onePassPenalty:105000, bothFailPenalty:420000, samePillarTarget:8, lowConsensusLine:5, highConsensusLine:12, moveRatioLine:0.34, sameLowLine:0.07, sameHighLine:0.30, overlapHighLine:0.38, dangerPenalty:2600, hardFail100:0.15 } },
+        { name:'【v16-E】天天樂極端爆擊型', params:{ ...base, name:'【v16-E】天天樂極端爆擊型', bothPassWeight:315000, onePassPenalty:90000, bothFailPenalty:330000, samePillarTarget:15, lowConsensusLine:11, highConsensusLine:20, sameLowLine:0.22, sameHighLine:0.56, overlapHighLine:0.60, dangerPenalty:900, hardFail100:0.18 } }
       ];
     }
     return [
