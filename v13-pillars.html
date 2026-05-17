@@ -1153,6 +1153,7 @@
             <button class="btn btn-danger" id="restoreDbBackupBtn" type="button">貼上備份還原</button>
             <button class="btn btn-dark" id="toggleDbBtn" type="button">展開資料庫檢查</button>
             <button class="btn btn-dark" id="clearCurrentDbBtn" type="button">清空目前彩種資料庫</button>
+            <button class="btn btn-dark" id="cleanupStorageBtn" type="button">清理舊暫存</button>
           </div>
           <div class="db-summary">
             <div class="db-chip">目前彩種：<b id="dbGameLabel">539</b></div>
@@ -1356,6 +1357,7 @@
   const dbBackupText = document.getElementById('dbBackupText');
   const toggleDbBtn = document.getElementById('toggleDbBtn');
   const clearCurrentDbBtn = document.getElementById('clearCurrentDbBtn');
+  const cleanupStorageBtn = document.getElementById('cleanupStorageBtn');
   const dbGameLabel = document.getElementById('dbGameLabel');
   const dbCount = document.getElementById('dbCount');
   const dbLatest = document.getElementById('dbLatest');
@@ -6525,7 +6527,77 @@ ${settleRecord.analysisLines.join('\n')}`;
   function loadDrawDb(mode = currentGameMode()) {
     try { const parsed = JSON.parse(localStorage.getItem(dbKey(mode)) || '[]'); return Array.isArray(parsed) ? parsed.map(normalizeDrawRecord).filter(Boolean) : []; } catch (err) { return []; }
   }
-  function saveDrawDb(records, mode = currentGameMode()) { const clean = (records || []).map(normalizeDrawRecord).filter(Boolean); localStorage.setItem(dbKey(mode), JSON.stringify(clean)); return clean; }
+  function saveDrawDb(records, mode = currentGameMode()) {
+    let clean = (records || []).map(normalizeDrawRecord).filter(Boolean);
+
+    // 精簡保存：資料庫只保留開獎號碼、簡短日期，不保存過長附帶內容，避免手機 localStorage 爆量。
+    const slim = clean.map((r, idx) => ({
+      id: 'd_' + idx + '_' + r.nums.join(''),
+      date: String(r.date || '').slice(0, 24),
+      nums: r.nums.map(Number),
+      createdAt: Number(r.createdAt) || Date.now()
+    }));
+
+    function trySave(list) {
+      localStorage.setItem(dbKey(mode), JSON.stringify(list));
+      return list.map(normalizeDrawRecord).filter(Boolean);
+    }
+
+    try {
+      return trySave(slim);
+    } catch (err) {
+      // 空間不足時，先清理舊版較大的輔助資料，再重試。
+      try {
+        Object.keys(localStorage).forEach(k => {
+          if (
+            k.includes('caishen_adaptive') ||
+            k.includes('caishen_self_tuned') ||
+            k.includes('caishen_bootstrap') ||
+            k.includes('best_recommend') ||
+            k.includes('manual_recommend') ||
+            k.includes('memory_db')
+          ) {
+            localStorage.removeItem(k);
+          }
+        });
+        return trySave(slim);
+      } catch (err2) {
+        // 最後保底：保留最新300期，通常已足夠目前100期學習與回測。
+        try {
+          const capped = slim.slice(0, 300);
+          const saved = trySave(capped);
+          alert(`瀏覽器空間不足，已自動保留最新 ${saved.length} 期。若仍不足，請到Chrome網站資料清除 linboching.github.io 的舊資料後再匯入。`);
+          return saved;
+        } catch (err3) {
+          alert('資料庫保存失敗：瀏覽器儲存空間已滿。請先清除 linboching.github.io 的網站資料，或只匯入最新300期。');
+          throw err3;
+        }
+      }
+    }
+  }
+
+  function cleanupOldStorageData() {
+    let removed = 0;
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (
+          k.includes('caishen_adaptive') ||
+          k.includes('caishen_self_tuned') ||
+          k.includes('caishen_bootstrap') ||
+          k.includes('best_recommend') ||
+          k.includes('manual_recommend') ||
+          k.includes('memory_db')
+        ) {
+          localStorage.removeItem(k);
+          removed++;
+        }
+      });
+      alert(`已清理舊暫存 ${removed} 筆，不會刪除539/天天樂開獎資料庫與七日盈虧。`);
+    } catch (e) {
+      alert('清理舊暫存時發生錯誤：' + (e.message || String(e)));
+    }
+  }
+
   function formatDrawLine(record, index = 0) { const tag = record.date ? record.date + ' ' : ''; return `${tag}${formatNums(record.nums)}`.trim() || `第${index + 1}筆 ${formatNums(record.nums)}`; }
   function getActiveDrawText() {
     const pastedText = drawInput.value.trim();
@@ -7256,21 +7328,78 @@ ${settleRecord.analysisLines.join('\n')}`;
       - (s.allInOneRate || 0) * 1900;
   }
 
+
+  function caishenProfileStyleKey() {
+    const name = (caishenGameProfile().name || '').toString();
+    if (name.includes('高雙過')) return 'attack';
+    if (name.includes('低雙倒')) return 'defense';
+    if (name.includes('降單過')) return 'sync';
+    if (name.includes('半同步')) return 'semi';
+    if (name.includes('互補')) return 'complement';
+    return 'base';
+  }
+
+  function caishenProfileSeedOffset() {
+    const name = (caishenGameProfile().name || '').toString();
+    let s = 0;
+    for (let i = 0; i < name.length; i++) s = (s + name.charCodeAt(i) * (i + 3)) % 997;
+    return s;
+  }
+
+  function caishenProfileOrderVariants(order, scored) {
+    const style = caishenProfileStyleKey();
+    const hot = scored.slice().sort((a,b)=>(b.score-a.score)||a.n-b.n).map(x=>x.n);
+    const cold = scored.slice().sort((a,b)=>(a.score-b.score)||a.n-b.n).map(x=>x.n);
+    const seed = caishenProfileSeedOffset() % order.length;
+    const rotate = (arr, k) => arr.slice(k).concat(arr.slice(0,k));
+    const interleave = (a,b) => {
+      const out = [];
+      for (let i=0; i<Math.max(a.length,b.length); i++) {
+        if (a[i] != null && !out.includes(a[i])) out.push(a[i]);
+        if (b[i] != null && !out.includes(b[i])) out.push(b[i]);
+      }
+      range39().forEach(n=>{ if(!out.includes(n)) out.push(n); });
+      return out;
+    };
+
+    if (style === 'attack') return [hot, interleave(hot, rotate(hot, 13)), rotate(order, seed)];
+    if (style === 'defense') return [interleave(hot, cold), interleave(cold, hot), rotate(order, seed)];
+    if (style === 'sync') return [hot, rotate(hot, 7), interleave(hot, rotate(hot, 19))];
+    if (style === 'semi') return [interleave(hot, rotate(cold, seed % 11)), rotate(order, seed), interleave(rotate(hot, 5), cold)];
+    if (style === 'complement') return [interleave(hot, cold), rotate(order, seed), interleave(rotate(cold, 3), hot)];
+    return [rotate(order, seed), order];
+  }
+
   async function caishenBuildFastCandidatePool(draws, limit = 120) {
     const scored = caishenNumberScore(draws);
-    const orders = caishenDeterministicOrders(scored);
+    const baseOrders = caishenDeterministicOrders(scored);
     const seen = new Set();
     const pool = [];
+    const seed = caishenProfileSeedOffset();
+    const style = caishenProfileStyleKey();
+
+    const orders = [];
+    baseOrders.forEach(order => {
+      caishenProfileOrderVariants(order, scored).forEach(o => orders.push(o));
+    });
+
+    const variantBase =
+      style === 'attack' ? 11 :
+      style === 'defense' ? 23 :
+      style === 'sync' ? 37 :
+      style === 'semi' ? 51 :
+      style === 'complement' ? 67 : 0;
 
     for (let oi = 0; oi < orders.length; oi++) {
-      const order = orders[oi];
-      for (let variant = 0; variant < 4; variant++) {
-        const groups = caishenPartitionOrder(order, oi * 4 + variant);
+      const order = orders[(oi + seed) % orders.length];
+      const variantCount = window.CAISHEN_BACKTRAIN_FAST ? 3 : 6;
+      for (let variant = 0; variant < variantCount; variant++) {
+        const groups = caishenPartitionOrder(order, variantBase + oi * variantCount + variant + seed);
         const key = exportText(groups);
         if (seen.has(key)) continue;
         seen.add(key);
-        pool.push(caishenFastItem(groups, draws, '天選候選'));
-        if (pool.length % 24 === 0) await caishenYieldFrame();
+        pool.push(caishenFastItem(groups, draws, `天選候選-${style}`));
+        if (pool.length % 16 === 0) await caishenYieldFrame();
         if (pool.length >= limit) return pool;
       }
     }
@@ -7665,7 +7794,8 @@ ${settleRecord.analysisLines.join('\n')}`;
   async function caishenPickBestPairByJointStats(pool, draws) {
     if (!pool || pool.length < 2) return pool || [];
     const sorted = pool.slice().sort((a,b)=>caishenFastPrimaryScore(b)-caishenFastPrimaryScore(a) || exportText(a.groups).localeCompare(exportText(b.groups)));
-    const topLimit = window.CAISHEN_BACKTRAIN_FAST ? 14 : (currentGameMode() === 'dayday' ? 28 : 34);
+    const profileStyle = caishenProfileStyleKey();
+    const topLimit = window.CAISHEN_BACKTRAIN_FAST ? (profileStyle === 'defense' ? 18 : 14) : (currentGameMode() === 'dayday' ? 32 : 36);
     const top = sorted.slice(0, Math.min(topLimit, sorted.length));
     let best = null;
     let bestRelaxed = null;
@@ -7702,7 +7832,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   async function caishenGenerateFastDailyTwo(draws) {
-    const pool = await caishenBuildFastCandidatePool(draws, window.CAISHEN_BACKTRAIN_FAST ? 32 : (currentGameMode() === 'dayday' ? 64 : 72));
+    const pool = await caishenBuildFastCandidatePool(draws, window.CAISHEN_BACKTRAIN_FAST ? (caishenProfileStyleKey() === 'attack' ? 44 : 36) : (currentGameMode() === 'dayday' ? 76 : 82));
     if (!pool.length) return [];
     pool.sort((a, b) => caishenFastPrimaryScore(b) - caishenFastPrimaryScore(a) || exportText(a.groups).localeCompare(exportText(b.groups)));
 
