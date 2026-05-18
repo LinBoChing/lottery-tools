@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP｜天天樂多核心修正版</title>
+  <title>吸金穩贏 APP｜天天樂多核心修正版・週損益自動換週版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -1063,7 +1063,7 @@
 <body>
   <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜天天樂多核心修正版</div>
+    <div class="title">吸金穩贏 APP｜天天樂多核心修正版・週損益自動換週版</div>
     <div class="sub">
       主畫面改成每日兩組出戰：一組主力高過關，一組輔助低重疊。<br>
       <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；本版只簡化畫面與出戰邏輯，不破壞原資料。
@@ -1085,7 +1085,7 @@
         </div>
         <div class="weekly-summary-box">
           整週總損益：<br><b id="weeklyGrandSummary">0</b>
-          <div class="weekly-mini-total">今日輸入會自動保存；不按清除就不會重置。</div>
+          <div class="weekly-mini-total">本週資料會依週一自動切換；新的一週自動空白，不再帶到上週損益。</div>
         </div>
       </div>
       <div class="weekly-actions">
@@ -1444,9 +1444,11 @@
 
   function syncWeeklyProfitHistoryFromCurrentWeek(data) {
     const history = loadWeeklyProfitHistory();
+    const todayKey = dateKeyFromDate(new Date());
     data.forEach((row, idx) => {
       const d = getDateForWeeklyIndex(idx);
       const key = dateKeyFromDate(d);
+      if (key > todayKey && !String(row.morning || '').trim() && !String(row.night || '').trim()) return;
       const morning = parseMoneyValue(row.morning);
       const night = parseMoneyValue(row.night);
       history[key] = {
@@ -1588,19 +1590,56 @@
     return 'weekly-zero';
   }
 
-  function loadWeeklyCalcData() {
-    try {
-      const raw = localStorage.getItem(WEEKLY_CALC_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(parsed) && parsed.length === 7) {
-        return parsed.map(row => ({ morning: String(row.morning || ''), night: String(row.night || '') }));
-      }
-    } catch (err) {}
+  function emptyWeeklyCalcData() {
     return WEEKLY_DAYS.map(() => ({ morning: '', night: '' }));
   }
 
+  function normalizeWeeklyCalcData(data) {
+    if (!Array.isArray(data)) return emptyWeeklyCalcData();
+    return WEEKLY_DAYS.map((_, idx) => ({
+      morning: String(data[idx]?.morning || ''),
+      night: String(data[idx]?.night || '')
+    }));
+  }
+
+  function getCurrentWeekKey() {
+    return dateKeyFromDate(getMondayOfCurrentWeek());
+  }
+
+  function loadWeeklyCalcData() {
+    const currentWeekKey = getCurrentWeekKey();
+    try {
+      const raw = localStorage.getItem(WEEKLY_CALC_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+
+      // 新版格式：綁定「週一日期」。只要換到新的一週，就自動開一張空白週表。
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.weekStart && Array.isArray(parsed.data)) {
+        if (parsed.weekStart === currentWeekKey) return normalizeWeeklyCalcData(parsed.data);
+        const fresh = emptyWeeklyCalcData();
+        saveWeeklyCalcData(fresh);
+        return fresh;
+      }
+
+      // 舊版只存 7 天陣列，沒有週別可判斷；升級後避免把上週損益套到本週日期，直接換成空白本週。
+      if (Array.isArray(parsed) && parsed.length === 7) {
+        const fresh = emptyWeeklyCalcData();
+        saveWeeklyCalcData(fresh);
+        return fresh;
+      }
+    } catch (err) {}
+    const fresh = emptyWeeklyCalcData();
+    saveWeeklyCalcData(fresh);
+    return fresh;
+  }
+
   function saveWeeklyCalcData(data) {
-    try { localStorage.setItem(WEEKLY_CALC_STORAGE_KEY, JSON.stringify(data)); } catch (err) {}
+    try {
+      localStorage.setItem(WEEKLY_CALC_STORAGE_KEY, JSON.stringify({
+        weekStart: getCurrentWeekKey(),
+        data: normalizeWeeklyCalcData(data),
+        updatedAt: new Date().toISOString()
+      }));
+    } catch (err) {}
   }
 
   function renderWeeklyCalcTable() {
