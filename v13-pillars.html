@@ -538,7 +538,7 @@
     .weekly-profit { color: #86efac; }
     .weekly-loss { color: #fca5a5; }
     .weekly-zero { color: #cbd5e1; }
-    .weekly-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .weekly-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
     .weekly-summary-box { background: #0b1220; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; color: #cbd5e1; font-size: 14px; }
     .weekly-summary-box b { font-size: 18px; }
     .weekly-summary-title { color: var(--muted); font-size: 13px; font-weight: 800; margin-bottom: 6px; }
@@ -1071,7 +1071,7 @@
 
     <div class="card weekly-calc-card">
       <div class="section-title">七日財運盈虧試算表</div>
-      <div class="weekly-note">不用再先展開今日輸入；直接在上方輸入今天早場 / 晚場輸贏金額即可。贏錢填正數，例如 5000；輸錢填負數，例如 -1000。</div>
+      <div class="weekly-note">不用再先展開今日輸入；直接在上方輸入今天早場 / 晚場 / 金富翁遊戲輸贏金額即可。贏錢填正數，例如 5000；輸錢填負數，例如 -1000。</div>
       <div class="weekly-summary-grid">
         <div class="weekly-summary-box">
           <div class="weekly-summary-title" id="weeklyTodayMorningLabel">今日早場輸贏</div>
@@ -1084,8 +1084,14 @@
           <div class="weekly-mini-total">晚場合計：<b id="weeklyNightSummary">0</b></div>
         </div>
         <div class="weekly-summary-box">
-          整週總損益：<br><b id="weeklyGrandSummary">0</b>
-          <div class="weekly-mini-total">本週資料會依週一自動切換；新的一週自動空白，不再帶到上週損益。</div>
+          <div class="weekly-summary-title" id="weeklyTodayGoldLabel">今日金富翁遊戲損益</div>
+          <input id="weeklyTodayGoldInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
+          <div class="weekly-mini-total">金富翁合計：<b id="weeklyGoldSummary">0</b></div>
+        </div>
+        <div class="weekly-summary-box">
+          <div class="weekly-summary-title">上週結算損益</div>
+          <input id="weeklySettlementInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
+          <div class="weekly-mini-total">本週損益：<b id="weeklyGrandSummary">0</b><br>結算後累積：<b id="weeklyAfterSettlementSummary">0</b></div>
         </div>
       </div>
       <div class="weekly-actions">
@@ -1119,6 +1125,7 @@
                 <th>天數</th>
                 <th>早場輸贏</th>
                 <th>晚場輸贏</th>
+                <th>金富翁遊戲損益</th>
                 <th>當日小計</th>
               </tr>
             </thead>
@@ -1128,6 +1135,7 @@
                 <th>合計</th>
                 <th id="weeklyMorningTotal">0</th>
                 <th id="weeklyNightTotal">0</th>
+                <th id="weeklyGoldTotal">0</th>
                 <th id="weeklyGrandTotal">0</th>
               </tr>
             </tfoot>
@@ -1368,14 +1376,20 @@
   const clearWeeklyCalcBtn = document.getElementById('clearWeeklyCalcBtn');
   const weeklyMorningTotal = document.getElementById('weeklyMorningTotal');
   const weeklyNightTotal = document.getElementById('weeklyNightTotal');
+  const weeklyGoldTotal = document.getElementById('weeklyGoldTotal');
   const weeklyGrandTotal = document.getElementById('weeklyGrandTotal');
   const weeklyMorningSummary = document.getElementById('weeklyMorningSummary');
   const weeklyNightSummary = document.getElementById('weeklyNightSummary');
+  const weeklyGoldSummary = document.getElementById('weeklyGoldSummary');
   const weeklyGrandSummary = document.getElementById('weeklyGrandSummary');
+  const weeklyAfterSettlementSummary = document.getElementById('weeklyAfterSettlementSummary');
   const weeklyTodayMorningInput = document.getElementById('weeklyTodayMorningInput');
   const weeklyTodayNightInput = document.getElementById('weeklyTodayNightInput');
+  const weeklyTodayGoldInput = document.getElementById('weeklyTodayGoldInput');
+  const weeklySettlementInput = document.getElementById('weeklySettlementInput');
   const weeklyTodayMorningLabel = document.getElementById('weeklyTodayMorningLabel');
   const weeklyTodayNightLabel = document.getElementById('weeklyTodayNightLabel');
+  const weeklyTodayGoldLabel = document.getElementById('weeklyTodayGoldLabel');
   const weeklyInputPanel = document.getElementById('weeklyInputPanel');
   const weeklyTableWrap = document.getElementById('weeklyTableWrap');
   const weeklyTodayNote = document.getElementById('weeklyTodayNote');
@@ -1457,7 +1471,8 @@
         weekday: getWeekdayNameFromDate(d),
         morning,
         night,
-        total: morning + night,
+        gold: parseMoneyValue(row.gold),
+        total: morning + night + parseMoneyValue(row.gold),
         updatedAt: new Date().toISOString()
       };
     });
@@ -1476,8 +1491,8 @@
         sub: (x.weekday || '').replace('星期','週'),
         open: 0,
         close: Number(x.total) || 0,
-        high: Math.max(0, Number(x.morning) || 0, Number(x.total) || 0),
-        low: Math.min(0, Number(x.morning) || 0, Number(x.total) || 0),
+        high: Math.max(0, Number(x.morning) || 0, (Number(x.morning) || 0) + (Number(x.night) || 0), Number(x.total) || 0),
+        low: Math.min(0, Number(x.morning) || 0, (Number(x.morning) || 0) + (Number(x.night) || 0), Number(x.total) || 0),
         total: Number(x.total) || 0
       })).slice(-31);
     }
@@ -1591,14 +1606,15 @@
   }
 
   function emptyWeeklyCalcData() {
-    return WEEKLY_DAYS.map(() => ({ morning: '', night: '' }));
+    return WEEKLY_DAYS.map(() => ({ morning: '', night: '', gold: '' }));
   }
 
   function normalizeWeeklyCalcData(data) {
     if (!Array.isArray(data)) return emptyWeeklyCalcData();
     return WEEKLY_DAYS.map((_, idx) => ({
       morning: String(data[idx]?.morning || ''),
-      night: String(data[idx]?.night || '')
+      night: String(data[idx]?.night || ''),
+      gold: String(data[idx]?.gold || '')
     }));
   }
 
@@ -1606,40 +1622,89 @@
     return dateKeyFromDate(getMondayOfCurrentWeek());
   }
 
-  function loadWeeklyCalcData() {
+  function calcWeeklyDataTotal(data) {
+    return normalizeWeeklyCalcData(data).reduce((sum, row) => {
+      return sum + parseMoneyValue(row.morning) + parseMoneyValue(row.night) + parseMoneyValue(row.gold);
+    }, 0);
+  }
+
+  function normalizeWeeklyStoragePayload(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return { weekStart: getCurrentWeekKey(), settlementTotal: 0, data: emptyWeeklyCalcData(), settledWeeks: [] };
+    }
+    const settledWeeks = Array.isArray(payload.settledWeeks) ? payload.settledWeeks : [];
+    return {
+      weekStart: payload.weekStart || getCurrentWeekKey(),
+      settlementTotal: parseMoneyValue(payload.settlementTotal),
+      data: normalizeWeeklyCalcData(payload.data),
+      settledWeeks
+    };
+  }
+
+  function loadWeeklyCalcPayload() {
     const currentWeekKey = getCurrentWeekKey();
+    let payload = { weekStart: currentWeekKey, settlementTotal: 0, data: emptyWeeklyCalcData(), settledWeeks: [] };
     try {
       const raw = localStorage.getItem(WEEKLY_CALC_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
 
-      // 新版格式：綁定「週一日期」。只要換到新的一週，就自動開一張空白週表。
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.weekStart && Array.isArray(parsed.data)) {
-        if (parsed.weekStart === currentWeekKey) return normalizeWeeklyCalcData(parsed.data);
-        const fresh = emptyWeeklyCalcData();
-        saveWeeklyCalcData(fresh);
-        return fresh;
+        payload = normalizeWeeklyStoragePayload(parsed);
+        if (payload.weekStart !== currentWeekKey) {
+          const oldWeekKey = payload.weekStart;
+          if (!payload.settledWeeks.includes(oldWeekKey)) {
+            payload.settlementTotal += calcWeeklyDataTotal(payload.data);
+            payload.settledWeeks.push(oldWeekKey);
+          }
+          payload.weekStart = currentWeekKey;
+          payload.data = emptyWeeklyCalcData();
+          saveWeeklyCalcPayload(payload);
+        }
+        return payload;
       }
 
-      // 舊版只存 7 天陣列，沒有週別可判斷；升級後避免把上週損益套到本週日期，直接換成空白本週。
       if (Array.isArray(parsed) && parsed.length === 7) {
-        const fresh = emptyWeeklyCalcData();
-        saveWeeklyCalcData(fresh);
-        return fresh;
+        payload.data = emptyWeeklyCalcData();
+        saveWeeklyCalcPayload(payload);
+        return payload;
       }
     } catch (err) {}
-    const fresh = emptyWeeklyCalcData();
-    saveWeeklyCalcData(fresh);
-    return fresh;
+    saveWeeklyCalcPayload(payload);
+    return payload;
   }
 
-  function saveWeeklyCalcData(data) {
+  function saveWeeklyCalcPayload(payload) {
+    const normalized = normalizeWeeklyStoragePayload(payload);
+    normalized.weekStart = normalized.weekStart || getCurrentWeekKey();
     try {
       localStorage.setItem(WEEKLY_CALC_STORAGE_KEY, JSON.stringify({
-        weekStart: getCurrentWeekKey(),
-        data: normalizeWeeklyCalcData(data),
+        weekStart: normalized.weekStart,
+        settlementTotal: parseMoneyValue(normalized.settlementTotal),
+        settledWeeks: normalized.settledWeeks || [],
+        data: normalizeWeeklyCalcData(normalized.data),
         updatedAt: new Date().toISOString()
       }));
     } catch (err) {}
+  }
+
+  function loadWeeklyCalcData() {
+    return loadWeeklyCalcPayload().data;
+  }
+
+  function saveWeeklyCalcData(data) {
+    const payload = loadWeeklyCalcPayload();
+    payload.data = normalizeWeeklyCalcData(data);
+    saveWeeklyCalcPayload(payload);
+  }
+
+  function loadWeeklySettlementTotal() {
+    return parseMoneyValue(loadWeeklyCalcPayload().settlementTotal);
+  }
+
+  function saveWeeklySettlementTotal(value) {
+    const payload = loadWeeklyCalcPayload();
+    payload.settlementTotal = parseMoneyValue(value);
+    saveWeeklyCalcPayload(payload);
   }
 
   function renderWeeklyCalcTable() {
@@ -1651,11 +1716,13 @@
         <th>${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(idx) : day}${idx === todayIdx ? '（今天）' : ''}</th>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="morning" placeholder="0" value="${data[idx].morning}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="night" placeholder="0" value="${data[idx].night}"></td>
+        <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="gold" placeholder="0" value="${data[idx].gold}"></td>
         <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
       </tr>
     `).join('');
     if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}早場輸贏`;
     if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}晚場輸贏`;
+    if (weeklyTodayGoldLabel) weeklyTodayGoldLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}金富翁遊戲損益`;
     if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}。`;
     applyWeeklyViewMode();
     updateWeeklyCalcTotals();
@@ -1670,12 +1737,15 @@
     const data = loadWeeklyCalcData();
     let morningTotal = 0;
     let nightTotal = 0;
+    let goldTotal = 0;
     data.forEach((row, idx) => {
       const morning = parseMoneyValue(row.morning);
       const night = parseMoneyValue(row.night);
-      const dayTotal = morning + night;
+      const gold = parseMoneyValue(row.gold);
+      const dayTotal = morning + night + gold;
       morningTotal += morning;
       nightTotal += night;
+      goldTotal += gold;
       const cell = document.getElementById(`weeklyDayTotal${idx}`);
       if (cell) {
         cell.textContent = formatMoneyValue(dayTotal);
@@ -1685,12 +1755,19 @@
     const todayIdx = getTodayWeeklyIndex();
     if (weeklyTodayMorningInput && document.activeElement !== weeklyTodayMorningInput) weeklyTodayMorningInput.value = data[todayIdx]?.morning || '';
     if (weeklyTodayNightInput && document.activeElement !== weeklyTodayNightInput) weeklyTodayNightInput.value = data[todayIdx]?.night || '';
+    if (weeklyTodayGoldInput && document.activeElement !== weeklyTodayGoldInput) weeklyTodayGoldInput.value = data[todayIdx]?.gold || '';
     if (weeklyTodayMorningInput) weeklyTodayMorningInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.morning))}`;
     if (weeklyTodayNightInput) weeklyTodayNightInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.night))}`;
-    const grandTotal = morningTotal + nightTotal;
+    if (weeklyTodayGoldInput) weeklyTodayGoldInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.gold))}`;
+    const grandTotal = morningTotal + nightTotal + goldTotal;
+    const settlementTotal = loadWeeklySettlementTotal();
+    const afterSettlementTotal = settlementTotal + grandTotal;
+    if (weeklySettlementInput && document.activeElement !== weeklySettlementInput) weeklySettlementInput.value = settlementTotal || '';
+    if (weeklySettlementInput) weeklySettlementInput.className = `weekly-summary-input ${moneyClass(settlementTotal)}`;
     const pairs = [
-      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyGrandTotal, grandTotal],
-      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyGrandSummary, grandTotal]
+      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyGoldTotal, goldTotal], [weeklyGrandTotal, grandTotal],
+      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyGoldSummary, goldTotal], [weeklyGrandSummary, grandTotal],
+      [weeklyAfterSettlementSummary, afterSettlementTotal]
     ];
     pairs.forEach(([el, value]) => {
       if (!el) return;
@@ -1708,6 +1785,7 @@
     const rows = [];
     let morningTotal = 0;
     let nightTotal = 0;
+    let goldTotal = 0;
     let grandTotal = 0;
 
     const startText = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(monday)}（${getWeekdayNameFromDate(monday)}）` : '';
@@ -1716,35 +1794,43 @@
     rows.push('📊 本週損益報表');
     rows.push(`期間：${startText}～${endText}`);
     rows.push('');
-    rows.push('日期　　　　　早場　　　晚場　　　小計');
-    rows.push('────────────────────────');
+    rows.push('日期　　　　　早場　　　晚場　　金富翁　　　小計');
+    rows.push('────────────────────────────────');
 
     WEEKLY_DAYS.forEach((day, idx) => {
       const d = typeof getDateForWeeklyIndex === 'function' ? getDateForWeeklyIndex(idx) : new Date();
       const dateLabel = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(d)}(${getWeekdayNameFromDate(d).replace('星期','週')})` : day;
       const morning = parseMoneyValue(data[idx]?.morning);
       const night = parseMoneyValue(data[idx]?.night);
-      const total = morning + night;
+      const gold = parseMoneyValue(data[idx]?.gold);
+      const total = morning + night + gold;
       morningTotal += morning;
       nightTotal += night;
+      goldTotal += gold;
       grandTotal += total;
 
       rows.push(
         padTextForLine(dateLabel, 12) +
         padMoneyForLine(morning, 10) +
         padMoneyForLine(night, 10) +
+        padMoneyForLine(gold, 10) +
         padMoneyForLine(total, 10)
       );
     });
 
-    rows.push('────────────────────────');
+    rows.push('────────────────────────────────');
     rows.push(
       padTextForLine('合計', 12) +
       padMoneyForLine(morningTotal, 10) +
       padMoneyForLine(nightTotal, 10) +
+      padMoneyForLine(goldTotal, 10) +
       padMoneyForLine(grandTotal, 10)
     );
     rows.push('');
+    const settlementTotal = loadWeeklySettlementTotal();
+    const afterSettlementTotal = settlementTotal + grandTotal;
+    rows.push('上週結算損益：' + (settlementTotal > 0 ? '+' : '') + formatMoneyValue(settlementTotal));
+    rows.push('結算後累積：' + (afterSettlementTotal > 0 ? '+' : '') + formatMoneyValue(afterSettlementTotal));
     rows.push(grandTotal >= 0 ? '✅ 本週總獲利：+' + formatMoneyValue(grandTotal) : '⚠️ 本週總損益：' + formatMoneyValue(grandTotal));
     return rows.join('\n');
   }
@@ -2633,7 +2719,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const day = Number(input.dataset.weeklyDay);
       const field = input.dataset.weeklyField;
       const data = loadWeeklyCalcData();
-      if (Number.isInteger(day) && data[day] && (field === 'morning' || field === 'night')) {
+      if (Number.isInteger(day) && data[day] && (field === 'morning' || field === 'night' || field === 'gold')) {
         data[day][field] = input.value;
         saveWeeklyCalcData(data);
         updateWeeklyCalcTotals();
@@ -2656,6 +2742,15 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (weeklyTodayNightInput) {
       weeklyTodayNightInput.addEventListener('input', () => saveTodaySummaryInput('night', weeklyTodayNightInput.value));
     }
+    if (weeklyTodayGoldInput) {
+      weeklyTodayGoldInput.addEventListener('input', () => saveTodaySummaryInput('gold', weeklyTodayGoldInput.value));
+    }
+    if (weeklySettlementInput) {
+      weeklySettlementInput.addEventListener('input', () => {
+        saveWeeklySettlementTotal(weeklySettlementInput.value);
+        updateWeeklyCalcTotals();
+      });
+    }
     if (toggleWeeklyAllBtn) {
       toggleWeeklyAllBtn.addEventListener('click', () => {
         weeklyShowAll = !weeklyShowAll;
@@ -2677,7 +2772,9 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (clearWeeklyCalcBtn) {
       clearWeeklyCalcBtn.addEventListener('click', () => {
         if (!confirm('確定要清除七日財運盈虧試算表嗎？')) return;
-        try { localStorage.removeItem(WEEKLY_CALC_STORAGE_KEY); } catch (err) {}
+        const payload = loadWeeklyCalcPayload();
+        payload.data = emptyWeeklyCalcData();
+        saveWeeklyCalcPayload(payload);
         renderWeeklyCalcTable();
       });
     }
