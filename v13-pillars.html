@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP｜天天樂多核心修正版・週損益自動換週版</title>
+  <title>吸金穩贏 APP｜校正類型真分流版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -1063,7 +1063,7 @@
 <body>
   <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜天天樂多核心修正版・週損益自動換週版</div>
+    <div class="title">吸金穩贏 APP｜校正類型真分流版</div>
     <div class="sub">
       主畫面改成每日兩組出戰：一組主力高過關，一組輔助低重疊。<br>
       <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；本版只簡化畫面與出戰邏輯，不破壞原資料。
@@ -1208,6 +1208,9 @@
             <button class="btn btn-dark" id="sampleBtn">載入範例資料</button>
             <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新學習100期</button>
             <button class="btn btn-secondary" id="selfTuneBtn" type="button">財神自我校正</button>
+            <select id="selfTuneProfileSelect" class="btn btn-dark" style="text-align:center; appearance:auto;">
+              <option value="">校正後類型：未選擇</option>
+            </select>
             <button id="clearLockBtn" type="button" style="display:none;"></button>
             <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
           </div>
@@ -1217,7 +1220,7 @@
             <div class="daily-agent-title clean-title">今日天選雙柱</div>
             <button class="btn btn-danger" id="dailyAgentBtn" type="button" style="display:none;">啟動財神今日代理</button>
           </div>
-          <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」，會自動挑出雙過優先的兩組。</div>
+          <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」生成；自我校正後可先選指定類型，生成核心會鎖定該類型，不再自動混合最優。</div>
         </div>
         <div class="recommend-box" id="manualRecommendBox">
           <div class="recommend-title">手動移入比較區</div>
@@ -1338,6 +1341,7 @@
   const sampleBtn = document.getElementById('sampleBtn');
   const backtrain50Btn = document.getElementById('backtrain50Btn');
   const selfTuneBtn = document.getElementById('selfTuneBtn');
+  const selfTuneProfileSelect = document.getElementById('selfTuneProfileSelect');
   const clearLockBtn = document.getElementById('clearLockBtn');
   const moveAllToRecommendBtn = document.getElementById('moveAllToRecommendBtn');
   const countDraws = document.getElementById('countDraws');
@@ -6643,7 +6647,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   const DB_VERSION_KEY = 'pillar_app_active_game_v41';
   const DB_KEY_PREFIX = 'pillar_app_draw_db_v41_';
   const APP_CORE_VERSION_KEY = 'pillar_app_core_version_guard';
-  const APP_CORE_VERSION = 'v18_dayday_profile_rankband_split_20260517';
+  const APP_CORE_VERSION = 'v19_manual_profile_single_generate_20260523';
   let dbExpanded = false;
 
   function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : '539'; }
@@ -6993,7 +6997,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
   }
 
-  gameMode.addEventListener('change', () => applyGameMode(gameMode.value));
+  gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
   addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error('請輸入 5 個 01~39 的號碼。'); addRecordToDb(nums, newDrawDate.value, currentGameMode(), true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
@@ -8278,9 +8282,26 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   async function caishenGenerateFastDailyTwo(draws) {
-    // 重要修正：天天樂一般出戰要跑「多核心分流」，但自我校正逐一測試性格時，
-    // 必須鎖定當下那一種性格單獨回放；否則五種性格都會呼叫同一個多核心結果，
-    // 畫面看起來只是改名字，雙過/單過/雙倒也會完全一樣。
+    // v19 真正吃「校正後類型」修正：
+    // 使用者在下拉選單選定某一種校正類型後，正式按「天選雙柱」必須鎖定該類型單獨生成，
+    // 不能再進入天天樂多核心自動混合，否則選什麼最後都會被混合器挑成同一組。
+    const activeProfileForGenerate = currentGameMode() === 'dayday' ? caishenGameProfile() : null;
+    const overrideForGenerate = currentGameMode() === 'dayday' ? (caishenLoadProfileOverride()[currentGameMode()] || null) : null;
+    const userLockedSingleProfile = currentGameMode() === 'dayday'
+      && activeProfileForGenerate
+      && activeProfileForGenerate.selfTuned
+      && overrideForGenerate
+      && overrideForGenerate.manuallySelected
+      && !window.CAISHEN_FORCE_SINGLE_PROFILE;
+
+    if (userLockedSingleProfile) {
+      const oldForceSingleProfile = !!window.CAISHEN_FORCE_SINGLE_PROFILE;
+      window.CAISHEN_FORCE_SINGLE_PROFILE = true;
+      try { return await caishenGenerateFastDailyTwo(draws); }
+      finally { window.CAISHEN_FORCE_SINGLE_PROFILE = oldForceSingleProfile; }
+    }
+
+    // 沒有手動選定校正類型時，天天樂才跑多核心分流；自我校正逐一測試時也會被 CAISHEN_FORCE_SINGLE_PROFILE 鎖住。
     if (currentGameMode() === 'dayday' && !window.CAISHEN_DAYDAY_DIVERSE_RUNNING && !window.CAISHEN_FORCE_SINGLE_PROFILE) {
       window.CAISHEN_DAYDAY_DIVERSE_RUNNING = true;
       try { return await caishenGenerateDaydayDiverseTwo(draws); }
@@ -8335,6 +8356,99 @@ ${settleRecord.analysisLines.join('\n')}`;
       delete all[game];
       localStorage.setItem(CAISHEN_PROFILE_OVERRIDE_KEY, JSON.stringify(all));
     } catch (e) {}
+  }
+
+  const CAISHEN_SELF_TUNE_OPTIONS_KEY = 'caishen_self_tune_options_v2';
+  const CAISHEN_SELECTED_PROFILE_KEY = 'caishen_selected_profile_name_v2';
+
+  function caishenLoadSelfTuneOptions() {
+    try {
+      const raw = localStorage.getItem(CAISHEN_SELF_TUNE_OPTIONS_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) { return {}; }
+  }
+
+  function caishenSaveSelfTuneOptions(game, results) {
+    try {
+      const all = caishenLoadSelfTuneOptions();
+      all[game] = (results || []).map(r => ({
+        name: r.name,
+        params: r.params,
+        used: r.used,
+        profit: r.profit,
+        bothPass: r.bothPass,
+        onePass: r.onePass,
+        bothFail: r.bothFail,
+        score: r.score,
+        comboStats: r.comboStats || {},
+        tunedAt: new Date().toISOString()
+      }));
+      localStorage.setItem(CAISHEN_SELF_TUNE_OPTIONS_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+
+  function caishenLoadSelectedProfileName(game) {
+    try {
+      const raw = localStorage.getItem(CAISHEN_SELECTED_PROFILE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? (parsed[game] || '') : '';
+    } catch (e) { return ''; }
+  }
+
+  function caishenSaveSelectedProfileName(game, name) {
+    try {
+      const raw = localStorage.getItem(CAISHEN_SELECTED_PROFILE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      parsed[game] = name || '';
+      localStorage.setItem(CAISHEN_SELECTED_PROFILE_KEY, JSON.stringify(parsed));
+    } catch (e) {}
+  }
+
+  function caishenFindTunedOption(game, name) {
+    const all = caishenLoadSelfTuneOptions();
+    return ((all && all[game]) || []).find(x => x && x.name === name) || null;
+  }
+
+  function caishenApplySelectedProfileFromUI() {
+    const mode = currentGameMode();
+    const name = selfTuneProfileSelect ? selfTuneProfileSelect.value : caishenLoadSelectedProfileName(mode);
+    if (!name) {
+      caishenSaveSelectedProfileName(mode, '');
+      caishenRemoveProfileOverride(mode);
+      return null;
+    }
+    const opt = caishenFindTunedOption(mode, name) || caishenSelfTuneCandidates().find(x => x.name === name);
+    if (!opt || !opt.params) return null;
+    caishenSaveSelectedProfileName(mode, name);
+    caishenSaveProfileOverride(mode, {
+      name: opt.name,
+      params: opt.params,
+      tunedAt: opt.tunedAt || new Date().toISOString(),
+      manuallySelected: true,
+      result: { profit: opt.profit, bothPass: opt.bothPass, onePass: opt.onePass, bothFail: opt.bothFail, score: opt.score }
+    });
+    return opt;
+  }
+
+  function caishenRenderSelfTuneProfileSelect() {
+    if (!selfTuneProfileSelect) return;
+    const mode = currentGameMode();
+    const all = caishenLoadSelfTuneOptions();
+    let options = (all && all[mode]) || [];
+    if (!options.length) options = caishenSelfTuneCandidates().map(x => ({ ...x, used: 0 }));
+    const selected = caishenLoadSelectedProfileName(mode);
+    selfTuneProfileSelect.innerHTML = '<option value="">校正後類型：未選擇</option>' + options.map(o => {
+      const meta = Number.isFinite(Number(o.profit)) ? `｜收益${o.profit}｜雙倒${o.bothFail}` : '';
+      return `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name + meta)}</option>`;
+    }).join('');
+    selfTuneProfileSelect.value = options.some(o => o.name === selected) ? selected : '';
+  }
+
+  function caishenSelectedProfileNotice() {
+    const mode = currentGameMode();
+    const name = caishenLoadSelectedProfileName(mode);
+    return name ? `目前手動選用校正類型：${name}` : '目前未手動選用校正類型，使用彩種原始預設。';
   }
 
   function caishenApplyProfileOverride(base) {
@@ -8540,7 +8654,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     selfTuneBtn.textContent = '校正中...';
     resetLog();
     log(`開始${gameLabel(mode)}財神自我校正：比較${candidates.length}種性格，每種回放${trainCount}期。`);
-    if (dailyAgentResult) dailyAgentResult.innerHTML = `財神正在自我校正...<br><span class="small-note">會比較多種性格，選出目前彩種收益/風險最好的模式。</span>`;
+    if (dailyAgentResult) dailyAgentResult.innerHTML = `財神正在自我校正...<br><span class="small-note">會比較多種性格；完成後請你在下拉選單指定要用哪一種，不再自動套用最優。</span>`;
 
     try {
       const results = [];
@@ -8554,31 +8668,29 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
       results.sort((a,b)=>b.score-a.score || b.profit-a.profit || a.bothFail-b.bothFail);
       const best = results[0];
-      caishenSaveProfileOverride(mode, {
-        name: best.name,
-        params: best.params,
-        tunedAt: new Date().toISOString(),
-        trainCount,
-        result: { profit: best.profit, bothPass: best.bothPass, onePass: best.onePass, bothFail: best.bothFail, score: best.score }
-      });
+      caishenSaveSelfTuneOptions(mode, results);
+      caishenSaveSelectedProfileName(mode, '');
+      caishenRemoveProfileOverride(mode);
+      caishenRenderSelfTuneProfileSelect();
 
       const spent = ((performance.now() - startTime) / 1000).toFixed(1);
       const rows = results.map((r, idx) => `<div class="small-note">${idx+1}. <b>${r.name}</b>｜收益 ${r.profit}｜雙過${r.bothPass}｜單過${r.onePass}｜雙倒${r.bothFail}</div>`).join('');
       const bestCombo = Object.entries(best.comboStats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${v}`).join('，');
 
-      log(`自我校正完成：選用 ${best.name}，耗時${spent}秒。`);
+      log(`自我校正完成：已列出可選類型，系統不自動套用最優；分數最高參考為 ${best.name}，耗時${spent}秒。`);
       log(`最佳結果：收益${best.profit}，雙過${best.bothPass}、單過${best.onePass}、雙倒${best.bothFail}，碰數：${bestCombo}`);
 
       if (dailyAgentResult) {
         dailyAgentResult.innerHTML = `
           <div class="daily-agent-kpi">
-            <div>選用性格<br><b>${best.name}</b></div>
+            <div>最高分參考<br><b>${best.name}</b></div>
             <div>回放收益<br><b>${best.profit}</b></div>
             <div>雙過 / 單過 / 雙倒<br><b>${best.bothPass}/${best.onePass}/${best.bothFail}</b></div>
             <div>有效期數<br><b>${best.used}</b></div>
           </div>
           <div class="small-note"><b>最佳碰數分布：</b>${bestCombo}</div>
           ${rows}
+          <div class="small-note" style="color:#fcd34d;"><b>請到上方「校正後類型」下拉選單選擇後，再按天選雙柱生成。</b></div>
         `;
       }
     } catch (err) {
@@ -8896,8 +9008,10 @@ ${settleRecord.analysisLines.join('\n')}`;
         return;
       }
 
+      const selectedProfile = caishenApplySelectedProfileFromUI();
       log(`天選雙柱模式：${gameLabel(currentGameMode())}，本次使用 ${getBacktestLimitLabel()}，判斷基準 ${draws.length} 期。`);
-      log(`已啟用${caishenGameProfile().name}${caishenGameProfile().selfTuned ? '（自我/增量校正選用）' : ''}：依彩種分流挑選雙柱（安全快速版）。`);
+      log(`${selectedProfile ? '已套用你手動選擇的校正類型：' + selectedProfile.name + '（本次會鎖定此類型單獨生成）' : caishenSelectedProfileNotice()}`);
+      log(`已啟用${caishenGameProfile().name}${caishenGameProfile().selfTuned ? '（手動選用校正）' : ''}：依彩種分流挑選雙柱（安全快速版）。`);
 
       const bootstrap = await caishenBootstrapLearn100(draws);
       if (bootstrap && !bootstrap.skipped) {
@@ -8978,8 +9092,14 @@ ${settleRecord.analysisLines.join('\n')}`;
   runBtn.addEventListener('click', runDailyTwoGroups);
   if (backtrain50Btn) backtrain50Btn.addEventListener('click', runBacktrain50);
   if (selfTuneBtn) selfTuneBtn.addEventListener('click', runSelfTune100);
+  if (selfTuneProfileSelect) selfTuneProfileSelect.addEventListener('change', () => {
+    const selected = caishenApplySelectedProfileFromUI();
+    log(selected ? `已手動選用校正類型：${selected.name}。下一次按「天選雙柱」會用此類型生成。` : '已取消校正類型選用，下一次生成會使用原始預設。');
+    if (dailyAgentResult) dailyAgentResult.innerHTML = selected ? `已選擇校正後類型：<b>${selected.name}</b><br><span class="small-note">現在按「天選雙柱」會用這個類型生成。</span>` : '已取消校正後類型，將使用原始預設生成。';
+  });
   if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
   autoRebuildDaydayCacheOnce();
+  caishenRenderSelfTuneProfileSelect();
   initDrawDatabase();
 
   function legacyCopyText(text) {
