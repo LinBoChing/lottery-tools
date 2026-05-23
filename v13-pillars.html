@@ -1058,6 +1058,74 @@
     .clean-action-panel{ margin-top:8px !important; }
     .clean-two-box{ margin-top:10px !important; }
 
+
+    .recent10-box{
+      margin-top:12px;
+      border:1px solid rgba(245,158,11,.42);
+      border-radius:14px;
+      background:rgba(2,6,23,.72);
+      overflow:hidden;
+    }
+    .recent10-title{
+      padding:10px 12px;
+      font-weight:900;
+      color:#fcd34d;
+      border-bottom:1px solid var(--border);
+      background:rgba(245,158,11,.10);
+    }
+    .recent10-row{
+      display:grid;
+      grid-template-columns:76px 88px 1fr;
+      gap:8px;
+      align-items:center;
+      padding:8px 12px;
+      border-bottom:1px solid rgba(51,65,85,.75);
+      font-size:13px;
+      color:#cbd5e1;
+    }
+    .recent10-row:last-child{ border-bottom:none; }
+    .recent10-pass{ color:#86efac; font-weight:900; }
+    .recent10-fail{ color:#fca5a5; font-weight:900; }
+    .recent10-status-bothpass{
+      display:inline-block;
+      min-width:52px;
+      text-align:center;
+      padding:3px 8px;
+      border-radius:999px;
+      background:rgba(34,197,94,.18);
+      border:1px solid rgba(34,197,94,.55);
+      color:#86efac;
+      font-weight:900;
+    }
+    .recent10-status-onepass{
+      display:inline-block;
+      min-width:52px;
+      text-align:center;
+      padding:3px 8px;
+      border-radius:999px;
+      background:rgba(245,158,11,.18);
+      border:1px solid rgba(245,158,11,.58);
+      color:#fcd34d;
+      font-weight:900;
+    }
+    .recent10-status-bothfail{
+      display:inline-block;
+      min-width:52px;
+      text-align:center;
+      padding:3px 8px;
+      border-radius:999px;
+      background:rgba(239,68,68,.18);
+      border:1px solid rgba(239,68,68,.62);
+      color:#fca5a5;
+      font-weight:900;
+    }
+    .recent10-hit{ color:#f8fafc; font-weight:900; }
+    .recent10-draw{ color:#94a3b8; font-size:12px; margin-left:6px; }
+    @media (max-width:768px){
+      .recent10-row{ grid-template-columns:62px 70px 1fr; font-size:12px; padding:8px 9px; }
+      .recent10-draw{ display:block; margin-left:0; margin-top:2px; }
+    }
+
 </style>
 </head>
 <body>
@@ -7330,6 +7398,66 @@ ${settleRecord.analysisLines.join('\n')}`;
     return [primary, defense];
   }
 
+
+  function pillarHitLabelFromCounts(counts) {
+    const c = (counts || []).map(v => Number(v) || 0).slice(0, 3);
+    while (c.length < 3) c.push(0);
+    if (c.some(v => v <= 0)) return '0';
+    const sorted = c.slice().sort((a, b) => b - a).join('-');
+    if (sorted === '2-2-1') return '4';
+    if (sorted === '3-1-1') return '3';
+    return String(c.reduce((a, b) => a * b, 1));
+  }
+
+  function pillarHitLabelForGroups(groups, draw) {
+    if (!groups || groups.length < 3 || !draw) return '未判斷';
+    const drawSet = new Set((draw || []).map(Number));
+    const counts = groups.slice(0, 3).map(g => (g || []).filter(n => drawSet.has(Number(n))).length);
+    return pillarHitLabelFromCounts(counts);
+  }
+
+  function buildRecent10PillarHistoryHTML(groups, draws, titleText = '近10期單組過倒情況（上方最新，下方第10期）') {
+    const list = (draws && draws.length ? draws : getBacktestDraws()).slice(0, 10);
+    if (!groups || groups.length < 3 || !list.length) return '';
+    const rows = list.map((draw, idx) => {
+      const label = pillarHitLabelForGroups(groups, draw);
+      const pass = label !== '0';
+      const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
+      const cls = pass ? 'recent10-pass' : 'recent10-fail';
+      return `<div class="recent10-row">
+        <div>${issue}</div>
+        <div class="${cls}">${pass ? '過關' : '全倒'}</div>
+        <div><span class="recent10-hit">${label}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}</span></div>
+      </div>`;
+    }).join('');
+    return `<div class="recent10-box">
+      <div class="recent10-title">${titleText}</div>
+      ${rows}
+    </div>`;
+  }
+
+  function buildRecent10DailyPairHistoryHTML(items, draws) {
+    const list = (draws && draws.length ? draws : getBacktestDraws()).slice(0, 10);
+    if (!items || items.length < 2 || !list.length) return '';
+    const rows = list.map((draw, idx) => {
+      const labels = items.slice(0, 2).map(item => pillarHitLabelForGroups(item && item.groups, draw));
+      const bothFail = labels.every(x => x === '0');
+      const bothPass = labels.every(x => x !== '0');
+      const status = bothPass ? '雙過' : (bothFail ? '雙倒' : '單過');
+      const cls = bothPass ? 'recent10-status-bothpass' : (bothFail ? 'recent10-status-bothfail' : 'recent10-status-onepass');
+      const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
+      return `<div class="recent10-row">
+        <div>${issue}</div>
+        <div class="${cls}">${status}</div>
+        <div><span class="recent10-hit">${labels.join(' + ')}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}</span></div>
+      </div>`;
+    }).join('');
+    return `<div class="recent10-box">
+      <div class="recent10-title">近10期雙組實戰過倒（上方最新，下方第10期）</div>
+      ${rows}
+    </div>`;
+  }
+
   function buildDailyTwoCardHTML(item, idx, pair) {
     if (!item) return '';
     const s = item.stats || {};
@@ -7380,6 +7508,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>單過單倒率<br><b>${((pairPack.weightedStats || pairStats).onePassRate * 100).toFixed(2)}%</b></div>
         <div>同柱共識 / 搬柱比例<br><b>${pairPack.samePillarShared || 0} / ${(((pairPack.maxMoveRatio || 0) * 100).toFixed(0))}%</b></div>
       </div>
+      ${buildRecent10DailyPairHistoryHTML(items, draws || getBacktestDraws())}
       <div class="clean-two-grid">
         ${items.map((item, idx) => buildDailyTwoCardHTML(item, idx, items)).join('')}
       </div>
