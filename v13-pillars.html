@@ -1121,6 +1121,63 @@
     }
     .recent10-hit{ color:#f8fafc; font-weight:900; }
     .recent10-draw{ color:#94a3b8; font-size:12px; margin-left:6px; }
+
+    .lucky5-box{
+      margin-top:12px;
+      border:1px solid rgba(34,197,94,.45);
+      border-radius:14px;
+      background:linear-gradient(135deg, rgba(34,197,94,.12), rgba(245,158,11,.09));
+      padding:12px;
+    }
+    .lucky5-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:8px;
+    }
+    .lucky5-title{
+      font-weight:900;
+      color:#86efac;
+      font-size:16px;
+    }
+    .lucky5-main{
+      font-size:20px;
+      font-weight:900;
+      color:#fff7ed;
+      line-height:1.7;
+      word-break:break-word;
+    }
+    .lucky5-meta{
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.65;
+      margin-top:6px;
+    }
+    .lucky5-list{
+      display:grid;
+      gap:8px;
+      margin-top:10px;
+    }
+    .lucky5-item{
+      background:rgba(2,6,23,.78);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:9px 10px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .lucky5-copy-btn{
+      width:auto;
+      padding:7px 10px;
+      font-size:12px;
+      border-radius:9px;
+    }
+
     @media (max-width:768px){
       .recent10-row{ grid-template-columns:62px 70px 1fr; font-size:12px; padding:8px 9px; }
       .recent10-draw{ display:block; margin-left:0; margin-top:2px; }
@@ -1279,6 +1336,7 @@
             <select id="selfTuneProfileSelect" class="btn btn-dark" style="text-align:center; appearance:auto;">
               <option value="">校正後類型：未選擇</option>
             </select>
+            <button class="btn btn-secondary" id="lucky5Btn" type="button" style="display:none;">幸運五碼</button>
             <button id="clearLockBtn" type="button" style="display:none;"></button>
             <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
           </div>
@@ -1410,6 +1468,7 @@
   const backtrain50Btn = document.getElementById('backtrain50Btn');
   const selfTuneBtn = document.getElementById('selfTuneBtn');
   const selfTuneProfileSelect = document.getElementById('selfTuneProfileSelect');
+  const lucky5Btn = document.getElementById('lucky5Btn');
   const clearLockBtn = document.getElementById('clearLockBtn');
   const moveAllToRecommendBtn = document.getElementById('moveAllToRecommendBtn');
   const countDraws = document.getElementById('countDraws');
@@ -7491,6 +7550,186 @@ ${settleRecord.analysisLines.join('\n')}`;
       </div>`;
   }
 
+
+  let lastLucky5Results = [];
+
+  function comboPassPatternForItem(groups, combo) {
+    if (!groups || groups.length < 3 || !combo || combo.length !== 5) return { pass:false, label:'0', counts:[0,0,0] };
+    const set = new Set(combo.map(Number));
+    const counts = groups.slice(0,3).map(g => (g || []).filter(n => set.has(Number(n))).length);
+    const pass = counts.every(v => v > 0);
+    return { pass, label: pass ? pillarHitLabelFromCounts(counts) : '0', counts };
+  }
+
+  function lucky5TargetScore(labelA, labelB) {
+    const a = Number(labelA) || 0;
+    const b = Number(labelB) || 0;
+    // 三星碰數型態機率加權：只看 3+3 / 4+3 / 3+4 / 4+4。
+    // 3+3 最常見，所以權重最高；4+3、3+4 次之；4+4 爆發高但機率低，只留少量權重。
+    if (a === 3 && b === 3) return 5000;   // 約 50%
+    if (a === 4 && b === 3) return 2250;    // 約 22.5%
+    if (a === 3 && b === 4) return 2250;    // 約 22.5%
+    if (a === 4 && b === 4) return 500;     // 約 5%
+    return 0;
+  }
+
+  function lucky5PatternNote(labelA, labelB) {
+    const a = Number(labelA) || 0;
+    const b = Number(labelB) || 0;
+    if (a === 3 && b === 3) return '3+3 主機率 50%';
+    if (a === 4 && b === 3) return '4+3 次機率 22.5%';
+    if (a === 3 && b === 4) return '3+4 次機率 22.5%';
+    if (a === 4 && b === 4) return '4+4 高爆低機率 5%';
+    return '非主型態';
+  }
+
+  function lucky5NumberProfiles(draws) {
+    const list = draws && draws.length ? draws : getBacktestDraws();
+    const stats = buildNumberStats(list || []);
+    const total = Math.max(1, (list || []).length);
+    const profiles = {};
+    range39().forEach(n => {
+      const r10 = stats.recent10[n] || 0;
+      const r30 = stats.recent30[n] || 0;
+      const all = stats.coldHot[n] || 0;
+      const miss = stats.miss[n] || 0;
+      const avgGap = Math.max(1, stats.avgGap[n] || 1);
+      const r30Rate = r30 / Math.max(1, Math.min(30, total));
+      const allRate = all / total;
+
+      // 狀態權重：溫熱 40%、補出 30%、續追熱 20%、過熱避開 10%（以降權呈現）。
+      const warmScore = Math.max(0, 1 - Math.abs(r10 - 1.5) / 1.5) * 24 + Math.max(0, 1 - Math.abs(r30 - 4) / 4) * 16;
+      const dueRatio = miss / avgGap;
+      const dueScore = Math.max(0, 1 - Math.abs(dueRatio - 1.25) / 1.15) * 20 + Math.max(0, 1 - Math.abs(miss - 7) / 10) * 10;
+      const chaseScore = Math.min(20, Math.max(0, (r10 - 1) * 7 + (r30Rate - allRate) * 38));
+      const overheatPenalty = (r10 >= 3 ? 7 : 0) + (r30 >= 8 ? 5 : 0) + (miss <= 1 ? 3 : 0);
+      const score = warmScore * 0.40 + dueScore * 0.30 + chaseScore * 0.20 - overheatPenalty * 0.10;
+
+      const parts = [
+        { key: '溫熱', value: warmScore * 0.40 },
+        { key: '補出', value: dueScore * 0.30 },
+        { key: '追熱', value: chaseScore * 0.20 },
+        { key: '過熱降權', value: -overheatPenalty * 0.10 }
+      ];
+      const best = parts.slice(0, 3).sort((a,b)=>b.value-a.value)[0];
+      let label = best && best.value > 0 ? best.key : '平衡';
+      if (overheatPenalty >= 7 && score < (warmScore * 0.40 + dueScore * 0.30)) label = '過熱降權';
+      profiles[n] = { score, label, r10, r30, miss, warmScore, dueScore, chaseScore, overheatPenalty };
+    });
+    return profiles;
+  }
+
+  function lucky5ComboStatusSummary(combo, profiles) {
+    const counts = {};
+    (combo || []).forEach(n => {
+      const label = profiles && profiles[n] ? profiles[n].label : '平衡';
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    const order = ['溫熱','補出','追熱','過熱降權','平衡'];
+    return order.filter(k => counts[k]).map(k => `${k}${counts[k]}`).join('、') || '平衡';
+  }
+
+  function lucky5SpreadScore(combo) {
+    const nums = combo.slice().sort((a,b)=>a-b);
+    const low = nums.filter(n => n <= 19).length;
+    const odd = nums.filter(n => n % 2 === 1).length;
+    const tails = new Set(nums.map(n => n % 10)).size;
+    const zones = new Set(nums.map(n => Math.floor((n - 1) / 10))).size;
+    return (5 - Math.abs(low - 2.5)) * 9 + (5 - Math.abs(odd - 2.5)) * 8 + tails * 4 + zones * 5;
+  }
+
+  function generateLucky5Results(items, draws, maxResults = 2) {
+    if (!items || items.length < 2 || !items[0].groups || !items[1].groups) return [];
+    const profiles = lucky5NumberProfiles(draws || getBacktestDraws());
+    const buckets = { '3+3': [], '3+4': [] };
+    const nums = range39();
+    for (let a = 0; a < nums.length - 4; a++) {
+      for (let b = a + 1; b < nums.length - 3; b++) {
+        for (let c = b + 1; c < nums.length - 2; c++) {
+          for (let d = c + 1; d < nums.length - 1; d++) {
+            for (let e = d + 1; e < nums.length; e++) {
+              const combo = [nums[a], nums[b], nums[c], nums[d], nums[e]];
+              const p1 = comboPassPatternForItem(items[0].groups, combo);
+              if (!p1.pass) continue;
+              const p2 = comboPassPatternForItem(items[1].groups, combo);
+              if (!p2.pass) continue;
+              const patternKey = `${p1.label}+${p2.label}`;
+              if (!buckets[patternKey]) continue;
+              const numberScore = combo.reduce((sum,n)=>sum+((profiles[n] && profiles[n].score) || 0),0);
+              const overheatCount = combo.filter(n => profiles[n] && profiles[n].label === '過熱降權').length;
+              if (overheatCount >= 2) continue;
+              const target = patternKey === '3+3' ? 5000 : 2250;
+              const score = target + numberScore * 12 + lucky5SpreadScore(combo);
+              buckets[patternKey].push({ combo, p1, p2, score, target, numberScore, patternKey, statusSummary: lucky5ComboStatusSummary(combo, profiles) });
+            }
+          }
+        }
+      }
+    }
+    const pickBest = (key) => {
+      const arr = buckets[key] || [];
+      arr.sort((x,y)=>y.score-x.score || x.combo.join('').localeCompare(y.combo.join('')));
+      return arr[0] || null;
+    };
+    return [pickBest('3+3'), pickBest('3+4')].filter(Boolean).slice(0, maxResults);
+  }
+
+  function buildLucky5HTML(results) {
+    if (!results || !results.length) {
+      return `<div class="lucky5-box" id="lucky5Box"><div class="lucky5-title">幸運五碼</div><div class="bad">目前兩組結構找不到 3+3 或 3+4 型態的五碼。</div></div>`;
+    }
+    return `<div class="lucky5-box" id="lucky5Box">
+      <div class="lucky5-head">
+        <div class="lucky5-title">幸運五碼｜跟隨天選雙柱自動產生</div>
+      </div>
+      <div class="lucky5-meta">固定只產生兩組：一組 <b>3+3</b> 主機率，一組 <b>3+4</b> 次機率；號碼狀態採溫熱40%、補出30%、追熱20%、過熱降權10%。</div>
+      <div class="lucky5-list">
+        ${results.map((item, idx) => {
+          const text = item.combo.map(pad2).join(',');
+          const label = item.patternKey || `${item.p1.label}+${item.p2.label}`;
+          const title = label === '3+3' ? '3+3 主機率幸運五碼' : '3+4 次機率幸運五碼';
+          return `<div class="lucky5-item">
+            <div><b>${title}：${text}</b><br><span class="lucky5-meta">型態：${label}｜${lucky5PatternNote(item.p1.label, item.p2.label)}｜狀態：${item.statusSummary || '平衡'}｜分數：${item.score.toFixed(1)}</span></div>
+            <button class="btn btn-secondary lucky5-copy-btn" data-lucky5-index="${idx}" type="button">複製</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  function renderLucky5IntoDailyResult() {
+    if (!dailyAgentResult) return;
+    const old = document.getElementById('lucky5Box');
+    if (old) old.remove();
+    const html = buildLucky5HTML(lastLucky5Results);
+    dailyAgentResult.insertAdjacentHTML('afterbegin', html);
+  }
+
+  function runLucky5() {
+    if (!lastDailyTwo || lastDailyTwo.length < 2) {
+      alert('請先按「天選雙柱」生成兩組，再按幸運五碼。');
+      return;
+    }
+    const draws = getBacktestDraws();
+    if (lucky5Btn) {
+      lucky5Btn.disabled = true;
+      lucky5Btn.textContent = '五碼推演中...';
+    }
+    try {
+      lastLucky5Results = generateLucky5Results(lastDailyTwo, draws, 2);
+      renderLucky5IntoDailyResult();
+      log(`幸運五碼完成：已自動產生 ${lastLucky5Results.length} 組（3+3 / 3+4）。`);
+    } catch (err) {
+      console.error(err);
+      alert('幸運五碼推演錯誤：' + (err && err.message ? err.message : String(err)));
+    } finally {
+      if (lucky5Btn) {
+        lucky5Btn.disabled = false;
+        lucky5Btn.textContent = '幸運五碼';
+      }
+    }
+  }
+
   function renderDailyTwoResult(items, draws) {
     if (!dailyAgentResult) return;
     if (!items || !items.length) {
@@ -7508,6 +7747,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>單過單倒率<br><b>${((pairPack.weightedStats || pairStats).onePassRate * 100).toFixed(2)}%</b></div>
         <div>同柱共識 / 搬柱比例<br><b>${pairPack.samePillarShared || 0} / ${(((pairPack.maxMoveRatio || 0) * 100).toFixed(0))}%</b></div>
       </div>
+      <div class="small-note" style="margin:8px 0;color:#bbf7d0;font-weight:800;">按「天選雙柱」會同步產生兩組幸運五碼：3+3 主機率一組、3+4 次機率一組，並用溫熱40%、補出30%、追熱20%、過熱降權10%挑號。</div>
       ${buildRecent10DailyPairHistoryHTML(items, draws || getBacktestDraws())}
       <div class="clean-two-grid">
         ${items.map((item, idx) => buildDailyTwoCardHTML(item, idx, items)).join('')}
@@ -9191,6 +9431,14 @@ ${settleRecord.analysisLines.join('\n')}`;
       lastRecommended = items.slice();
 
       renderDailyTwoResult(lastDailyTwo, draws);
+      try {
+        lastLucky5Results = generateLucky5Results(lastDailyTwo, draws, 2);
+        renderLucky5IntoDailyResult();
+        log(`幸運五碼同步完成：${lastLucky5Results.length ? '已產生 3+3 / 3+4 五碼' : '目前找不到符合 3+3 / 3+4 的五碼'}。`);
+      } catch (luckyErr) {
+        console.warn('lucky5 auto skipped', luckyErr);
+        log('幸運五碼同步略過：不影響雙柱結果。');
+      }
 
       try { caishenSaveCurrentPair(lastDailyTwo, draws); } catch (saveErr) { console.warn('save pair skipped', saveErr); }
       try { refreshRecommendArea(); } catch (refErr) { console.warn('recommend refresh skipped', refErr); }
@@ -9221,6 +9469,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   runBtn.addEventListener('click', runDailyTwoGroups);
   if (backtrain50Btn) backtrain50Btn.addEventListener('click', runBacktrain50);
   if (selfTuneBtn) selfTuneBtn.addEventListener('click', runSelfTune100);
+  if (lucky5Btn) lucky5Btn.addEventListener('click', runLucky5);
   if (selfTuneProfileSelect) selfTuneProfileSelect.addEventListener('change', () => {
     const selected = caishenApplySelectedProfileFromUI();
     log(selected ? `已手動選用校正類型：${selected.name}。下一次按「天選雙柱」會用此類型生成。` : '已取消校正類型選用，下一次生成會使用原始預設。');
@@ -9575,6 +9824,15 @@ ${settleRecord.analysisLines.join('\n')}`;
       const text = manualRiskCopyPayloads[riskCopyBtn.dataset.riskCopyId] || '';
       if (!text) { alert('找不到可複製的內容，請重新按一次分析。'); return; }
       await copyTextSmart(text, '致命倒牌分析已複製');
+      return;
+    }
+
+    const lucky5CopyBtn = e.target.closest('.lucky5-copy-btn');
+    if (lucky5CopyBtn) {
+      const idx = Number(lucky5CopyBtn.dataset.lucky5Index);
+      const item = lastLucky5Results && lastLucky5Results[idx];
+      if (!item || !item.combo) { alert('找不到可複製的幸運五碼，請重新推演。'); return; }
+      await copyTextSmart(item.combo.map(pad2).join(','), `幸運五碼第 ${idx + 1} 組已複製`);
       return;
     }
 
