@@ -6804,7 +6804,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   const DB_VERSION_KEY = 'pillar_app_active_game_v41';
   const DB_KEY_PREFIX = 'pillar_app_draw_db_v41_';
   const APP_CORE_VERSION_KEY = 'pillar_app_core_version_guard';
-  const APP_CORE_VERSION = 'v20_persist_self_tune_no_lucky5_20260604';
+  const APP_CORE_VERSION = 'v21_dayday_profile_restore_lock_20260604';
   let dbExpanded = false;
 
   function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : '539'; }
@@ -7033,6 +7033,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     localStorage.setItem(DB_VERSION_KEY, gameMode.value);
     syncDbToTextarea();
     renderDrawDb();
+    try { setTimeout(caishenRenderSelfTuneProfileSelect, 0); } catch (e) {}
     resetLog();
     log(`已切換到 ${gameLabel(gameMode.value)}，並自動載入資料庫 ${loadDrawDb().length} 筆。`);
   }
@@ -7787,12 +7788,11 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>單過單倒率<br><b>${((pairPack.weightedStats || pairStats).onePassRate * 100).toFixed(2)}%</b></div>
         <div>同柱共識 / 搬柱比例<br><b>${pairPack.samePillarShared || 0} / ${(((pairPack.maxMoveRatio || 0) * 100).toFixed(0))}%</b></div>
       </div>
-      <div class="small-note" style="margin:8px 0;color:#bbf7d0;font-weight:800;">按「天選雙柱」會同步產生兩組幸運五碼：3+3 主機率一組、3+4 次機率一組，並用溫熱40%、補出30%、追熱20%、過熱降權10%挑號。</div>
       ${buildRecent10DailyPairHistoryHTML(items, draws || getBacktestDraws())}
       <div class="clean-two-grid">
         ${items.map((item, idx) => buildDailyTwoCardHTML(item, idx, items)).join('')}
       </div>
-      <div class="small-note">天選雙柱模式：539維持互補；天天樂已修正為真正多核心：自我校正逐一回放時會鎖定單一性格，不再全部套同一個多核心結果；正式出戰時才把同步、防穿透、高爆發、反轉、極端各自候選混合比對。</div>`;
+      <div class="small-note">天選雙柱模式：539維持互補；天天樂已修正為真正多核心：自我校正逐一回放時會鎖定單一性格，不再全部套同一個多核心結果；沒有校正選用時才把同步、防穿透、高爆發、反轉、極端各自候選混合比對；已有校正選用時會鎖定該性格。</div>`;
   }
 
 
@@ -8696,11 +8696,12 @@ ${settleRecord.analysisLines.join('\n')}`;
     // 不能再進入天天樂多核心自動混合，否則選什麼最後都會被混合器挑成同一組。
     const activeProfileForGenerate = currentGameMode() === 'dayday' ? caishenGameProfile() : null;
     const overrideForGenerate = currentGameMode() === 'dayday' ? (caishenLoadProfileOverride()[currentGameMode()] || null) : null;
+    const selectedProfileNameForGenerate = currentGameMode() === 'dayday' ? caishenLoadSelectedProfileName(currentGameMode()) : '';
     const userLockedSingleProfile = currentGameMode() === 'dayday'
       && activeProfileForGenerate
       && activeProfileForGenerate.selfTuned
       && overrideForGenerate
-      && overrideForGenerate.manuallySelected
+      && (overrideForGenerate.manuallySelected || overrideForGenerate.autoApplied || !!selectedProfileNameForGenerate)
       && !window.CAISHEN_FORCE_SINGLE_PROFILE;
 
     if (userLockedSingleProfile) {
@@ -9540,8 +9541,8 @@ ${settleRecord.analysisLines.join('\n')}`;
   });
   if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
   autoRebuildDaydayCacheOnce();
-  caishenRenderSelfTuneProfileSelect();
   initDrawDatabase();
+  caishenRenderSelfTuneProfileSelect();
 
   function legacyCopyText(text) {
     const ta = document.createElement('textarea');
