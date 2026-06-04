@@ -979,11 +979,37 @@
 }
 .clean-tools{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:1fr;
   gap:10px;
   margin-top:10px;
 }
 .clean-tools .btn{ min-height:48px; }
+.learn-tools-panel{
+  margin-top:14px;
+  border:1px solid rgba(56,189,248,.35);
+  border-radius:14px;
+  background:rgba(2,6,23,.58);
+  overflow:hidden;
+}
+.learn-tools-panel summary{
+  list-style:none;
+  cursor:pointer;
+  padding:12px 14px;
+  color:#7dd3fc;
+  font-weight:900;
+  user-select:none;
+}
+.learn-tools-panel summary::-webkit-details-marker{ display:none; }
+.learn-tools-body{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  padding:0 12px 12px;
+}
+.learn-tools-body .btn,.learn-tools-body select{ min-height:48px; }
+@media (max-width:768px){
+  .learn-tools-body{ grid-template-columns:1fr; }
+}
 .daily-agent-box.clean-two-box{
   border-color:rgba(245,158,11,.55);
   background:linear-gradient(135deg, rgba(15,23,42,.94), rgba(88,28,135,.28));
@@ -1331,22 +1357,26 @@
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
             <button class="btn btn-dark" id="sampleBtn">載入範例資料</button>
-            <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新學習100期</button>
-            <button class="btn btn-secondary" id="selfTuneBtn" type="button">財神自我校正</button>
-            <select id="selfTuneProfileSelect" class="btn btn-dark" style="text-align:center; appearance:auto;">
-              <option value="">校正後類型：未選擇</option>
-            </select>
-            <button class="btn btn-secondary" id="lucky5Btn" type="button" style="display:none;">幸運五碼</button>
             <button id="clearLockBtn" type="button" style="display:none;"></button>
             <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
           </div>
+          <details class="learn-tools-panel">
+            <summary>學習 / 校正 / 維護工具（點開後使用，避免誤按）</summary>
+            <div class="learn-tools-body">
+              <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新學習100期</button>
+              <button class="btn btn-secondary" id="selfTuneBtn" type="button">財神自我校正</button>
+              <select id="selfTuneProfileSelect" class="btn btn-dark" style="text-align:center; appearance:auto;">
+                <option value="">校正後類型：未選擇</option>
+              </select>
+            </div>
+          </details>
         </div>
         <div class="daily-agent-box clean-two-box">
           <div class="daily-agent-head">
             <div class="daily-agent-title clean-title">今日天選雙柱</div>
             <button class="btn btn-danger" id="dailyAgentBtn" type="button" style="display:none;">啟動財神今日代理</button>
           </div>
-          <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」生成；自我校正後可先選指定類型，生成核心會鎖定該類型，不再自動混合最優。</div>
+          <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」生成；自我校正後會自動套用最高分性格；也可在工具區手動切換類型。</div>
         </div>
         <div class="recommend-box" id="manualRecommendBox">
           <div class="recommend-title">手動移入比較區</div>
@@ -1359,7 +1389,7 @@
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
           • 本版固定只生成兩組：539維持互補型；天天樂改為同步保命 / 防穿透 / 高爆發 / 反轉 / 極端多核心分流；開獎結果會用來慢學習，盈虧只保留紀錄。<br>
-          • 本版修正自我校正核心：天天樂五種性格各自用不同配對評分，不再全部收斂成同一組結果。<br>
+          • 本版修正自我校正核心：完成校正後會自動套用最高分性格，重新開啟後仍會沿用，不再回到未選擇。<br>
         </div>
       </div>
 
@@ -6774,7 +6804,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   const DB_VERSION_KEY = 'pillar_app_active_game_v41';
   const DB_KEY_PREFIX = 'pillar_app_draw_db_v41_';
   const APP_CORE_VERSION_KEY = 'pillar_app_core_version_guard';
-  const APP_CORE_VERSION = 'v19_manual_profile_single_generate_20260523';
+  const APP_CORE_VERSION = 'v20_persist_self_tune_no_lucky5_20260604';
   let dbExpanded = false;
 
   function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : '539'; }
@@ -6820,6 +6850,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       try {
         Object.keys(localStorage).forEach(k => {
           if (
+            k === 'caishen_self_tune_options_v2' ||
+            k === 'caishen_selected_profile_name_v2' ||
+            k === 'caishen_self_tuned_profile_v1'
+          ) {
+            return;
+          }
+          if (
             k.includes('caishen_adaptive') ||
             k.includes('caishen_self_tuned') ||
             k.includes('caishen_bootstrap') ||
@@ -6853,6 +6890,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       k === WEEKLY_HISTORY_STORAGE_KEY ||
       k === MEMORY_DB_KEY ||
       k === MEMORY_DB_OLD_KEY ||
+      k === 'caishen_self_tune_options_v2' ||
+      k === 'caishen_selected_profile_name_v2' ||
+      k === 'caishen_self_tuned_profile_v1' ||
       k.startsWith(DB_KEY_PREFIX);
   }
 
@@ -8779,35 +8819,60 @@ ${settleRecord.analysisLines.join('\n')}`;
     return ((all && all[game]) || []).find(x => x && x.name === name) || null;
   }
 
+  function caishenBestSavedTuneOption(game) {
+    const all = caishenLoadSelfTuneOptions();
+    const options = (all && all[game]) || [];
+    if (!options.length) return null;
+    return [...options].sort((a,b)=>Number(b.score||0)-Number(a.score||0) || Number(b.profit||0)-Number(a.profit||0) || Number(a.bothFail||9999)-Number(b.bothFail||9999))[0] || null;
+  }
+
+  function caishenPersistProfileOption(game, opt, manualFlag = false) {
+    if (!opt || !opt.name || !opt.params) return null;
+    caishenSaveSelectedProfileName(game, opt.name);
+    caishenSaveProfileOverride(game, {
+      name: opt.name,
+      params: opt.params,
+      tunedAt: opt.tunedAt || new Date().toISOString(),
+      manuallySelected: !!manualFlag,
+      autoApplied: !manualFlag,
+      result: { profit: opt.profit, bothPass: opt.bothPass, onePass: opt.onePass, bothFail: opt.bothFail, score: opt.score }
+    });
+    return opt;
+  }
+
   function caishenApplySelectedProfileFromUI() {
     const mode = currentGameMode();
-    const name = selfTuneProfileSelect ? selfTuneProfileSelect.value : caishenLoadSelectedProfileName(mode);
+    let name = selfTuneProfileSelect ? selfTuneProfileSelect.value : caishenLoadSelectedProfileName(mode);
     if (!name) {
+      const bestSaved = caishenBestSavedTuneOption(mode);
+      if (bestSaved) {
+        if (selfTuneProfileSelect) selfTuneProfileSelect.value = bestSaved.name;
+        return caishenPersistProfileOption(mode, bestSaved, false);
+      }
       caishenSaveSelectedProfileName(mode, '');
       caishenRemoveProfileOverride(mode);
       return null;
     }
     const opt = caishenFindTunedOption(mode, name) || caishenSelfTuneCandidates().find(x => x.name === name);
     if (!opt || !opt.params) return null;
-    caishenSaveSelectedProfileName(mode, name);
-    caishenSaveProfileOverride(mode, {
-      name: opt.name,
-      params: opt.params,
-      tunedAt: opt.tunedAt || new Date().toISOString(),
-      manuallySelected: true,
-      result: { profit: opt.profit, bothPass: opt.bothPass, onePass: opt.onePass, bothFail: opt.bothFail, score: opt.score }
-    });
-    return opt;
+    return caishenPersistProfileOption(mode, opt, true);
   }
 
   function caishenRenderSelfTuneProfileSelect() {
     if (!selfTuneProfileSelect) return;
     const mode = currentGameMode();
     const all = caishenLoadSelfTuneOptions();
-    let options = (all && all[mode]) || [];
+    const savedOptions = (all && all[mode]) || [];
+    let options = savedOptions;
     if (!options.length) options = caishenSelfTuneCandidates().map(x => ({ ...x, used: 0 }));
-    const selected = caishenLoadSelectedProfileName(mode);
-    selfTuneProfileSelect.innerHTML = '<option value="">校正後類型：未選擇</option>' + options.map(o => {
+    let selected = caishenLoadSelectedProfileName(mode);
+    if (savedOptions.length && !options.some(o => o.name === selected)) {
+      const bestSaved = caishenBestSavedTuneOption(mode);
+      selected = bestSaved ? bestSaved.name : '';
+      if (bestSaved) caishenPersistProfileOption(mode, bestSaved, false);
+    }
+    const firstText = savedOptions.length ? '校正後類型：自動套用最高分' : '校正後類型：尚未校正';
+    selfTuneProfileSelect.innerHTML = `<option value="">${firstText}</option>` + options.map(o => {
       const meta = Number.isFinite(Number(o.profit)) ? `｜收益${o.profit}｜雙倒${o.bothFail}` : '';
       return `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name + meta)}</option>`;
     }).join('');
@@ -8817,7 +8882,9 @@ ${settleRecord.analysisLines.join('\n')}`;
   function caishenSelectedProfileNotice() {
     const mode = currentGameMode();
     const name = caishenLoadSelectedProfileName(mode);
-    return name ? `目前手動選用校正類型：${name}` : '目前未手動選用校正類型，使用彩種原始預設。';
+    if (name) return `目前沿用校正類型：${name}`;
+    const bestSaved = caishenBestSavedTuneOption(mode);
+    return bestSaved ? `目前已有校正結果，將自動套用最高分：${bestSaved.name}` : '目前尚未校正，使用彩種原始預設。';
   }
 
   function caishenApplyProfileOverride(base) {
@@ -9023,7 +9090,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     selfTuneBtn.textContent = '校正中...';
     resetLog();
     log(`開始${gameLabel(mode)}財神自我校正：比較${candidates.length}種性格，每種回放${trainCount}期。`);
-    if (dailyAgentResult) dailyAgentResult.innerHTML = `財神正在自我校正...<br><span class="small-note">會比較多種性格；完成後請你在下拉選單指定要用哪一種，不再自動套用最優。</span>`;
+    if (dailyAgentResult) dailyAgentResult.innerHTML = `財神正在自我校正...<br><span class="small-note">會比較多種性格；完成後會自動套用最高分，重新開啟也會沿用。</span>`;
 
     try {
       const results = [];
@@ -9038,28 +9105,27 @@ ${settleRecord.analysisLines.join('\n')}`;
       results.sort((a,b)=>b.score-a.score || b.profit-a.profit || a.bothFail-b.bothFail);
       const best = results[0];
       caishenSaveSelfTuneOptions(mode, results);
-      caishenSaveSelectedProfileName(mode, '');
-      caishenRemoveProfileOverride(mode);
+      caishenPersistProfileOption(mode, best, false);
       caishenRenderSelfTuneProfileSelect();
 
       const spent = ((performance.now() - startTime) / 1000).toFixed(1);
       const rows = results.map((r, idx) => `<div class="small-note">${idx+1}. <b>${r.name}</b>｜收益 ${r.profit}｜雙過${r.bothPass}｜單過${r.onePass}｜雙倒${r.bothFail}</div>`).join('');
       const bestCombo = Object.entries(best.comboStats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${v}`).join('，');
 
-      log(`自我校正完成：已列出可選類型，系統不自動套用最優；分數最高參考為 ${best.name}，耗時${spent}秒。`);
+      log(`自我校正完成：已自動套用最高分性格，重新開啟也會沿用；目前套用 ${best.name}，耗時${spent}秒。`);
       log(`最佳結果：收益${best.profit}，雙過${best.bothPass}、單過${best.onePass}、雙倒${best.bothFail}，碰數：${bestCombo}`);
 
       if (dailyAgentResult) {
         dailyAgentResult.innerHTML = `
           <div class="daily-agent-kpi">
-            <div>最高分參考<br><b>${best.name}</b></div>
+            <div>已自動套用<br><b>${best.name}</b></div>
             <div>回放收益<br><b>${best.profit}</b></div>
             <div>雙過 / 單過 / 雙倒<br><b>${best.bothPass}/${best.onePass}/${best.bothFail}</b></div>
             <div>有效期數<br><b>${best.used}</b></div>
           </div>
           <div class="small-note"><b>最佳碰數分布：</b>${bestCombo}</div>
           ${rows}
-          <div class="small-note" style="color:#fcd34d;"><b>請到上方「校正後類型」下拉選單選擇後，再按天選雙柱生成。</b></div>
+          <div class="small-note" style="color:#fcd34d;"><b>已自動套用最高分性格；你也可以在下拉選單手動改用其他類型。</b></div>
         `;
       }
     } catch (err) {
@@ -9431,14 +9497,11 @@ ${settleRecord.analysisLines.join('\n')}`;
       lastRecommended = items.slice();
 
       renderDailyTwoResult(lastDailyTwo, draws);
+      lastLucky5Results = [];
       try {
-        lastLucky5Results = generateLucky5Results(lastDailyTwo, draws, 2);
-        renderLucky5IntoDailyResult();
-        log(`幸運五碼同步完成：${lastLucky5Results.length ? '已產生 3+3 / 3+4 五碼' : '目前找不到符合 3+3 / 3+4 的五碼'}。`);
-      } catch (luckyErr) {
-        console.warn('lucky5 auto skipped', luckyErr);
-        log('幸運五碼同步略過：不影響雙柱結果。');
-      }
+        const oldLuckyBox = document.getElementById('lucky5Box');
+        if (oldLuckyBox) oldLuckyBox.remove();
+      } catch (e) {}
 
       try { caishenSaveCurrentPair(lastDailyTwo, draws); } catch (saveErr) { console.warn('save pair skipped', saveErr); }
       try { refreshRecommendArea(); } catch (refErr) { console.warn('recommend refresh skipped', refErr); }
