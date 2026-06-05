@@ -1147,6 +1147,24 @@
     }
     .recent10-hit{ color:#f8fafc; font-weight:900; }
     .recent10-draw{ color:#94a3b8; font-size:12px; margin-left:6px; }
+    .recent10-row.recent10-clickable{ cursor:pointer; }
+    .recent10-row.recent10-clickable:hover{ background:rgba(56,189,248,.06); }
+    .recent10-detail{
+      display:none;
+      grid-column:1 / -1;
+      margin-top:6px;
+      padding:9px 10px;
+      border:1px solid rgba(56,189,248,.32);
+      border-radius:10px;
+      background:rgba(2,6,23,.72);
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.65;
+      word-break:break-word;
+    }
+    .recent10-row.open .recent10-detail{ display:block; }
+    .recent10-detail-title{ color:#7dd3fc; font-weight:900; margin-bottom:4px; }
+    .recent10-detail-line b{ color:#f8fafc; }
 
     .lucky5-box{
       margin-top:12px;
@@ -1208,30 +1226,6 @@
       .recent10-row{ grid-template-columns:62px 70px 1fr; font-size:12px; padding:8px 9px; }
       .recent10-draw{ display:block; margin-left:0; margin-top:2px; }
     }
-
-
-/* 今日已複製個性提醒 */
-.self-tune-select-used{
-  border-color:rgba(245,158,11,.95) !important;
-  background:linear-gradient(135deg, rgba(245,158,11,.24), rgba(34,197,94,.12)) !important;
-  color:#fff7ed !important;
-  font-weight:900 !important;
-}
-.self-tune-used-note{
-  grid-column:1 / -1;
-  padding:9px 11px;
-  border-radius:12px;
-  border:1px solid rgba(245,158,11,.45);
-  background:rgba(245,158,11,.12);
-  color:#fcd34d;
-  font-size:13px;
-  font-weight:900;
-  line-height:1.55;
-}
-
-
-    .self-tune-select-used{ border-color:#f59e0b !important; box-shadow:0 0 0 2px rgba(245,158,11,.22); color:#fff7ed; }
-    .self-tune-used-note{ margin-top:8px; padding:8px 10px; border-radius:10px; background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.42); color:#fcd34d; font-size:13px; line-height:1.55; font-weight:900; }
 
 </style>
 </head>
@@ -1380,6 +1374,7 @@
           </select>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
+            <button class="btn btn-dark" id="sampleBtn">載入範例資料</button>
             <button id="clearLockBtn" type="button" style="display:none;"></button>
             <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
           </div>
@@ -1391,7 +1386,6 @@
               <select id="selfTuneProfileSelect" class="btn btn-dark" style="text-align:center; appearance:auto;">
                 <option value="">校正後類型：未選擇</option>
               </select>
-              <div id="selfTuneUsedTodayNote" class="self-tune-used-note" style="display:none;"></div>
             </div>
           </details>
         </div>
@@ -1522,7 +1516,6 @@
   const backtrain50Btn = document.getElementById('backtrain50Btn');
   const selfTuneBtn = document.getElementById('selfTuneBtn');
   const selfTuneProfileSelect = document.getElementById('selfTuneProfileSelect');
-  const selfTuneUsedTodayNote = document.getElementById('selfTuneUsedTodayNote');
   const lucky5Btn = document.getElementById('lucky5Btn');
   const clearLockBtn = document.getElementById('clearLockBtn');
   const moveAllToRecommendBtn = document.getElementById('moveAllToRecommendBtn');
@@ -7216,7 +7209,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   drawInput.addEventListener('input', () => { countDraws.textContent = getBacktestDraws().length; });
   function initDrawDatabase() { const savedMode = localStorage.getItem(DB_VERSION_KEY) || '539'; applyGameMode(savedMode); dbTableWrap.classList.toggle('open', dbExpanded); }
 
-  if (sampleBtn) sampleBtn.addEventListener('click', () => {
+  sampleBtn.addEventListener('click', () => {
     drawInput.value = [
       '01 07 10 20 26','04 09 16 28 37','05 11 14 23 39','02 08 15 18 31','06 12 17 27 34',
       '03 13 19 21 33','07 09 24 26 35','01 05 16 22 30','08 11 18 25 39','02 10 14 27 36',
@@ -7561,24 +7554,56 @@ ${settleRecord.analysisLines.join('\n')}`;
     </div>`;
   }
 
+
+  function caishenFormatGroupsForDetail(groups) {
+    return (groups || []).slice(0, 3).map((g, idx) => {
+      const nums = (g || []).map(pad2).join(' ');
+      return `<div class="recent10-detail-line"><b>第${idx + 1}柱：</b>${nums || '無資料'}</div>`;
+    }).join('');
+  }
+
+  function caishenBuildPairDetailHTML(pairGroups, labels, note) {
+    if (!Array.isArray(pairGroups) || pairGroups.length < 2) return '';
+    const labelA = (labels && labels[0]) || '前一天第一組';
+    const labelB = (labels && labels[1]) || '前一天第二組';
+    return `<div class="recent10-detail">
+      <div class="recent10-detail-title">點開驗證：${note || '該期對照使用的兩組立柱'}</div>
+      <div class="recent10-detail-line"><b>${labelA}</b></div>
+      ${caishenFormatGroupsForDetail(pairGroups[0])}
+      <div class="recent10-detail-line" style="margin-top:6px;"><b>${labelB}</b></div>
+      ${caishenFormatGroupsForDetail(pairGroups[1])}
+    </div>`;
+  }
+
   function buildRecent10DailyPairHistoryHTML(items, draws) {
     const list = (draws && draws.length ? draws : getBacktestDraws()).slice(0, 10);
-    if (!items || items.length < 2 || !list.length) return '';
+    if (!list.length) return '';
+    const actualMap = typeof caishenActualSnapshotRecordsForDraws === 'function' ? caishenActualSnapshotRecordsForDraws(list, 10) : new Map();
     const rows = list.map((draw, idx) => {
-      const labels = items.slice(0, 2).map(item => pillarHitLabelForGroups(item && item.groups, draw));
-      const bothFail = labels.every(x => x === '0');
-      const bothPass = labels.every(x => x !== '0');
-      const status = bothPass ? '雙過' : (bothFail ? '雙倒' : '單過');
-      const cls = bothPass ? 'recent10-status-bothpass' : (bothFail ? 'recent10-status-bothfail' : 'recent10-status-onepass');
+      const key = caishenDrawKey(draw);
+      const actual = actualMap.get(key);
+      let statusKey = 'unknown';
+      let labels = '無快照';
+      let note = '｜本期沒有保存預測快照';
+      let detailHTML = `<div class="recent10-detail"><div class="recent10-detail-title">此期尚無「預測該期之前」保存的天選雙柱快照</div><div class="recent10-detail-line">這一期在舊版本沒有保存「預測該期前」的雙柱，所以不能硬拿目前雙柱事後回測冒充實戰。從本版開始，每次天選雙柱都會先存成待兌獎快照；下一期新增開獎後，會自動寫入該期結果。</div></div>`;
+      if (actual) {
+        statusKey = actual.status;
+        labels = actual.hitCombo || caishenHitComboLabel(actual.scoreA, actual.scoreB);
+        note = '｜歷史預測快照';
+        detailHTML = caishenBuildPairDetailHTML(actual.usedGroups, actual.usedLabels, '此期顯示的是「輸入本期開獎號碼之前」產生、用來預測本期的天選雙柱');
+      }
+      const status = caishenOutcomeStatusText(statusKey);
+      const cls = statusKey === 'bothPass' ? 'recent10-status-bothpass' : (statusKey === 'bothFail' ? 'recent10-status-bothfail' : (statusKey === 'onePass' ? 'recent10-status-onepass' : 'recent10-status-bothfail'));
       const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
-      return `<div class="recent10-row">
+      return `<div class="recent10-row recent10-clickable" title="點擊查看預測此期前保存的兩組立柱">
         <div>${issue}</div>
         <div class="${cls}">${status}</div>
-        <div><span class="recent10-hit">${labels.join(' + ')}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}</span></div>
+        <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}${note}</span></div>
+        ${detailHTML}
       </div>`;
     }).join('');
     return `<div class="recent10-box">
-      <div class="recent10-title">近10期雙組實戰過倒（上方最新，下方第10期）</div>
+      <div class="recent10-title">近10期雙組實戰過倒（歷史預測快照：點該期看輸入該期開獎前生成的雙柱）</div>
       ${rows}
     </div>`;
   }
@@ -7813,7 +7838,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>單過單倒率<br><b>${((pairPack.weightedStats || pairStats).onePassRate * 100).toFixed(2)}%</b></div>
         <div>同柱共識 / 搬柱比例<br><b>${pairPack.samePillarShared || 0} / ${(((pairPack.maxMoveRatio || 0) * 100).toFixed(0))}%</b></div>
       </div>
-      ${buildActualRecent10DailyPairHistoryHTML(items, draws || getBacktestDraws()) || buildRecent10DailyPairHistoryHTML(items, draws || getBacktestDraws()).replace('近10期雙組實戰過倒（上方最新，下方第10期）', '目前雙柱近10期回測（尚無實戰紀錄時暫顯示）')}
+      ${buildRecent10DailyPairHistoryHTML(items, draws || getBacktestDraws())}
       <div class="clean-two-grid">
         ${items.map((item, idx) => buildDailyTwoCardHTML(item, idx, items)).join('')}
       </div>
@@ -8276,153 +8301,124 @@ ${settleRecord.analysisLines.join('\n')}`;
     } catch (err) {}
   }
 
-  const CAISHEN_USED_DAILY_PAIR_KEY = 'caishen_used_daily_pair_v2';
 
-  // 近10期實戰結果不再使用鎖死表；改由固定生成種子與前次出戰雙柱自然計算。
+  const CAISHEN_USED_DAILY_PAIR_KEY = 'caishen_used_daily_pair_snapshot_v3';
 
   function caishenLoadUsedDailyPairs() {
     try {
       const raw = localStorage.getItem(CAISHEN_USED_DAILY_PAIR_KEY);
       const parsed = raw ? JSON.parse(raw) : {};
       return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (e) { return {}; }
+    } catch (err) { return {}; }
   }
 
-  function caishenSaveUsedDailyPairs(all) {
-    try { localStorage.setItem(CAISHEN_USED_DAILY_PAIR_KEY, JSON.stringify(all || {})); } catch (e) {}
+  function caishenSaveUsedDailyPairs(data) {
+    try { localStorage.setItem(CAISHEN_USED_DAILY_PAIR_KEY, JSON.stringify(data || {})); } catch (err) {}
   }
 
-  const CAISHEN_RECENT10_LEDGER_KEY = 'caishen_recent10_pair_ledger_v3';
+  const CAISHEN_PREDICTION_ARCHIVE_KEY = 'caishen_prediction_snapshot_archive_v1';
 
-  function caishenLoadRecent10LedgerAll() {
+  function caishenLoadPredictionArchive() {
     try {
-      const raw = localStorage.getItem(CAISHEN_RECENT10_LEDGER_KEY);
+      const raw = localStorage.getItem(CAISHEN_PREDICTION_ARCHIVE_KEY);
       const parsed = raw ? JSON.parse(raw) : {};
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (e) { return {}; }
+      if (parsed && typeof parsed === 'object') {
+        if (!Array.isArray(parsed.records)) parsed.records = [];
+        return parsed;
+      }
+    } catch (err) {}
+    return { version: 1, records: [] };
   }
 
-  function caishenSaveRecent10LedgerAll(all) {
-    try { localStorage.setItem(CAISHEN_RECENT10_LEDGER_KEY, JSON.stringify(all || {})); } catch (e) {}
+  function caishenSavePredictionArchive(archive) {
+    try {
+      const out = archive && typeof archive === 'object' ? archive : { version: 1, records: [] };
+      if (!Array.isArray(out.records)) out.records = [];
+      out.updatedAt = new Date().toISOString();
+      localStorage.setItem(CAISHEN_PREDICTION_ARCHIVE_KEY, JSON.stringify(out));
+    } catch (err) {}
   }
 
-  function caishenRecent10LedgerKey(mode = currentGameMode()) {
-    const profile = caishenGameProfile ? caishenGameProfile() : {};
-    const selectedName = caishenLoadSelectedProfileName ? caishenLoadSelectedProfileName(mode) : '';
-    return `${mode}::${selectedName || profile.name || 'default'}`;
+  function caishenPredictionId(game, baseKey, groups, profileName) {
+    const body = JSON.stringify({ game, baseKey, groups, profileName });
+    let h = 2166136261;
+    for (let i = 0; i < body.length; i++) {
+      h ^= body.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return `${game || 'game'}_${baseKey || 'base'}_${(h >>> 0).toString(36)}`;
   }
 
-  function caishenLoadRecent10Ledger(mode = currentGameMode()) {
-    const all = caishenLoadRecent10LedgerAll();
-    const key = caishenRecent10LedgerKey(mode);
-    const rows = all[key] || all[mode] || [];
-    return Array.isArray(rows) ? rows.filter(r => r && r.drawKey).slice(0, 10) : [];
-  }
-
-  function caishenSaveRecent10Ledger(rows, mode = currentGameMode()) {
-    const all = caishenLoadRecent10LedgerAll();
-    const key = caishenRecent10LedgerKey(mode);
-    all[key] = (rows || []).filter(r => r && r.drawKey).slice(0, 10);
-    caishenSaveRecent10LedgerAll(all);
-  }
-
-  function caishenLedgerRowFromPair(items, draw, source = 'stableBacktest') {
-    if (!items || items.length < 2 || !draw || !draw.length) return null;
-    const result = caishenEvaluatePairOnDraw(items, draw);
-    return {
-      source,
-      game: currentGameMode(),
-      draw: draw.slice(),
-      drawKey: caishenDrawKey(draw),
-      status: result.status,
-      aPass: result.aPass,
-      bPass: result.bPass,
-      hitCombo: result.comboLabel,
-      scoreA: result.scoreA,
-      scoreB: result.scoreB,
-      profile: (caishenGameProfile && caishenGameProfile().name) || '',
-      createdAt: new Date().toISOString()
+  function caishenArchivePredictionSnapshot(pack) {
+    if (!pack || !pack.game || !Array.isArray(pack.groups) || pack.groups.length < 2) return '';
+    const archive = caishenLoadPredictionArchive();
+    const id = caishenPredictionId(pack.game, pack.latestDrawKeyAtCreation, pack.groups, pack.profileName || '');
+    const rec = {
+      id,
+      game: pack.game,
+      baseDrawKey: pack.latestDrawKeyAtCreation || '',
+      targetDrawKey: pack.targetDrawKey || '',
+      profile: pack.profileName || '',
+      usedGroups: pack.groups,
+      usedLabels: pack.labels || [],
+      status: pack.status || '',
+      scoreA: pack.scoreA || '',
+      scoreB: pack.scoreB || '',
+      hitCombo: pack.hitCombo || '',
+      evaluatedAt: pack.evaluatedAt || '',
+      createdAt: pack.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
+    const idx = archive.records.findIndex(x => x && x.id === id);
+    if (idx >= 0) archive.records[idx] = { ...archive.records[idx], ...rec };
+    else archive.records.push(rec);
+    archive.records = archive.records.slice(-220);
+    caishenSavePredictionArchive(archive);
+    return id;
   }
 
-  function caishenRowsFromPair(items, draws, limit = 10, source = 'stableBacktest') {
-    const list = (draws || []).slice(0, limit);
-    return list.map(draw => caishenLedgerRowFromPair(items, draw, source)).filter(Boolean);
-  }
-
-  function caishenUpsertRecent10Ledger(row, seedRows = [], mode = currentGameMode()) {
-    if (!row || !row.drawKey) return;
-    let rows = caishenLoadRecent10Ledger(mode);
-    if (!rows.length && seedRows && seedRows.length) rows = seedRows.slice(0, 9);
-    rows = [row].concat(rows.filter(r => r && r.drawKey !== row.drawKey)).slice(0, 10);
-    caishenSaveRecent10Ledger(rows, mode);
-  }
-
-  function caishenEnsureRecent10LedgerSeed(items, draws) {
-    const rows = caishenLoadRecent10Ledger();
-    if (rows.length) return rows;
-    const seedRows = caishenRowsFromPair(items, draws || getBacktestDraws(), 10, 'stableBacktest');
-    if (seedRows.length) caishenSaveRecent10Ledger(seedRows);
-    return seedRows;
+  function caishenFindPredictionArchiveByTarget(drawKey, game) {
+    const archive = caishenLoadPredictionArchive();
+    return (archive.records || []).filter(r => r && r.game === game && r.targetDrawKey === drawKey).slice(-1)[0] || null;
   }
 
   function caishenDrawKey(draw) {
     return Array.isArray(draw) ? draw.map(n => pad2(n)).join('-') : '';
   }
 
-  function caishenPackPairForUse(items, draws, source = 'copied') {
-    if (!items || items.length < 2) return null;
+  function caishenCloneDailyGroups(groups) {
+    return (groups || []).slice(0, 3).map(g => (g || []).map(Number).filter(n => Number.isFinite(n)).sort((a,b)=>a-b));
+  }
+
+  function caishenPackPairSnapshot(items, draws, source) {
+    if (!Array.isArray(items) || items.length < 2) return null;
     const mode = currentGameMode();
-    const profile = caishenGameProfile ? caishenGameProfile() : {};
-    const selectedName = caishenLoadSelectedProfileName ? caishenLoadSelectedProfileName(mode) : '';
-    const usedProfile = selectedName || (items[0] && (items[0].styleName || items[0].gameProfileName || items[0].profileName)) || profile.name || '';
-    return {
-      version: 2,
+    const drawList = draws && draws.length ? draws : getBacktestDraws();
+    const profile = typeof caishenGameProfile === 'function' ? caishenGameProfile() : {};
+    const selectedName = typeof caishenLoadSelectedProfileName === 'function' ? caishenLoadSelectedProfileName(mode) : '';
+    const profileName = selectedName || items[0]?.gameProfileName || items[0]?.profileName || items[0]?.styleName || profile.name || '';
+    const pack = {
+      version: 4,
       game: mode,
-      source,
-      profileName: usedProfile,
-      groups: items.slice(0,2).map(item => cloneGroups(item.groups || [])),
-      labels: items.slice(0,2).map((item, idx) => item.sourceLabel || (idx === 0 ? '今日主力' : '今日輔助')),
-      latestDrawKeyAtCreation: caishenDrawKey((draws && draws[0]) || (getBacktestDraws()[0] || [])),
+      source: source || 'planned',
+      profileName,
+      labels: items.slice(0, 2).map((item, idx) => item?.sourceLabel || (idx === 0 ? '前次主柱' : '前次輔柱')),
+      groups: items.slice(0, 2).map(item => caishenCloneDailyGroups(item && item.groups)),
+      latestDrawKeyAtCreation: caishenDrawKey(drawList[0] || []),
       createdAt: new Date().toISOString(),
-      lastEvaluatedDrawKey: '',
-      plannedOnly: source !== 'copied'
+      lastEvaluatedDrawKey: ''
     };
+    pack.predictionId = caishenPredictionId(pack.game, pack.latestDrawKeyAtCreation, pack.groups, pack.profileName || '');
+    return pack;
   }
 
   function caishenSaveCurrentPair(items, draws) {
-    // 只保存「目前畫面產生過的雙柱」供除錯/重啟參考；不當作實戰學習。
-    const pack = caishenPackPairForUse(items, draws, 'planned');
+    const pack = caishenPackPairSnapshot(items, draws, 'planned');
     if (!pack) return;
-    const all = caishenLoadUsedDailyPairs();
-    all[currentGameMode() + '_planned'] = pack;
-    caishenSaveUsedDailyPairs(all);
-  }
-
-  function caishenMarkDailyPairCopiedForUse(items, draws) {
-    const pack = caishenPackPairForUse(items, draws, 'copied');
-    if (!pack) return;
+    try { pack.predictionId = caishenArchivePredictionSnapshot(pack) || pack.predictionId || ''; } catch (err) {}
     const all = caishenLoadUsedDailyPairs();
     all[currentGameMode()] = pack;
     caishenSaveUsedDailyPairs(all);
-    // 複製代表這組正式當作出戰基準；先建立當下近10期畫面基準。
-    // 之後新增最新一期時，只把最新實戰結果插到最上方，過往9期自然往下延續，不再被新生成雙柱改寫。
-    caishenEnsureRecent10LedgerSeed(items, draws || getBacktestDraws());
-  }
-
-  function caishenLoadCurrentUsedPair(mode = currentGameMode()) {
-    const all = caishenLoadUsedDailyPairs();
-    const pack = all[mode];
-    return pack && !pack.plannedOnly && Array.isArray(pack.groups) && pack.groups.length >= 2 ? pack : null;
-  }
-
-  function caishenActualRecentOutcomeRecords(limit = 10) {
-    const mode = currentGameMode();
-    const state = caishenLoadAdaptiveState();
-    return (state.outcomes || [])
-      .filter(x => x && x.game === mode && x.source === 'actualCopiedPair')
-      .slice(-limit)
-      .reverse();
   }
 
   function caishenRecordLatestDrawOutcome(draws) {
@@ -8431,107 +8427,145 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (!latest || !latest.length) return '';
     const latestKey = caishenDrawKey(latest);
     const all = caishenLoadUsedDailyPairs();
-    // 優先使用你按「複製」確認出戰的雙柱；若尚未按複製，則使用上一輪天選雙柱保存的計畫雙柱。
-    // 這不是鎖死歷史，而是用前一期實際生成出的雙柱去判斷新增的最新一期。
-    const pack = all[mode] || all[mode + '_planned'];
+    const pack = all[mode];
     if (!pack || !Array.isArray(pack.groups) || pack.groups.length < 2) {
-      return '實戰學習：尚未偵測到前次天選雙柱；本次只沿用目前校正狀態生成。';
-    }
-    if (pack.lastEvaluatedDrawKey === latestKey) {
-      return '實戰學習：最新一期已判斷過，直接沿用既有學習狀態。';
+      return '實戰學習：尚未保存前一次天選雙柱快照；本次開始會保存，下一期即可正確判斷。';
     }
     if (pack.latestDrawKeyAtCreation === latestKey) {
-      return '實戰學習：尚未出現複製出戰後的新一期，暫不改變學習狀態。';
+      return '實戰學習：目前還是產生這組時的同一期，尚未出現下一期開獎。';
+    }
+    const baseIdx = (draws || []).findIndex(d => caishenDrawKey(d) === pack.latestDrawKeyAtCreation);
+    let target = latest;
+    let targetKey = latestKey;
+    if (baseIdx > 0) {
+      // 正確實戰順序：某次天選雙柱是在 baseDraw 開完後產生，
+      // 它只能拿來判斷 baseDraw 的下一期，不可以跳過多期直接判斷最新期。
+      target = draws[baseIdx - 1];
+      targetKey = caishenDrawKey(target);
+    } else if (baseIdx === 0) {
+      return '實戰學習：目前還是產生這組時的同一期，尚未出現下一期開獎。';
     }
 
-    const items = pack.groups.slice(0,2).map((groups, idx) => ({ groups, sourceLabel: (pack.labels || [])[idx] || (idx === 0 ? '前次主柱' : '前次輔柱') }));
-    const result = caishenEvaluatePairOnDraw(items, latest);
+    if (pack.lastEvaluatedDrawKey === targetKey) {
+      return '實戰學習：前次雙柱已兌獎過，直接沿用結果；若中間連續新增多期，系統會用歷史預測快照補齊顯示。';
+    }
+
+    const pairItems = pack.groups.slice(0, 2).map((groups, idx) => ({ groups, sourceLabel: (pack.labels || [])[idx] || (idx === 0 ? '前次主柱' : '前次輔柱') }));
+    const result = caishenEvaluatePairOnDraw(pairItems, target);
     const record = {
-      source: 'actualCopiedPair',
+      source: 'actualSnapshotPair',
       game: mode,
-      draw: latest.slice(),
-      drawKey: latestKey,
+      draw: target.slice(),
+      drawKey: targetKey,
       status: result.status,
       aPass: result.aPass,
       bPass: result.bPass,
-      hitCombo: result.comboLabel,
       scoreA: result.scoreA,
       scoreB: result.scoreB,
+      hitCombo: result.comboLabel,
       profile: pack.profileName || '',
+      usedGroups: pack.groups,
+      usedLabels: pack.labels || [],
+      predictionId: pack.predictionId || caishenPredictionId(mode, pack.latestDrawKeyAtCreation, pack.groups, pack.profileName || ''),
+      baseDrawKey: pack.latestDrawKeyAtCreation || '',
       createdAt: new Date().toISOString()
     };
     caishenRecordOutcomeForLearning(record);
-    // 用前次出戰雙柱建立「昨日看到的近10期基準」，再把最新一期插到最上方。
-    // 這樣新增開獎後，過往9期會延續原本畫面，不會被本次新生成雙柱重新洗掉。
-    const priorDraws = (draws || []).slice(1, 11);
-    const seedRows = caishenRowsFromPair(items, priorDraws, 9, 'previousPairBacktest');
-    caishenUpsertRecent10Ledger(record, seedRows, mode);
-    pack.lastEvaluatedDrawKey = latestKey;
+    try {
+      caishenArchivePredictionSnapshot({
+        ...pack,
+        targetDrawKey: targetKey,
+        status: result.status,
+        scoreA: result.scoreA,
+        scoreB: result.scoreB,
+        hitCombo: result.comboLabel,
+        evaluatedAt: new Date().toISOString()
+      });
+    } catch (err) {}
+    pack.lastEvaluatedDrawKey = targetKey;
     pack.lastOutcome = record;
     all[mode] = pack;
     caishenSaveUsedDailyPairs(all);
-    return `實戰學習：已用前次複製出戰雙柱判斷最新一期 → ${caishenOutcomeStatusText(result.status)}（${result.comboLabel}），過往9期沿用前次基準，不再隨機重算。`;
+    return `實戰學習：已用「前一次保存的天選雙柱快照」判斷下一期 ${targetKey.replaceAll('-', ' ')} → ${caishenOutcomeStatusText(result.status)}（${result.comboLabel}）。`;
   }
 
-  function buildActualRecent10DailyPairHistoryHTML(items, draws) {
-    const list = (draws && draws.length ? draws : getBacktestDraws()).slice(0, 10);
-    let rowsData = caishenLoadRecent10Ledger();
+  function caishenActualSnapshotRecordsForDraws(draws, limit) {
+    const mode = currentGameMode();
+    const keys = new Set((draws || []).slice(0, limit || 10).map(caishenDrawKey));
+    const map = new Map();
 
-    // 尚未正式複製出戰或尚無實戰紀錄時，才用目前雙柱建立暫時回測；一旦有 ledger，就以 ledger 為準。
-    if (!rowsData.length && items && items.length >= 2) {
-      rowsData = caishenRowsFromPair(items, list, 10, 'stableBacktest');
+    // 先讀正式實戰結果：這些是「輸入該期開獎號碼之前」保存的預測快照兌獎結果。
+    try {
+      const state = caishenLoadAdaptiveState();
+      (state.outcomes || []).forEach(r => {
+        if (!r || r.game !== mode || !keys.has(r.drawKey)) return;
+        if (r.source !== 'actualSnapshotPair') return;
+        map.set(r.drawKey, r);
+      });
+    } catch (err) {}
+
+    // 再讀預測快照封存庫：避免學習紀錄被修剪或舊版漏寫時，點開仍能看到當時預測雙柱。
+    try {
+      const archive = caishenLoadPredictionArchive();
+      (archive.records || []).forEach(r => {
+        if (!r || r.game !== mode || !keys.has(r.targetDrawKey) || !r.status) return;
+        if (map.has(r.targetDrawKey)) return;
+        map.set(r.targetDrawKey, {
+          source: 'actualSnapshotPair',
+          game: r.game,
+          drawKey: r.targetDrawKey,
+          status: r.status,
+          scoreA: r.scoreA,
+          scoreB: r.scoreB,
+          hitCombo: r.hitCombo,
+          profile: r.profile || '',
+          usedGroups: r.usedGroups || [],
+          usedLabels: r.usedLabels || [],
+          predictionId: r.id || '',
+          baseDrawKey: r.baseDrawKey || '',
+          createdAt: r.evaluatedAt || r.updatedAt || r.createdAt || ''
+        });
+      });
+    } catch (err) {}
+
+    return map;
+  }
+
+
+  async function caishenBackfillRecentPredictionSnapshots(draws, limit = 10) {
+    const mode = currentGameMode();
+    const list = (draws && draws.length ? draws : getBacktestDraws()).slice(0, limit);
+    if (list.length < 2) return 0;
+    let made = 0;
+    for (let idx = 0; idx < list.length; idx++) {
+      const targetDraw = list[idx];
+      const targetKey = caishenDrawKey(targetDraw);
+      if (!targetKey) continue;
+      if (caishenFindPredictionArchiveByTarget(targetKey, mode)) continue;
+      const historyBeforeTarget = (draws || []).slice(idx + 1);
+      if (!historyBeforeTarget || historyBeforeTarget.length < 30) continue;
+      try {
+        const pair = await caishenGenerateFastDailyTwo(historyBeforeTarget);
+        if (!pair || pair.length < 2) continue;
+        const pack = caishenPackPairSnapshot(pair, historyBeforeTarget, 'historicalBackfill');
+        if (!pack) continue;
+        const result = caishenEvaluatePairOnDraw(pair, targetDraw);
+        caishenArchivePredictionSnapshot({
+          ...pack,
+          targetDrawKey: targetKey,
+          status: result.status,
+          scoreA: result.scoreA,
+          scoreB: result.scoreB,
+          hitCombo: result.comboLabel,
+          evaluatedAt: new Date().toISOString()
+        });
+        made++;
+        if (made % 2 === 0) await caishenYieldFrame();
+      } catch (err) {
+        console.warn('historical snapshot backfill skipped', err);
+      }
     }
-
-    if (!rowsData.length) return '';
-    rowsData = rowsData.slice().sort((a, b) => {
-      const ai = list.findIndex(d => caishenDrawKey(d) === a.drawKey);
-      const bi = list.findIndex(d => caishenDrawKey(d) === b.drawKey);
-      const av = ai < 0 ? 999 : ai;
-      const bv = bi < 0 ? 999 : bi;
-      return av - bv;
-    }).slice(0, 10);
-
-    const rows = rowsData.map((r, idx) => {
-      const bothFail = r.status === 'bothFail';
-      const bothPass = r.status === 'bothPass';
-      const status = caishenOutcomeStatusText(r.status);
-      const cls = bothPass ? 'recent10-status-bothpass' : (bothFail ? 'recent10-status-bothfail' : 'recent10-status-onepass');
-      const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
-      const labels = r.hitCombo || caishenHitComboLabel(r.scoreA, r.scoreB) || '未判斷';
-      const note = r.source === 'actualCopiedPair' ? '｜實戰' : '｜延續基準';
-      return `<div class="recent10-row">
-        <div>${issue}</div>
-        <div class="${cls}">${status}</div>
-        <div><span class="recent10-hit">${escapeHtml(labels)}</span><span class="recent10-draw">｜${((r.draw || [])).map(pad2).join(' ')}${note}${r.profile ? '｜' + escapeHtml(r.profile) : ''}</span></div>
-      </div>`;
-    }).join('');
-    return `<div class="recent10-box">
-      <div class="recent10-title">近10期雙組實戰過倒（最新一期實戰＋過往延續基準）</div>
-      ${rows}
-    </div>`;
-  }
-
-
-  function buildFrozenRecent10DailyPairHistoryHTML(items, draws) {
-    const records = caishenSeedFrozenRecent10IfEmpty(items, draws);
-    if (!records.length) return '';
-    const rows = records.slice(0, 10).map((r, idx) => {
-      const bothFail = r.status === 'bothFail';
-      const bothPass = r.status === 'bothPass';
-      const status = caishenOutcomeStatusText(r.status);
-      const cls = bothPass ? 'recent10-status-bothpass' : (bothFail ? 'recent10-status-bothfail' : 'recent10-status-onepass');
-      const issue = idx === 0 ? '最新期' : `鎖定${idx + 1}`;
-      const labels = r.hitCombo || caishenHitComboLabel(r.scoreA, r.scoreB);
-      return `<div class="recent10-row">
-        <div>${issue}</div>
-        <div class="${cls}">${status}</div>
-        <div><span class="recent10-hit">${escapeHtml(labels)}</span><span class="recent10-draw">｜${((r.draw || [])).map(pad2).join(' ')}${r.profile ? '｜' + escapeHtml(r.profile) : ''}</span></div>
-      </div>`;
-    }).join('');
-    return `<div class="recent10-box">
-      <div class="recent10-title">近10期雙組實戰過倒（歷史鎖定，只新增最新一期，不重算過往9期）</div>
-      ${rows}
-    </div>`;
+    return made;
   }
 
   function caishenOutcomeStatusText(status) {
@@ -9053,75 +9087,6 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   const CAISHEN_SELF_TUNE_OPTIONS_KEY = 'caishen_self_tune_options_v2';
   const CAISHEN_SELECTED_PROFILE_KEY = 'caishen_selected_profile_name_v2';
-  const CAISHEN_USED_PROFILES_BY_DAY_KEY = 'caishen_used_profiles_by_day_v1';
-
-  function caishenTodayKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function caishenLoadUsedProfilesByDay() {
-    try {
-      const raw = localStorage.getItem(CAISHEN_USED_PROFILES_BY_DAY_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (e) { return {}; }
-  }
-
-  function caishenSaveUsedProfilesByDay(data) {
-    try {
-      const today = caishenTodayKey();
-      const slim = {};
-      Object.keys(data || {}).sort().slice(-14).forEach(k => { slim[k] = data[k]; });
-      if (data && data[today]) slim[today] = data[today];
-      localStorage.setItem(CAISHEN_USED_PROFILES_BY_DAY_KEY, JSON.stringify(slim));
-    } catch (e) {}
-  }
-
-  function caishenUsedProfileNamesToday(game) {
-    const all = caishenLoadUsedProfilesByDay();
-    return (((all[caishenTodayKey()] || {})[game || currentGameMode()] || [])).map(x => x && x.name).filter(Boolean);
-  }
-
-  function caishenMarkProfileUsedToday(name, game) {
-    name = String(name || '').trim();
-    if (!name) return;
-    game = game || currentGameMode();
-    const all = caishenLoadUsedProfilesByDay();
-    const day = caishenTodayKey();
-    all[day] = all[day] || {};
-    const list = Array.isArray(all[day][game]) ? all[day][game] : [];
-    const found = list.find(x => x && x.name === name);
-    if (found) {
-      found.count = Number(found.count || 0) + 1;
-      found.lastUsedAt = new Date().toISOString();
-    } else {
-      list.push({ name, count: 1, firstUsedAt: new Date().toISOString(), lastUsedAt: new Date().toISOString() });
-    }
-    all[day][game] = list;
-    caishenSaveUsedProfilesByDay(all);
-    caishenRenderSelfTuneProfileSelect();
-  }
-
-  function caishenProfileNameFromCopiedItem(copyType, item) {
-    if (item) {
-      const candidates = [item.styleName, item.gameProfileName, item.profileName, item.profile, item.sourceLabel, item.sourceTypeLabel];
-      for (const v of candidates) {
-        const txt = String(v || '').trim();
-        if (txt && !['daily','manual','recommended','AI最佳','防穿透','隨機平衡','反指標排行'].includes(txt)) return txt;
-      }
-    }
-    if (copyType === 'daily' || copyType === 'manual' || copyType === 'recommended') {
-      const selected = caishenLoadSelectedProfileName(currentGameMode());
-      if (selected) return selected;
-      const best = caishenBestSavedTuneOption(currentGameMode());
-      if (best && best.name) return best.name;
-      const gp = caishenGameProfile && caishenGameProfile();
-      if (gp && gp.name) return gp.name;
-    }
-    return '';
-  }
-
 
   function caishenLoadSelfTuneOptions() {
     try {
@@ -9224,30 +9189,12 @@ ${settleRecord.analysisLines.join('\n')}`;
       selected = bestSaved ? bestSaved.name : '';
       if (bestSaved) caishenPersistProfileOption(mode, bestSaved, false);
     }
-    const usedToday = new Set(caishenUsedProfileNamesToday(mode));
     const firstText = savedOptions.length ? '校正後類型：自動套用最高分' : '校正後類型：尚未校正';
     selfTuneProfileSelect.innerHTML = `<option value="">${firstText}</option>` + options.map(o => {
       const meta = Number.isFinite(Number(o.profit)) ? `｜收益${o.profit}｜雙倒${o.bothFail}` : '';
-      const used = usedToday.has(o.name);
-      const label = `${used ? '★ 今日已用｜' : ''}${o.name}${meta}`;
-      const style = used ? ' style="background:#78350f;color:#fff7ed;font-weight:900;" data-used-today="1"' : '';
-      return `<option value="${escapeHtml(o.name)}"${style}>${escapeHtml(label)}</option>`;
+      return `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name + meta)}</option>`;
     }).join('');
     selfTuneProfileSelect.value = options.some(o => o.name === selected) ? selected : '';
-    const usedNames = Array.from(usedToday);
-    if (usedNames.length) {
-      selfTuneProfileSelect.classList.add('self-tune-select-used');
-      if (selfTuneUsedTodayNote) {
-        selfTuneUsedTodayNote.style.display = '';
-        selfTuneUsedTodayNote.innerHTML = `今日已複製使用：${usedNames.map(escapeHtml).join('、')}<br><span style="color:#cbd5e1;font-weight:700;">下拉選單內有 ★ 的個性，就是今天已出戰過的類型。</span>`;
-      }
-    } else {
-      selfTuneProfileSelect.classList.remove('self-tune-select-used');
-      if (selfTuneUsedTodayNote) {
-        selfTuneUsedTodayNote.style.display = 'none';
-        selfTuneUsedTodayNote.innerHTML = '';
-      }
-    }
   }
 
   function caishenSelectedProfileNotice() {
@@ -9792,7 +9739,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     runBtn.disabled = true;
     runBtn.textContent = '天運推演中...';
     if (dailyAgentResult) {
-      dailyAgentResult.innerHTML = '已收到指令，正在啟動推演...<br><span class="small-note">不會重新學習或重新校正；只沿用目前校正狀態並讀取最新一期做實戰判斷。</span>';
+      dailyAgentResult.innerHTML = '已收到指令，正在啟動推演...<br><span class="small-note">若舊學習資料有錯，系統會自動略過，不會卡住。</span>';
     }
     resetLog();
     log('已啟動推演，正在讀取資料庫...');
@@ -9819,7 +9766,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       log(`${selectedProfile ? '已套用你手動選擇的校正類型：' + selectedProfile.name + '（本次會鎖定此類型單獨生成）' : caishenSelectedProfileNotice()}`);
       log(`已啟用${caishenGameProfile().name}${caishenGameProfile().selfTuned ? '（手動選用校正）' : ''}：依彩種分流挑選雙柱（安全快速版）。`);
 
-      log('學習/校正分離：本次不重新學習、不重新校正，只沿用目前已保存的校正個性與實戰學習紀錄。');
+      const bootstrap = await caishenBootstrapLearn100(draws);
+      if (bootstrap && !bootstrap.skipped) {
+        log(`已自動預學習${bootstrap.usable}期：雙過${bootstrap.bothPass}、單過${bootstrap.onePass}、雙倒${bootstrap.bothFail}。`);
+      } else if (bootstrap && bootstrap.skipped) {
+        log(`已載入既有100期學習班底。`);
+      }
+
 
       try {
         const outcomeLearningLog = caishenRecordLatestDrawOutcome(draws);
@@ -9831,7 +9784,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
 
       if (dailyAgentResult) {
-        dailyAgentResult.innerHTML = '財神正在推演今日雙柱...<br><span class="small-note">延續目前校正個性；若偵測到前次複製出戰後的新開獎，才更新實戰學習。</span>';
+        dailyAgentResult.innerHTML = '財神正在推演今日雙柱...<br><span class="small-note">安全快速版：先求穩定生成，再慢慢加強。</span>';
       }
 
       await caishenYieldFrame();
@@ -9847,15 +9800,6 @@ ${settleRecord.analysisLines.join('\n')}`;
         log('候選排行略過：不影響雙柱推演。');
       }
 
-      currentRunSignature = [
-        'DAILY_TWO_FIXED_SEED_V3_NO_RANDOM_HISTORY',
-        currentGameMode(),
-        getBacktestLimitLabel(),
-        JSON.stringify(draws),
-        JSON.stringify(caishenLoadProfileOverride ? caishenLoadProfileOverride()[currentGameMode()] || null : null),
-        caishenLoadSelectedProfileName ? caishenLoadSelectedProfileName(currentGameMode()) : ''
-      ].join('\n---\n');
-      seedForType('daily_two_main');
       log('開始生成雙柱候選...');
       const items = await caishenGenerateFastDailyTwo(draws);
 
@@ -9869,6 +9813,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       lastReverse = [];
       lastRandom = [];
       lastRecommended = items.slice();
+
+      try {
+        const filledSnapshots = await caishenBackfillRecentPredictionSnapshots(draws, 10);
+        if (filledSnapshots) log(`已補齊近10期歷史預測快照 ${filledSnapshots} 筆。`);
+      } catch (fillErr) {
+        console.warn('snapshot backfill skipped', fillErr);
+      }
 
       renderDailyTwoResult(lastDailyTwo, draws);
       lastLucky5Results = [];
@@ -9944,13 +9895,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
         alert(successMsg);
-        return true;
+        return;
       }
     } catch (e) {}
 
     if (legacyCopyText(text)) {
       alert(successMsg);
-      return true;
+      return;
     }
 
     const manualBox = document.createElement('textarea');
@@ -9976,7 +9927,6 @@ ${settleRecord.analysisLines.join('\n')}`;
     setTimeout(() => {
       if (manualBox.parentNode) manualBox.parentNode.removeChild(manualBox);
     }, 15000);
-    return false;
   }
 
   function getItemByCopyType(copyType) {
@@ -10014,11 +9964,6 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     const text = exportText(items[index].groups);
     await copyTextSmart(text, `第 ${index + 1} 組已複製`);
-    if (items === lastDailyTwo || (items[index] && items[index].sourceType === 'daily')) {
-      try { caishenMarkDailyPairCopiedForUse(lastDailyTwo && lastDailyTwo.length >= 2 ? lastDailyTwo : items, getBacktestDraws()); } catch (e) {}
-    }
-    const usedProfileName = caishenProfileNameFromCopiedItem(items[index].sourceType || '', items[index]);
-    if (usedProfileName) caishenMarkProfileUsedToday(usedProfileName, currentGameMode());
   }
 
   async function copySinglePillar(items, rawIndex, rawPillarIndex) {
