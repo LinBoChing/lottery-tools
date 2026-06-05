@@ -650,7 +650,7 @@
         right:16px;
       }
     }
-#goManualBtn {
+#goManualBtn { display:none !important;
       position: fixed;
       right: 16px;
       bottom:140px;
@@ -1074,7 +1074,7 @@
       opacity:.78;
       filter:saturate(.85);
     }
-    #goManualBtn{
+    #goManualBtn{ display:none !important;
       background:linear-gradient(135deg,#ef4444,#b91c1c) !important;
       color:#fff7ed !important;
       bottom:150px !important;
@@ -1227,10 +1227,22 @@
       .recent10-draw{ display:block; margin-left:0; margin-top:2px; }
     }
 
+
+/* 手動移入區已移除 */
+#goManualBtn,
+#manualRecommendBox,
+#manualSection,
+.move-to-recommend-btn,
+.memory-to-manual-top-btn,
+.manual-recommend-zone,
+.manual-recommend-item,
+#moveAllToRecommendBtn {
+  display:none !important;
+}
+
 </style>
 </head>
 <body>
-  <button id="goManualBtn" type="button">手動區</button>
   <div class="wrap">
     <div class="title">吸金穩贏 APP｜校正類型真分流版</div>
     <div class="sub">
@@ -1375,7 +1387,6 @@
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
             <button id="clearLockBtn" type="button" style="display:none;"></button>
-            <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
           </div>
           <details class="learn-tools-panel">
             <summary>學習 / 校正 / 維護工具（點開後使用，避免誤按）</summary>
@@ -1395,11 +1406,6 @@
           </div>
           <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」生成；自我校正後會自動套用最高分性格；也可在工具區手動切換類型。</div>
         </div>
-        <div class="recommend-box" id="manualRecommendBox">
-          <div class="recommend-title">手動移入比較區</div>
-          <div id="recommendResult" class="small-note">尚未移入立柱。請先從下方生成結果按「移入手動比較」，或從記憶庫按「置頂到手動區」。</div>
-        </div>
-
 <div class="small-note">
           規則說明：<br>
           • 每行會抓出前 5 個 01~39 的號碼當作該期開獎號碼。<br>
@@ -2194,17 +2200,7 @@
   }
 
   function getRecommendTopThreeForBattle(){
-    // 真正出戰來源：手動區上方前三組優先。
-    // 因為你最後下注是從手動區決定，不是單純推薦區。
-    if (Array.isArray(manualRecommendItems) && manualRecommendItems.length) {
-      const manual = manualRecommendItems
-        .filter(item => item && Array.isArray(item.groups) && item.groups.length === 3)
-        .slice(0, 3)
-        .map((item, idx) => caishenNormalizeInternalItem(item, idx));
-      if (manual.length) return manual;
-    }
-
-    // 沒有手動區時，才退回最終推薦區。
+    // 手動移入區已移除：出戰來源固定取目前天選雙柱 / 最終推薦結果。
     if (Array.isArray(lastRecommended) && lastRecommended.length) {
       const internal = lastRecommended
         .filter(item => item && Array.isArray(item.groups) && item.groups.length === 3)
@@ -7560,24 +7556,26 @@ ${settleRecord.analysisLines.join('\n')}`;
   function buildRecent10DailyPairHistoryHTML(items, draws) {
     const list = (draws && draws.length ? draws : getBacktestDraws()).slice(0, 10);
     if (!list.length) return '';
-    const actualMap = typeof caishenActualSnapshotRecordsForDraws === 'function' ? caishenActualSnapshotRecordsForDraws(list, 10) : new Map();
+    const pairGroups = (items || []).slice(0, 2).map(item => item && item.groups ? item.groups : []);
+    const canJudge = pairGroups.length >= 2 && pairGroups[0].length >= 3 && pairGroups[1].length >= 3;
     const rows = list.map((draw, idx) => {
-      const key = caishenDrawKey(draw);
-      const actual = actualMap.get(key);
       let statusKey = 'unknown';
-      let labels = '無快照';
-      let note = '｜本期沒有保存預測快照';
-      let detailHTML = `<div class="recent10-detail"><div class="recent10-detail-title">此期尚無「預測該期之前」保存的天選雙柱快照</div><div class="recent10-detail-line">這一期在舊版本沒有保存「預測該期前」的雙柱，所以不能硬拿目前雙柱事後回測冒充實戰。從本版開始，每次天選雙柱都會先存成待兌獎快照；下一期新增開獎後，會自動寫入該期結果。</div></div>`;
-      if (actual) {
-        statusKey = actual.status;
-        labels = actual.hitCombo || caishenHitComboLabel(actual.scoreA, actual.scoreB);
-        note = '｜歷史預測快照';
-        detailHTML = caishenBuildPairDetailHTML(actual.usedGroups, actual.usedLabels, '此期顯示的是「輸入本期開獎號碼之前」產生、用來預測本期的天選雙柱');
+      let labels = '未判斷';
+      let note = '｜目前雙柱回測';
+      let detailHTML = `<div class="recent10-detail"><div class="recent10-detail-title">目前雙柱回測</div><div class="recent10-detail-line">此列是用畫面下方目前生成的兩組天選雙柱，直接對照該期開獎號碼。</div></div>`;
+      if (canJudge) {
+        const result = caishenEvaluatePairOnDraw(items.slice(0, 2), draw);
+        statusKey = result.status;
+        labels = result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB);
+        detailHTML = caishenBuildPairDetailHTML(pairGroups, [
+          (items[0] && (items[0].sourceLabel || items[0].label)) || '目前第一組',
+          (items[1] && (items[1].sourceLabel || items[1].label)) || '目前第二組'
+        ], '此期使用畫面下方目前雙柱做回測');
       }
       const status = caishenOutcomeStatusText(statusKey);
       const cls = statusKey === 'bothPass' ? 'recent10-status-bothpass' : (statusKey === 'bothFail' ? 'recent10-status-bothfail' : (statusKey === 'onePass' ? 'recent10-status-onepass' : 'recent10-status-bothfail'));
       const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
-      return `<div class="recent10-row recent10-clickable" title="點擊查看預測此期前保存的兩組立柱">
+      return `<div class="recent10-row recent10-clickable" title="點擊查看目前雙柱">
         <div>${issue}</div>
         <div class="${cls}">${status}</div>
         <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}${note}</span></div>
@@ -7585,7 +7583,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       </div>`;
     }).join('');
     return `<div class="recent10-box">
-      <div class="recent10-title">近10期雙組實戰過倒（目前個性歷史預測快照：點該期看輸入該期開獎前生成的雙柱）</div>
+      <div class="recent10-title">近10期雙組回測（以目前畫面這兩組天選雙柱對照最近10期）</div>
       ${rows}
     </div>`;
   }
@@ -7618,7 +7616,6 @@ ${settleRecord.analysisLines.join('\n')}`;
         </div>
         <div class="clean-result-actions">
           <button class="btn btn-secondary single-copy-btn" data-copy-type="daily" data-copy-index="${idx}">複製這一組</button>
-          <button class="btn btn-danger move-to-recommend-btn" data-copy-type="daily" data-copy-index="${idx}" data-source-label="${title}">移入手動區</button>
         </div>
       </div>`;
   }
@@ -8335,6 +8332,26 @@ ${settleRecord.analysisLines.join('\n')}`;
     return String(name || '').trim();
   }
 
+  // 個性下拉的文字會帶有「收益 / 雙倒」等即時統計，
+  // 新增開獎後這些數字會變，不能拿整串文字當歷史快照比對鍵。
+  // 只取真正的個性核心名稱，避免同一個性因收益數字改變而全部變成未判斷。
+  function caishenProfileKey(name) {
+    let text = caishenNormalizeProfileName(name);
+    if (!text) return '';
+    text = text.split('｜')[0].trim();
+    text = text.replace(/\s*[|｜].*$/g, '').trim();
+    text = text.replace(/\s*收益[-+]?\d+.*$/g, '').trim();
+    text = text.replace(/\s*雙倒\d+.*$/g, '').trim();
+    return text;
+  }
+
+  function caishenSameProfileName(a, b) {
+    const ak = caishenProfileKey(a);
+    const bk = caishenProfileKey(b);
+    if (!ak || !bk) return true;
+    return ak === bk;
+  }
+
   function caishenCurrentSnapshotProfileName() {
     const mode = currentGameMode();
     const selected = typeof caishenLoadSelectedProfileName === 'function' ? caishenLoadSelectedProfileName(mode) : '';
@@ -8353,8 +8370,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       baseDrawKey: pack.latestDrawKeyAtCreation || '',
       targetDrawKey: pack.targetDrawKey || '',
       profile: pack.profileName || '',
+      profileKey: caishenProfileKey(pack.profileName || ''),
       usedGroups: pack.groups,
       usedLabels: pack.labels || [],
+      source: pack.source || 'planned',
       status: pack.status || '',
       scoreA: pack.scoreA || '',
       scoreB: pack.scoreB || '',
@@ -8377,9 +8396,44 @@ ${settleRecord.analysisLines.join('\n')}`;
     const matches = (archive.records || []).filter(r => {
       if (!r || r.game !== game || r.targetDrawKey !== drawKey) return false;
       if (!wantProfile) return true;
-      return caishenNormalizeProfileName(r.profile) === wantProfile;
+      return caishenSameProfileName(r.profile, wantProfile);
     });
     return matches.slice(-1)[0] || null;
+  }
+
+  function caishenReconcilePredictionArchive(draws) {
+    const mode = currentGameMode();
+    const list = draws && draws.length ? draws : getBacktestDraws();
+    if (!Array.isArray(list) || list.length < 2) return 0;
+    const archive = caishenLoadPredictionArchive();
+    if (!archive || !Array.isArray(archive.records) || !archive.records.length) return 0;
+    let changed = 0;
+    archive.records.forEach(r => {
+      if (!r || r.game !== mode) return;
+      if (r.source !== 'planned' && r.source !== 'actualSnapshotPair') return;
+      if (r.status && r.targetDrawKey) return;
+      if (!r.baseDrawKey || !Array.isArray(r.usedGroups) || r.usedGroups.length < 2) return;
+      const baseIdx = list.findIndex(d => caishenDrawKey(d) === r.baseDrawKey);
+      if (baseIdx <= 0) return;
+      const target = list[baseIdx - 1];
+      const targetKey = caishenDrawKey(target);
+      if (!targetKey) return;
+      const pairItems = r.usedGroups.slice(0, 2).map((groups, idx) => ({
+        groups,
+        sourceLabel: (r.usedLabels || [])[idx] || (idx === 0 ? '歷史主柱' : '歷史輔柱')
+      }));
+      const result = caishenEvaluatePairOnDraw(pairItems, target);
+      r.targetDrawKey = targetKey;
+      r.status = result.status;
+      r.scoreA = result.scoreA;
+      r.scoreB = result.scoreB;
+      r.hitCombo = result.comboLabel;
+      r.evaluatedAt = r.evaluatedAt || new Date().toISOString();
+      r.updatedAt = new Date().toISOString();
+      changed++;
+    });
+    if (changed) caishenSavePredictionArchive(archive);
+    return changed;
   }
 
   function caishenDrawKey(draw) {
@@ -8447,7 +8501,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
 
     if (pack.lastEvaluatedDrawKey === targetKey) {
-      return '實戰學習：前次雙柱已兌獎過，直接沿用結果；若中間連續新增多期，系統會用歷史預測快照補齊顯示。';
+      return '實戰學習：前次雙柱已兌獎過，直接沿用結果；未曾實際保存快照的期數會顯示無快照，不會用目前雙柱補算。';
     }
 
     const pairItems = pack.groups.slice(0, 2).map((groups, idx) => ({ groups, sourceLabel: (pack.labels || [])[idx] || (idx === 0 ? '前次主柱' : '前次輔柱') }));
@@ -8464,6 +8518,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       scoreB: result.scoreB,
       hitCombo: result.comboLabel,
       profile: pack.profileName || '',
+      profileKey: caishenProfileKey(pack.profileName || ''),
       usedGroups: pack.groups,
       usedLabels: pack.labels || [],
       predictionId: pack.predictionId || caishenPredictionId(mode, pack.latestDrawKeyAtCreation, pack.groups, pack.profileName || ''),
@@ -8490,6 +8545,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function caishenActualSnapshotRecordsForDraws(draws, limit) {
+    try { caishenReconcilePredictionArchive(draws); } catch (err) { console.warn('prediction archive reconcile skipped', err); }
     const mode = currentGameMode();
     const activeProfile = caishenCurrentSnapshotProfileName();
     const keys = new Set((draws || []).slice(0, limit || 10).map(caishenDrawKey));
@@ -8501,7 +8557,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       (state.outcomes || []).forEach(r => {
         if (!r || r.game !== mode || !keys.has(r.drawKey)) return;
         if (r.source !== 'actualSnapshotPair') return;
-        if (activeProfile && caishenNormalizeProfileName(r.profile) !== activeProfile) return;
+        if (activeProfile && !caishenSameProfileName(r.profile, activeProfile)) return;
         map.set(r.drawKey, r);
       });
     } catch (err) {}
@@ -8511,7 +8567,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       const archive = caishenLoadPredictionArchive();
       (archive.records || []).forEach(r => {
         if (!r || r.game !== mode || !keys.has(r.targetDrawKey) || !r.status) return;
-        if (activeProfile && caishenNormalizeProfileName(r.profile) !== activeProfile) return;
+        // 只允許真正由「按天選雙柱後保存的待兌獎快照」封存出的結果。
+        // 舊版曾做過 historicalBackfill / 目前雙柱補回測，這些不能冒充實戰。
+        if (r.source !== 'planned' && r.source !== 'actualSnapshotPair') return;
+        if (activeProfile && !caishenSameProfileName(r.profile, activeProfile)) return;
         if (map.has(r.targetDrawKey)) return;
         map.set(r.targetDrawKey, {
           source: 'actualSnapshotPair',
@@ -8522,6 +8581,7 @@ ${settleRecord.analysisLines.join('\n')}`;
           scoreB: r.scoreB,
           hitCombo: r.hitCombo,
           profile: r.profile || '',
+          profileKey: r.profileKey || caishenProfileKey(r.profile || ''),
           usedGroups: r.usedGroups || [],
           usedLabels: r.usedLabels || [],
           predictionId: r.id || '',
@@ -9817,13 +9877,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       lastRandom = [];
       lastRecommended = items.slice();
 
-      try {
-        const filledSnapshots = await caishenBackfillRecentPredictionSnapshots(draws, 10);
-        if (filledSnapshots) log(`已補齊近10期歷史預測快照 ${filledSnapshots} 筆。`);
-      } catch (fillErr) {
-        console.warn('snapshot backfill skipped', fillErr);
-      }
-
+      try { caishenReconcilePredictionArchive(draws); } catch (recErr) { console.warn('prediction archive reconcile skipped', recErr); }
+      // 重要：實戰近10期只能讀取「當期開獎前已實際生成並保存的預測快照」。
+      // 不再用目前雙柱，也不再用歷史重建/補算去冒充實戰。
       renderDailyTwoResult(lastDailyTwo, draws);
       lastLucky5Results = [];
       try {
@@ -10065,15 +10121,6 @@ ${settleRecord.analysisLines.join('\n')}`;
   bindWeeklyCalcEvents();
 
 
-  const goManualBtn = document.getElementById('goManualBtn');
-  if (goManualBtn) {
-    goManualBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      scrollToManualSection();
-    });
-  }
-
-
   function setDbBackupCollapsed(collapsed) {
     if (!dbBackupArea) return;
     dbBackupArea.classList.toggle('collapsed', collapsed);
@@ -10098,12 +10145,6 @@ ${settleRecord.analysisLines.join('\n')}`;
           btn.textContent = collapsed ? '展開' : '收起';
         });
       }
-      return;
-    }
-
-    const moveBtn = e.target.closest('.move-to-recommend-btn');
-    if (moveBtn) {
-      moveItemToRecommend(moveBtn.dataset.copyType, moveBtn.dataset.copyIndex, moveBtn.dataset.sourceLabel || '');
       return;
     }
 
@@ -10577,7 +10618,6 @@ function renderMemoryDb(){
               <div class="recommend-meta">${item.time || ''}${item.sourceBacktestLabel ? '｜' + item.sourceBacktestLabel : ''}｜即時回測：${typeof getBacktestLimitLabel === 'function' ? getBacktestLimitLabel() : '目前期數'}</div>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-secondary memory-to-manual-top-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">置頂到手動區</button>
               <button class="btn btn-dark memory-battle-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">出戰</button>
               <button class="btn btn-dark remove-memory-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">刪除</button>
             </div>
@@ -10818,16 +10858,7 @@ function moveMemoryItemToManualTop(id, triggerEl=null){
       renderMemoryDb();
       return;
     }
-
-    const memoryToManualTopBtn=e.target.closest('.memory-to-manual-top-btn');
-    if(memoryToManualTopBtn){
-      e.preventDefault();
-      e.stopPropagation();
-      moveMemoryItemToManualTop(memoryToManualTopBtn.dataset.memoryId, memoryToManualTopBtn);
-      return;
-    }
-
-    const battleSetBtn=e.target.closest('.memory-battle-btn');
+const battleSetBtn=e.target.closest('.memory-battle-btn');
     if(battleSetBtn){
       setMemoryBattle(battleSetBtn.dataset.memoryId);
       return;
