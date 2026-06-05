@@ -1374,7 +1374,6 @@
           </select>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
-            <button class="btn btn-dark" id="sampleBtn">載入範例資料</button>
             <button id="clearLockBtn" type="button" style="display:none;"></button>
             <button class="btn btn-secondary" id="moveAllToRecommendBtn">全部移入推薦區</button>
           </div>
@@ -1512,7 +1511,6 @@
   const noDrawInput = document.getElementById('noDrawInput');
   const candidateInput = document.getElementById('candidateInput');
   const runBtn = document.getElementById('runBtn');
-  const sampleBtn = document.getElementById('sampleBtn');
   const backtrain50Btn = document.getElementById('backtrain50Btn');
   const selfTuneBtn = document.getElementById('selfTuneBtn');
   const selfTuneProfileSelect = document.getElementById('selfTuneProfileSelect');
@@ -7209,22 +7207,6 @@ ${settleRecord.analysisLines.join('\n')}`;
   drawInput.addEventListener('input', () => { countDraws.textContent = getBacktestDraws().length; });
   function initDrawDatabase() { const savedMode = localStorage.getItem(DB_VERSION_KEY) || '539'; applyGameMode(savedMode); dbTableWrap.classList.toggle('open', dbExpanded); }
 
-  sampleBtn.addEventListener('click', () => {
-    drawInput.value = [
-      '01 07 10 20 26','04 09 16 28 37','05 11 14 23 39','02 08 15 18 31','06 12 17 27 34',
-      '03 13 19 21 33','07 09 24 26 35','01 05 16 22 30','08 11 18 25 39','02 10 14 27 36',
-      '04 06 20 29 32','03 12 17 28 37','01 13 15 24 38','05 07 19 22 34','08 09 16 23 31',
-      '02 11 18 26 39','04 10 14 21 35','06 12 17 25 33','03 13 20 28 36','01 05 15 27 32',
-      '07 11 16 24 30','02 08 18 29 37','04 09 14 22 38','06 10 19 25 34','03 12 17 26 31'
-    ].join('\n');
-    noDrawInput.value = [
-      '07 18 22 31','04 18 22 31 39','07 18 26 31','04 07 18 22 31','07 18 22 26 31'
-    ].join('\n');
-    candidateInput.value = [
-      '03 11 17 28 35','11 17 22 28 31','03 17 28 31 39','03 11 22 28 31','11 17 28 35 39'
-    ].join('\n');
-  });
-
 
   function tagItemsWithBacktestLabel(items, sourceLabel = '') {
     return (items || []).map(item => ({
@@ -7603,7 +7585,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       </div>`;
     }).join('');
     return `<div class="recent10-box">
-      <div class="recent10-title">近10期雙組實戰過倒（歷史預測快照：點該期看輸入該期開獎前生成的雙柱）</div>
+      <div class="recent10-title">近10期雙組實戰過倒（目前個性歷史預測快照：點該期看輸入該期開獎前生成的雙柱）</div>
       ${rows}
     </div>`;
   }
@@ -8349,6 +8331,18 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `${game || 'game'}_${baseKey || 'base'}_${(h >>> 0).toString(36)}`;
   }
 
+  function caishenNormalizeProfileName(name) {
+    return String(name || '').trim();
+  }
+
+  function caishenCurrentSnapshotProfileName() {
+    const mode = currentGameMode();
+    const selected = typeof caishenLoadSelectedProfileName === 'function' ? caishenLoadSelectedProfileName(mode) : '';
+    if (selected) return caishenNormalizeProfileName(selected);
+    const profile = typeof caishenGameProfile === 'function' ? caishenGameProfile() : {};
+    return caishenNormalizeProfileName(profile && profile.name);
+  }
+
   function caishenArchivePredictionSnapshot(pack) {
     if (!pack || !pack.game || !Array.isArray(pack.groups) || pack.groups.length < 2) return '';
     const archive = caishenLoadPredictionArchive();
@@ -8377,9 +8371,15 @@ ${settleRecord.analysisLines.join('\n')}`;
     return id;
   }
 
-  function caishenFindPredictionArchiveByTarget(drawKey, game) {
+  function caishenFindPredictionArchiveByTarget(drawKey, game, profileName) {
+    const wantProfile = caishenNormalizeProfileName(profileName || caishenCurrentSnapshotProfileName());
     const archive = caishenLoadPredictionArchive();
-    return (archive.records || []).filter(r => r && r.game === game && r.targetDrawKey === drawKey).slice(-1)[0] || null;
+    const matches = (archive.records || []).filter(r => {
+      if (!r || r.game !== game || r.targetDrawKey !== drawKey) return false;
+      if (!wantProfile) return true;
+      return caishenNormalizeProfileName(r.profile) === wantProfile;
+    });
+    return matches.slice(-1)[0] || null;
   }
 
   function caishenDrawKey(draw) {
@@ -8491,24 +8491,27 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function caishenActualSnapshotRecordsForDraws(draws, limit) {
     const mode = currentGameMode();
+    const activeProfile = caishenCurrentSnapshotProfileName();
     const keys = new Set((draws || []).slice(0, limit || 10).map(caishenDrawKey));
     const map = new Map();
 
-    // 先讀正式實戰結果：這些是「輸入該期開獎號碼之前」保存的預測快照兌獎結果。
+    // 先讀正式實戰結果：同一個開獎期，不同校正個性要分開看，不能共用別的個性快照。
     try {
       const state = caishenLoadAdaptiveState();
       (state.outcomes || []).forEach(r => {
         if (!r || r.game !== mode || !keys.has(r.drawKey)) return;
         if (r.source !== 'actualSnapshotPair') return;
+        if (activeProfile && caishenNormalizeProfileName(r.profile) !== activeProfile) return;
         map.set(r.drawKey, r);
       });
     } catch (err) {}
 
-    // 再讀預測快照封存庫：避免學習紀錄被修剪或舊版漏寫時，點開仍能看到當時預測雙柱。
+    // 再讀預測快照封存庫：同樣必須依目前下拉選到的個性過濾。
     try {
       const archive = caishenLoadPredictionArchive();
       (archive.records || []).forEach(r => {
         if (!r || r.game !== mode || !keys.has(r.targetDrawKey) || !r.status) return;
+        if (activeProfile && caishenNormalizeProfileName(r.profile) !== activeProfile) return;
         if (map.has(r.targetDrawKey)) return;
         map.set(r.targetDrawKey, {
           source: 'actualSnapshotPair',
@@ -8541,7 +8544,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const targetDraw = list[idx];
       const targetKey = caishenDrawKey(targetDraw);
       if (!targetKey) continue;
-      if (caishenFindPredictionArchiveByTarget(targetKey, mode)) continue;
+      if (caishenFindPredictionArchiveByTarget(targetKey, mode, caishenCurrentSnapshotProfileName())) continue;
       const historyBeforeTarget = (draws || []).slice(idx + 1);
       if (!historyBeforeTarget || historyBeforeTarget.length < 30) continue;
       try {
