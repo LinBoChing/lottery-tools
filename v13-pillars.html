@@ -538,7 +538,7 @@
     .weekly-profit { color: #86efac; }
     .weekly-loss { color: #fca5a5; }
     .weekly-zero { color: #cbd5e1; }
-    .weekly-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+    .weekly-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
     .weekly-summary-box { background: #0b1220; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; color: #cbd5e1; font-size: 14px; }
     .weekly-summary-box b { font-size: 18px; }
     .weekly-summary-title { color: var(--muted); font-size: 13px; font-weight: 800; margin-bottom: 6px; }
@@ -1252,17 +1252,27 @@
 
     <div class="card weekly-calc-card">
       <div class="section-title">七日財運盈虧試算表</div>
-      <div class="weekly-note">不用再先展開今日輸入；直接在上方輸入今天早場 / 晚場 / 金富翁遊戲輸贏金額即可。贏錢填正數，例如 5000；輸錢填負數，例如 -1000。</div>
+      <div class="weekly-note">不用再先展開今日輸入；直接在上方輸入天天樂 / 539 / 大樂透 / 六合彩 / 金富翁遊戲輸贏金額即可。贏錢填正數，例如 5000；輸錢填負數，例如 -1000。</div>
       <div class="weekly-summary-grid">
         <div class="weekly-summary-box">
-          <div class="weekly-summary-title" id="weeklyTodayMorningLabel">今日早場輸贏</div>
+          <div class="weekly-summary-title" id="weeklyTodayMorningLabel">今日天天樂損益</div>
           <input id="weeklyTodayMorningInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
-          <div class="weekly-mini-total">早場合計：<b id="weeklyMorningSummary">0</b></div>
+          <div class="weekly-mini-total">天天樂合計：<b id="weeklyMorningSummary">0</b></div>
         </div>
         <div class="weekly-summary-box">
-          <div class="weekly-summary-title" id="weeklyTodayNightLabel">今日晚場輸贏</div>
+          <div class="weekly-summary-title" id="weeklyTodayNightLabel">今日539損益</div>
           <input id="weeklyTodayNightInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
-          <div class="weekly-mini-total">晚場合計：<b id="weeklyNightSummary">0</b></div>
+          <div class="weekly-mini-total">539合計：<b id="weeklyNightSummary">0</b></div>
+        </div>
+        <div class="weekly-summary-box">
+          <div class="weekly-summary-title" id="weeklyTodayBltLabel">今日大樂透損益</div>
+          <input id="weeklyTodayBltInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
+          <div class="weekly-mini-total">大樂透合計：<b id="weeklyBltSummary">0</b></div>
+        </div>
+        <div class="weekly-summary-box">
+          <div class="weekly-summary-title" id="weeklyTodaySixLabel">今日六合彩損益</div>
+          <input id="weeklyTodaySixInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
+          <div class="weekly-mini-total">六合彩合計：<b id="weeklySixSummary">0</b></div>
         </div>
         <div class="weekly-summary-box">
           <div class="weekly-summary-title" id="weeklyTodayGoldLabel">今日金富翁遊戲損益</div>
@@ -1304,8 +1314,10 @@
             <thead>
               <tr>
                 <th>天數</th>
-                <th>早場輸贏</th>
-                <th>晚場輸贏</th>
+                <th>天天樂損益</th>
+                <th>539損益</th>
+                <th>大樂透損益</th>
+                <th>六合彩損益</th>
                 <th>金富翁遊戲損益</th>
                 <th>當日小計</th>
               </tr>
@@ -1316,6 +1328,8 @@
                 <th>合計</th>
                 <th id="weeklyMorningTotal">0</th>
                 <th id="weeklyNightTotal">0</th>
+                <th id="weeklyBltTotal">0</th>
+                <th id="weeklySixTotal">0</th>
                 <th id="weeklyGoldTotal">0</th>
                 <th id="weeklyGrandTotal">0</th>
               </tr>
@@ -1330,10 +1344,10 @@
         <div class="db-panel">
           <div class="section-title">彩種資料庫</div>
           <div class="db-row">
-            <div><div class="field-label">彩種模式</div><select id="gameMode" class="db-select"><option value="539">539</option><option value="dayday">天天樂</option></select></div>
+            <div><div class="field-label">彩種模式</div><select id="gameMode" class="db-select"><option value="539">539</option><option value="dayday">天天樂</option><option value="blt">大樂透</option><option value="six">香港六合彩</option></select></div>
             <div><div class="field-label">生成立柱參考期數</div><select id="backtestLimit" class="db-select"><option value="50">50期</option><option value="100" selected>100期</option><option value="150">150期</option><option value="multi_50_100_150">50+100+150 同時生成</option><option value="200">200期</option><option value="250">250期</option><option value="300">300期</option><option value="all">全部</option></select></div>
             <div><div class="field-label">新增日期 / 期別備註</div><input id="newDrawDate" class="db-input" placeholder="例：2026/04/27 或 114000001" /></div>
-            <div><div class="field-label">新增開獎號碼</div><input id="newDrawNums" class="db-input" placeholder="例：01 05 06 20 34" /></div>
+            <div><div class="field-label">新增開獎號碼</div><input id="newDrawNums" class="db-input" placeholder="例：01 05 06 20 34（49彩種可貼6碼或7碼，特別號自動忽略）" /></div>
           </div>
           <div class="db-row-compact">
             <button class="btn btn-danger" id="addDrawBtn" type="button">新增到資料庫最上方</button>
@@ -1357,7 +1371,7 @@
             </div>
             <div class="db-backup-body" id="dbBackupBody">
               <textarea id="dbBackupText" class="db-backup-textarea" placeholder="按「複製目前彩種百期格式」會輸出像百期開獎號碼一樣的純文字；可先貼到 LINE 備份，日後複製回新版的百期欄位，再按「把下方貼上資料匯入目前彩種」。"></textarea>
-              <div class="db-mini">備份格式改為純文字：每行 5 個開獎號碼，第 1 行仍是最新一期；貼到 LINE 不會像亂碼。要備份 539 與天天樂時，請先切換彩種後各複製一次。</div>
+              <div class="db-mini">備份格式改為純文字：每行開獎號碼，第 1 行仍是最新一期；貼到 LINE 不會像亂碼。要備份 539 與天天樂時，請先切換彩種後各複製一次。</div>
             </div>
           </div>
           <div class="db-table-wrap" id="dbTableWrap"><table class="db-table"><thead><tr><th>序</th><th>日期 / 期別</th><th>開獎號碼</th><th>操作</th></tr></thead><tbody id="dbTableBody"><tr><td colspan="4">尚無資料</td></tr></tbody></table></div>
@@ -1408,7 +1422,7 @@
         </div>
 <div class="small-note">
           規則說明：<br>
-          • 每行會抓出前 5 個 01~39 的號碼當作該期開獎號碼。<br>
+          • 539/天天樂每行抓前5個01~39；大樂透/六合彩每行抓前6個01~49，第7個特別號自動忽略。<br>
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
           • 本版固定只生成兩組：539維持互補型；天天樂改為同步保命 / 防穿透 / 高爆發 / 反轉 / 極端多核心分流；開獎結果會用來慢學習，盈虧只保留紀錄。<br>
@@ -1425,7 +1439,7 @@
           </div>
           <div class="stat">
             <div class="label">使用號碼範圍</div>
-            <div class="value">01 ~ 39</div>
+            <div class="value" id="ballRangeLabel">01 ~ 39</div>
           </div>
           <div class="stat">
             <div class="label">立柱規格</div>
@@ -1524,6 +1538,7 @@
   const clearLockBtn = document.getElementById('clearLockBtn');
   const moveAllToRecommendBtn = document.getElementById('moveAllToRecommendBtn');
   const countDraws = document.getElementById('countDraws');
+  const ballRangeLabel = document.getElementById('ballRangeLabel');
   const groupCount = document.getElementById('groupCount');
   const logBox = document.getElementById('logBox');
   const toggleLogBtn = document.getElementById('toggleLogBtn');
@@ -1559,19 +1574,27 @@
   const clearWeeklyCalcBtn = document.getElementById('clearWeeklyCalcBtn');
   const weeklyMorningTotal = document.getElementById('weeklyMorningTotal');
   const weeklyNightTotal = document.getElementById('weeklyNightTotal');
+  const weeklyBltTotal = document.getElementById('weeklyBltTotal');
+  const weeklySixTotal = document.getElementById('weeklySixTotal');
   const weeklyGoldTotal = document.getElementById('weeklyGoldTotal');
   const weeklyGrandTotal = document.getElementById('weeklyGrandTotal');
   const weeklyMorningSummary = document.getElementById('weeklyMorningSummary');
   const weeklyNightSummary = document.getElementById('weeklyNightSummary');
+  const weeklyBltSummary = document.getElementById('weeklyBltSummary');
+  const weeklySixSummary = document.getElementById('weeklySixSummary');
   const weeklyGoldSummary = document.getElementById('weeklyGoldSummary');
   const weeklyGrandSummary = document.getElementById('weeklyGrandSummary');
   const weeklyAfterSettlementSummary = document.getElementById('weeklyAfterSettlementSummary');
   const weeklyTodayMorningInput = document.getElementById('weeklyTodayMorningInput');
   const weeklyTodayNightInput = document.getElementById('weeklyTodayNightInput');
+  const weeklyTodayBltInput = document.getElementById('weeklyTodayBltInput');
+  const weeklyTodaySixInput = document.getElementById('weeklyTodaySixInput');
   const weeklyTodayGoldInput = document.getElementById('weeklyTodayGoldInput');
   const weeklySettlementInput = document.getElementById('weeklySettlementInput');
   const weeklyTodayMorningLabel = document.getElementById('weeklyTodayMorningLabel');
   const weeklyTodayNightLabel = document.getElementById('weeklyTodayNightLabel');
+  const weeklyTodayBltLabel = document.getElementById('weeklyTodayBltLabel');
+  const weeklyTodaySixLabel = document.getElementById('weeklyTodaySixLabel');
   const weeklyTodayGoldLabel = document.getElementById('weeklyTodayGoldLabel');
   const weeklyInputPanel = document.getElementById('weeklyInputPanel');
   const weeklyTableWrap = document.getElementById('weeklyTableWrap');
@@ -1789,7 +1812,7 @@
   }
 
   function emptyWeeklyCalcData() {
-    return WEEKLY_DAYS.map(() => ({ morning: '', night: '', gold: '' }));
+    return WEEKLY_DAYS.map(() => ({ morning: '', night: '', blt: '', six: '', gold: '' }));
   }
 
   function normalizeWeeklyCalcData(data) {
@@ -1797,6 +1820,8 @@
     return WEEKLY_DAYS.map((_, idx) => ({
       morning: String(data[idx]?.morning || ''),
       night: String(data[idx]?.night || ''),
+      blt: String(data[idx]?.blt || ''),
+      six: String(data[idx]?.six || ''),
       gold: String(data[idx]?.gold || '')
     }));
   }
@@ -1807,7 +1832,7 @@
 
   function calcWeeklyDataTotal(data) {
     return normalizeWeeklyCalcData(data).reduce((sum, row) => {
-      return sum + parseMoneyValue(row.morning) + parseMoneyValue(row.night) + parseMoneyValue(row.gold);
+      return sum + parseMoneyValue(row.morning) + parseMoneyValue(row.night) + parseMoneyValue(row.blt) + parseMoneyValue(row.six) + parseMoneyValue(row.gold);
     }, 0);
   }
 
@@ -1899,12 +1924,16 @@
         <th>${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(idx) : day}${idx === todayIdx ? '（今天）' : ''}</th>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="morning" placeholder="0" value="${data[idx].morning}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="night" placeholder="0" value="${data[idx].night}"></td>
+        <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="blt" placeholder="0" value="${data[idx].blt}"></td>
+        <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="six" placeholder="0" value="${data[idx].six}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="gold" placeholder="0" value="${data[idx].gold}"></td>
         <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
       </tr>
     `).join('');
-    if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}早場輸贏`;
-    if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}晚場輸贏`;
+    if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}天天樂損益`;
+    if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}539損益`;
+    if (weeklyTodayBltLabel) weeklyTodayBltLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}大樂透損益`;
+    if (weeklyTodaySixLabel) weeklyTodaySixLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}六合彩損益`;
     if (weeklyTodayGoldLabel) weeklyTodayGoldLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}金富翁遊戲損益`;
     if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}。`;
     applyWeeklyViewMode();
@@ -1920,14 +1949,20 @@
     const data = loadWeeklyCalcData();
     let morningTotal = 0;
     let nightTotal = 0;
+    let bltTotal = 0;
+    let sixTotal = 0;
     let goldTotal = 0;
     data.forEach((row, idx) => {
       const morning = parseMoneyValue(row.morning);
       const night = parseMoneyValue(row.night);
+      const blt = parseMoneyValue(row.blt);
+      const six = parseMoneyValue(row.six);
       const gold = parseMoneyValue(row.gold);
-      const dayTotal = morning + night + gold;
+      const dayTotal = morning + night + blt + six + gold;
       morningTotal += morning;
       nightTotal += night;
+      bltTotal += blt;
+      sixTotal += six;
       goldTotal += gold;
       const cell = document.getElementById(`weeklyDayTotal${idx}`);
       if (cell) {
@@ -1938,18 +1973,22 @@
     const todayIdx = getTodayWeeklyIndex();
     if (weeklyTodayMorningInput && document.activeElement !== weeklyTodayMorningInput) weeklyTodayMorningInput.value = data[todayIdx]?.morning || '';
     if (weeklyTodayNightInput && document.activeElement !== weeklyTodayNightInput) weeklyTodayNightInput.value = data[todayIdx]?.night || '';
+    if (weeklyTodayBltInput && document.activeElement !== weeklyTodayBltInput) weeklyTodayBltInput.value = data[todayIdx]?.blt || '';
+    if (weeklyTodaySixInput && document.activeElement !== weeklyTodaySixInput) weeklyTodaySixInput.value = data[todayIdx]?.six || '';
     if (weeklyTodayGoldInput && document.activeElement !== weeklyTodayGoldInput) weeklyTodayGoldInput.value = data[todayIdx]?.gold || '';
     if (weeklyTodayMorningInput) weeklyTodayMorningInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.morning))}`;
     if (weeklyTodayNightInput) weeklyTodayNightInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.night))}`;
+    if (weeklyTodayBltInput) weeklyTodayBltInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.blt))}`;
+    if (weeklyTodaySixInput) weeklyTodaySixInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.six))}`;
     if (weeklyTodayGoldInput) weeklyTodayGoldInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.gold))}`;
-    const grandTotal = morningTotal + nightTotal + goldTotal;
+    const grandTotal = morningTotal + nightTotal + bltTotal + sixTotal + goldTotal;
     const settlementTotal = loadWeeklySettlementTotal();
     const afterSettlementTotal = settlementTotal + grandTotal;
     if (weeklySettlementInput && document.activeElement !== weeklySettlementInput) weeklySettlementInput.value = settlementTotal || '';
     if (weeklySettlementInput) weeklySettlementInput.className = `weekly-summary-input ${moneyClass(settlementTotal)}`;
     const pairs = [
-      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyGoldTotal, goldTotal], [weeklyGrandTotal, grandTotal],
-      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyGoldSummary, goldTotal], [weeklyGrandSummary, grandTotal],
+      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyBltTotal, bltTotal], [weeklySixTotal, sixTotal], [weeklyGoldTotal, goldTotal], [weeklyGrandTotal, grandTotal],
+      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyBltSummary, bltTotal], [weeklySixSummary, sixTotal], [weeklyGoldSummary, goldTotal], [weeklyGrandSummary, grandTotal],
       [weeklyAfterSettlementSummary, afterSettlementTotal]
     ];
     pairs.forEach(([el, value]) => {
@@ -1959,7 +1998,6 @@
     });
   }
 
-
   function buildWeeklyLineReportText() {
     const data = loadWeeklyCalcData();
     const monday = typeof getMondayOfCurrentWeek === 'function' ? getMondayOfCurrentWeek() : new Date();
@@ -1968,6 +2006,8 @@
     const rows = [];
     let morningTotal = 0;
     let nightTotal = 0;
+    let bltTotal = 0;
+    let sixTotal = 0;
     let goldTotal = 0;
     let grandTotal = 0;
 
@@ -1977,36 +2017,44 @@
     rows.push('📊 本週損益報表');
     rows.push(`期間：${startText}～${endText}`);
     rows.push('');
-    rows.push('日期　　　　　早場　　　晚場　　金富翁　　　小計');
-    rows.push('────────────────────────────────');
+    rows.push('日期　　　　天天樂　　　539　　大樂透　　六合彩　　金富翁　　　小計');
+    rows.push('────────────────────────────────────────────────');
 
     WEEKLY_DAYS.forEach((day, idx) => {
       const d = typeof getDateForWeeklyIndex === 'function' ? getDateForWeeklyIndex(idx) : new Date();
       const dateLabel = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(d)}(${getWeekdayNameFromDate(d).replace('星期','週')})` : day;
       const morning = parseMoneyValue(data[idx]?.morning);
       const night = parseMoneyValue(data[idx]?.night);
+      const blt = parseMoneyValue(data[idx]?.blt);
+      const six = parseMoneyValue(data[idx]?.six);
       const gold = parseMoneyValue(data[idx]?.gold);
-      const total = morning + night + gold;
+      const total = morning + night + blt + six + gold;
       morningTotal += morning;
       nightTotal += night;
+      bltTotal += blt;
+      sixTotal += six;
       goldTotal += gold;
       grandTotal += total;
 
       rows.push(
         padTextForLine(dateLabel, 12) +
-        padMoneyForLine(morning, 10) +
-        padMoneyForLine(night, 10) +
-        padMoneyForLine(gold, 10) +
+        padMoneyForLine(morning, 9) +
+        padMoneyForLine(night, 9) +
+        padMoneyForLine(blt, 9) +
+        padMoneyForLine(six, 9) +
+        padMoneyForLine(gold, 9) +
         padMoneyForLine(total, 10)
       );
     });
 
-    rows.push('────────────────────────────────');
+    rows.push('────────────────────────────────────────────────');
     rows.push(
       padTextForLine('合計', 12) +
-      padMoneyForLine(morningTotal, 10) +
-      padMoneyForLine(nightTotal, 10) +
-      padMoneyForLine(goldTotal, 10) +
+      padMoneyForLine(morningTotal, 9) +
+      padMoneyForLine(nightTotal, 9) +
+      padMoneyForLine(bltTotal, 9) +
+      padMoneyForLine(sixTotal, 9) +
+      padMoneyForLine(goldTotal, 9) +
       padMoneyForLine(grandTotal, 10)
     );
     rows.push('');
@@ -2093,7 +2141,7 @@
       const groups = pillars.slice(0,3).map(p => {
         return (p.innerText || p.textContent || '').match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g)
           ?.map(n => Number(n))
-          .filter(n => n >= 1 && n <= 39) || [];
+          .filter(n => n >= 1 && n <= getBallMax()) || [];
       });
       if (groups.every(g => g.length >= 5)) return groups;
     }
@@ -2105,14 +2153,14 @@
       if (/第[一二三123]柱|第一柱|第二柱|第三柱|10支|14支|15支/.test(line)) return;
       const nums = (line.match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || [])
         .map(n => Number(n))
-        .filter(n => n >= 1 && n <= 39);
+        .filter(n => n >= 1 && n <= getBallMax());
       if (nums.length >= 5) groupLines.push([...new Set(nums)]);
     });
     if (groupLines.length >= 3) return groupLines.slice(0,3);
 
     const nums = (text.match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || [])
       .map(n => Number(n))
-      .filter(n => n >= 1 && n <= 39);
+      .filter(n => n >= 1 && n <= getBallMax());
     const uniq = [];
     nums.forEach(n => { if (!uniq.includes(n)) uniq.push(n); });
     if (uniq.length >= 39) return [uniq.slice(0,10), uniq.slice(10,24), uniq.slice(24,39)];
@@ -2245,7 +2293,7 @@
     const nums = (String(text || '').match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || [])
       .map(n => Number(n));
     const uniq = [];
-    nums.forEach(n => { if (n >= 1 && n <= 39 && !uniq.includes(n)) uniq.push(n); });
+    nums.forEach(n => { if (n >= 1 && n <= getBallMax() && !uniq.includes(n)) uniq.push(n); });
     if (uniq.length >= 39) return [uniq.slice(0,10), uniq.slice(10,24), uniq.slice(24,39)];
     if (uniq.length >= 35) return [uniq.slice(0,10), uniq.slice(10,24), uniq.slice(24)];
     return [];
@@ -2261,13 +2309,13 @@
       groupText = String(groupItemOrText || '');
     }
 
-    groups = (groups || []).map(g => Array.isArray(g) ? g.map(Number).filter(n => n >= 1 && n <= 39) : []);
+    groups = (groups || []).map(g => Array.isArray(g) ? g.map(Number).filter(n => n >= 1 && n <= getBallMax()) : []);
 
     if (!groups.length || groups.length < 3 || !groups.every(g => g.length > 0)) {
       groups = caishenExtractGroupsFromBattleText(groupText);
     }
 
-    const draw = (drawNums || []).map(Number).filter(n => n >= 1 && n <= 39);
+    const draw = (drawNums || []).map(Number).filter(n => n >= 1 && n <= getBallMax());
     if (!groups.length || groups.length < 3 || !draw.length) {
       return { ok:false, pass:false, dist:[], line:'無法完整解析立柱或開獎號碼' };
     }
@@ -2892,7 +2940,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const day = Number(input.dataset.weeklyDay);
       const field = input.dataset.weeklyField;
       const data = loadWeeklyCalcData();
-      if (Number.isInteger(day) && data[day] && (field === 'morning' || field === 'night' || field === 'gold')) {
+      if (Number.isInteger(day) && data[day] && ['morning','night','blt','six','gold'].includes(field)) {
         data[day][field] = input.value;
         saveWeeklyCalcData(data);
         updateWeeklyCalcTotals();
@@ -2914,6 +2962,12 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     if (weeklyTodayNightInput) {
       weeklyTodayNightInput.addEventListener('input', () => saveTodaySummaryInput('night', weeklyTodayNightInput.value));
+    }
+    if (weeklyTodayBltInput) {
+      weeklyTodayBltInput.addEventListener('input', () => saveTodaySummaryInput('blt', weeklyTodayBltInput.value));
+    }
+    if (weeklyTodaySixInput) {
+      weeklyTodaySixInput.addEventListener('input', () => saveTodaySummaryInput('six', weeklyTodaySixInput.value));
     }
     if (weeklyTodayGoldInput) {
       weeklyTodayGoldInput.addEventListener('input', () => saveTodaySummaryInput('gold', weeklyTodayGoldInput.value));
@@ -3133,28 +3187,48 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  function parseDrawLineSmart(line) {
-    // 只判讀獨立的雙位數 01~39；001~999 這種三位數期數不會被拆成開獎號碼。
-    const nums = (line.match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || [])
-      .map(n => Number(n));
-    if (nums.length < 5) return null;
-    const candidate = nums.slice(0, 5);
-    const unique = [...new Set(candidate)];
-    return unique.length === 5 ? unique : null;
+  function is49Mode(mode = currentGameMode()) {
+    return mode === 'blt' || mode === 'six';
   }
 
-  function parseDraws(text) {
-    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  function getBallMax(mode = currentGameMode()) {
+    return is49Mode(mode) ? 49 : 39;
+  }
+
+  function getDrawPickCount(mode = currentGameMode()) {
+    return is49Mode(mode) ? 6 : 5;
+  }
+
+  function ballRange(mode = currentGameMode()) {
+    const max = getBallMax(mode);
+    return Array.from({length: max}, (_, i) => i + 1);
+  }
+
+  function parseDrawLineSmart(line, mode = currentGameMode()) {
+    // 539/天天樂：只取前5個 01~39；大樂透/六合彩：只取前6個 01~49，第7個特別號自動忽略。
+    const max = getBallMax(mode);
+    const need = getDrawPickCount(mode);
+    const nums = (String(line || '').match(/(?<!\d)(0[1-9]|[1-4][0-9])(?!\d)/g) || [])
+      .map(n => Number(n))
+      .filter(n => n >= 1 && n <= max);
+    if (nums.length < need) return null;
+    const candidate = nums.slice(0, need);
+    const unique = [...new Set(candidate)];
+    return unique.length === need ? unique : null;
+  }
+
+  function parseDraws(text, mode = currentGameMode()) {
+    const lines = String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const draws = [];
     for (const line of lines) {
-      const nums = parseDrawLineSmart(line);
+      const nums = parseDrawLineSmart(line, mode);
       if (nums) draws.push(nums);
     }
     return draws;
   }
 
   function range39() {
-    return Array.from({length: 39}, (_, i) => i + 1);
+    return ballRange();
   }
 
   function parseNoDrawShares(text) {
@@ -3164,7 +3238,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     for (const line of lines) {
       const nums = [...new Set((line.match(/\d{1,2}/g) || [])
         .map(n => Number(n))
-        .filter(n => n >= 1 && n <= 39))];
+        .filter(n => n >= 1 && n <= getBallMax()))];
       if (!nums.length) continue;
       rows++;
       nums.forEach(n => counts[n]++);
@@ -3179,7 +3253,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     for (const line of lines) {
       const nums = [...new Set((line.match(/\d{1,2}/g) || [])
         .map(n => Number(n))
-        .filter(n => n >= 1 && n <= 39))];
+        .filter(n => n >= 1 && n <= getBallMax()))];
       if (!nums.length) continue;
       rows++;
       nums.forEach(n => counts[n]++);
@@ -3483,6 +3557,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const targets = [10, 14, 15];
 
     for (const n of numbers) {
+      if (groups.every((g, idx) => g.length >= targets[idx])) break;
       let bestIdx = -1;
       let bestScore = Infinity;
       for (let i = 0; i < 3; i++) {
@@ -3499,7 +3574,7 @@ ${settleRecord.analysisLines.join('\n')}`;
           bestIdx = i;
         }
       }
-      groups[bestIdx].push(n);
+      if (bestIdx >= 0) groups[bestIdx].push(n);
     }
 
     groups.forEach(g => g.sort((a, b) => a - b));
@@ -3561,7 +3636,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const patterns = {};
     for (let i = 0; i < draws.length; i++) {
       const counts = [0, 0, 0];
-      for (const n of draws[i]) counts[mp.get(n)]++;
+      for (const n of draws[i]) { const pIdx = mp.get(n); if (pIdx !== undefined) counts[pIdx]++; }
       const sortedPattern = counts.slice().sort((a,b) => b - a).join('-');
       patterns[sortedPattern] = (patterns[sortedPattern] || 0) + 1;
       const ok = counts.every(v => v >= 1);
@@ -3571,7 +3646,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         latestPattern = sortedPattern;
       }
       if (ok) pass++; else fail++;
-      if (counts.includes(5)) allInOne++;
+      if (counts.includes(getDrawPickCount())) allInOne++;
       if (i < recentSize && ok) recentPass++;
       if (i < recent5Size) {
         if (ok) recent5Pass++; else recent5Down++;
@@ -6819,28 +6894,32 @@ ${settleRecord.analysisLines.join('\n')}`;
   const APP_CORE_VERSION = 'v21_dayday_profile_restore_lock_20260604';
   let dbExpanded = false;
 
-  function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : '539'; }
+  function gameLabel(mode) { return mode === 'dayday' ? '天天樂' : mode === 'blt' ? '大樂透' : mode === 'six' ? '香港六合彩' : '539'; }
   function currentGameMode() { return gameMode ? gameMode.value : '539'; }
   function dbKey(mode = currentGameMode()) { return DB_KEY_PREFIX + mode; }
   function escapeHtml(str) { return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
-  function extractDrawMetaDate(line) {
-    const matches = [...line.matchAll(/\d{1,2}/g)].filter(m => Number(m[0]) >= 1 && Number(m[0]) <= 39);
-    if (matches.length <= 5) return '';
-    const drawStart = matches[matches.length - 5].index || 0;
+  function extractDrawMetaDate(line, mode = currentGameMode()) {
+    const max = getBallMax(mode);
+    const need = getDrawPickCount(mode);
+    const matches = [...String(line || '').matchAll(/\d{1,2}/g)].filter(m => Number(m[0]) >= 1 && Number(m[0]) <= max);
+    if (matches.length <= need) return '';
+    const drawStart = matches[matches.length - need].index || 0;
     return line.slice(0, drawStart).trim();
   }
 
-  function normalizeDrawRecord(record) {
+  function normalizeDrawRecord(record, mode = currentGameMode()) {
     if (!record || !Array.isArray(record.nums)) return null;
-    const nums = [...new Set(record.nums.map(Number).filter(n => n >= 1 && n <= 39))];
-    if (nums.length !== 5) return null;
+    const max = getBallMax(mode);
+    const need = getDrawPickCount(mode);
+    const nums = [...new Set(record.nums.map(Number).filter(n => n >= 1 && n <= max))];
+    if (nums.length !== need) return null;
     return { id: record.id || ('d_' + Date.now() + '_' + Math.random().toString(16).slice(2)), date: String(record.date || '').trim(), nums, createdAt: record.createdAt || Date.now() };
   }
   function loadDrawDb(mode = currentGameMode()) {
-    try { const parsed = JSON.parse(localStorage.getItem(dbKey(mode)) || '[]'); return Array.isArray(parsed) ? parsed.map(normalizeDrawRecord).filter(Boolean) : []; } catch (err) { return []; }
+    try { const parsed = JSON.parse(localStorage.getItem(dbKey(mode)) || '[]'); return Array.isArray(parsed) ? parsed.map(r => normalizeDrawRecord(r, mode)).filter(Boolean) : []; } catch (err) { return []; }
   }
   function saveDrawDb(records, mode = currentGameMode()) {
-    let clean = (records || []).map(normalizeDrawRecord).filter(Boolean);
+    let clean = (records || []).map(r => normalizeDrawRecord(r, mode)).filter(Boolean);
 
     // 精簡保存：資料庫只保留開獎號碼、簡短日期，不保存過長附帶內容，避免手機 localStorage 爆量。
     const slim = clean.map((r, idx) => ({
@@ -6852,7 +6931,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     function trySave(list) {
       localStorage.setItem(dbKey(mode), JSON.stringify(list));
-      return list.map(normalizeDrawRecord).filter(Boolean);
+      return list.map(r => normalizeDrawRecord(r, mode)).filter(Boolean);
     }
 
     try {
@@ -7020,20 +7099,21 @@ ${settleRecord.analysisLines.join('\n')}`;
     dbGameLabel.textContent = gameLabel(mode);
     dbCount.textContent = records.length;
     dbLatest.textContent = records.length ? formatDrawLine(records[0]) : '尚無資料';
+    if (ballRangeLabel) ballRangeLabel.textContent = `01 ~ ${getBallMax(mode)}`;
     countDraws.textContent = getBacktestDraws().length;
     if (!records.length) { dbTableBody.innerHTML = '<tr><td colspan="4">尚無資料。可以先貼在下方欄位，再按「匯入目前彩種」。</td></tr>'; return; }
     dbTableBody.innerHTML = records.map((record, idx) => `
       <tr data-db-index="${idx}">
         <td>${idx + 1}</td>
         <td><input class="db-date-input" value="${escapeHtml(record.date || '')}" placeholder="日期/期別"></td>
-        <td><input class="draw-edit-input db-nums-input" value="${formatNums(record.nums)}" placeholder="01 02 03 04 05"></td>
+        <td><input class="draw-edit-input db-nums-input" value="${formatNums(record.nums)}" placeholder="01 02 03 04 05 / 49彩種6碼"></td>
         <td><div class="db-actions" style="justify-content:center;"><button class="btn btn-danger save-db-row-btn" type="button" data-index="${idx}">儲存</button><button class="btn btn-dark move-db-top-btn" type="button" data-index="${idx}">置頂</button><button class="btn btn-dark delete-db-row-btn" type="button" data-index="${idx}">刪除</button></div></td>
       </tr>`).join('');
   }
 
   function addRecordToDb(nums, dateText = '', mode = currentGameMode(), toTop = true) {
-    const record = normalizeDrawRecord({ nums, date: dateText, createdAt: Date.now() });
-    if (!record) throw new Error('號碼格式不正確，請輸入 5 個 01~39 且不可重複。');
+    const record = normalizeDrawRecord({ nums, date: dateText, createdAt: Date.now() }, mode);
+    if (!record) throw new Error(`號碼格式不正確，請輸入 ${getDrawPickCount(mode)} 個 01~${getBallMax(mode)} 且不可重複；49彩種第7碼特別號會自動忽略。`);
     let records = loadDrawDb(mode);
     const key = record.nums.slice().sort((a,b)=>a-b).join('-') + '|' + (record.date || '');
     records = records.filter(r => (r.nums.slice().sort((a,b)=>a-b).join('-') + '|' + (r.date || '')) !== key);
@@ -7041,7 +7121,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function applyGameMode(mode) {
-    gameMode.value = mode === 'dayday' ? 'dayday' : '539';
+    gameMode.value = ['539','dayday','blt','six'].includes(mode) ? mode : '539';
     localStorage.setItem(DB_VERSION_KEY, gameMode.value);
     syncDbToTextarea();
     renderDrawDb();
@@ -7057,7 +7137,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     lines.forEach((line, idx) => {
       const nums = parseDrawLineSmart(line);
       if (!nums) return;
-      const datePart = extractDrawMetaDate(line);
+      const datePart = extractDrawMetaDate(line, currentGameMode());
       imported.push({ id: 'imp_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2), date: datePart, nums, createdAt: Date.now() - idx });
     });
     if (!imported.length) { alert('沒有辨識到可匯入的開獎資料。'); return; }
@@ -7098,14 +7178,14 @@ ${settleRecord.analysisLines.join('\n')}`;
     return fallbackCopyText(text);
   }
 
-  function normalizeBackupRecordList(list) {
+  function normalizeBackupRecordList(list, mode = currentGameMode()) {
     if (!Array.isArray(list)) return [];
     return list.map((r, idx) => normalizeDrawRecord({
       id: 'bak_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2),
       date: r && typeof r === 'object' ? String(r.date || '').trim() : '',
       nums: r && typeof r === 'object' ? r.nums : null,
       createdAt: Date.now() - idx
-    })).filter(Boolean);
+    }, mode)).filter(Boolean);
   }
 
   function parseDbBackupText(text) {
@@ -7119,10 +7199,12 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (!parsed || !parsed.games || typeof parsed.games !== 'object') throw new Error('備份內容缺少 games 資料，無法還原。');
       return {
         mode: 'json',
-        activeGame: parsed.activeGame === 'dayday' ? 'dayday' : '539',
+        activeGame: ['539','dayday','blt','six'].includes(parsed.activeGame) ? parsed.activeGame : '539',
         games: {
-          '539': normalizeBackupRecordList(parsed.games['539']),
-          'dayday': normalizeBackupRecordList(parsed.games['dayday'])
+          '539': normalizeBackupRecordList(parsed.games['539'], '539'),
+          'dayday': normalizeBackupRecordList(parsed.games['dayday'], 'dayday'),
+          'blt': normalizeBackupRecordList(parsed.games['blt'], 'blt'),
+          'six': normalizeBackupRecordList(parsed.games['six'], 'six')
         }
       };
     }
@@ -7136,7 +7218,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       records.push({ id: 'bak_plain_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2), date: '', nums, createdAt: Date.now() - idx });
     });
     if (!records.length) throw new Error('沒有辨識到可還原的開獎號碼。');
-    return { mode: 'plain', activeGame: currentGameMode(), records: records.map(normalizeDrawRecord).filter(Boolean) };
+    return { mode: 'plain', activeGame: currentGameMode(), records: records.map(r => normalizeDrawRecord(r, currentGameMode())).filter(Boolean) };
   }
 
   async function copyDatabaseBackup() {
@@ -7157,6 +7239,8 @@ ${settleRecord.analysisLines.join('\n')}`;
         if (!confirm(`確定用舊版備份還原資料庫嗎？\n539：${count539} 筆\n天天樂：${countDayday} 筆\n\n會覆蓋目前兩個彩種的資料庫。`)) return;
         saveDrawDb(backup.games['539'], '539');
         saveDrawDb(backup.games['dayday'], 'dayday');
+        saveDrawDb(backup.games['blt'] || [], 'blt');
+        saveDrawDb(backup.games['six'] || [], 'six');
         applyGameMode(backup.activeGame);
         dbBackupText.value = '';
         alert(`已還原完成：539 ${count539} 筆、天天樂 ${countDayday} 筆。`);
@@ -7179,7 +7263,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
-  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error('請輸入 5 個 01~39 的號碼。'); addRecordToDb(nums, newDrawDate.value, currentGameMode(), true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
+  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); addRecordToDb(nums, newDrawDate.value, currentGameMode(), true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
   copyDbBackupBtn.addEventListener('click', copyDatabaseBackup);
   restoreDbBackupBtn.addEventListener('click', () => { restoreDatabaseBackup(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
@@ -7196,12 +7280,31 @@ ${settleRecord.analysisLines.join('\n')}`;
     const btn = e.target.closest('button'); if (!btn) return;
     const index = Number(btn.dataset.index); const records = loadDrawDb(); if (!Number.isInteger(index) || index < 0 || index >= records.length) return;
     const row = btn.closest('tr');
-    if (btn.classList.contains('save-db-row-btn')) { const nums = parseDrawLineSmart(row.querySelector('.db-nums-input').value); if (!nums) { alert('此筆號碼格式不正確，請輸入 5 個 01~39 且不可重複。'); return; } records[index].date = row.querySelector('.db-date-input').value.trim(); records[index].nums = nums; saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已儲存第 ${index + 1} 筆資料。`); }
+    if (btn.classList.contains('save-db-row-btn')) { const nums = parseDrawLineSmart(row.querySelector('.db-nums-input').value); if (!nums) { alert(`此筆號碼格式不正確，請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 且不可重複；49彩種第7碼特別號會自動忽略。`); return; } records[index].date = row.querySelector('.db-date-input').value.trim(); records[index].nums = nums; saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已儲存第 ${index + 1} 筆資料。`); }
     if (btn.classList.contains('move-db-top-btn')) { const [item] = records.splice(index, 1); records.unshift(item); saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已將第 ${index + 1} 筆移到最新一期位置。`); }
     if (btn.classList.contains('delete-db-row-btn')) { if (!confirm(`確定刪除第 ${index + 1} 筆嗎？`)) return; records.splice(index, 1); saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已刪除第 ${index + 1} 筆資料。`); }
   });
   drawInput.addEventListener('input', () => { countDraws.textContent = getBacktestDraws().length; });
-  function initDrawDatabase() { const savedMode = localStorage.getItem(DB_VERSION_KEY) || '539'; applyGameMode(savedMode); dbTableWrap.classList.toggle('open', dbExpanded); }
+
+
+  const BUILTIN_49_SEED_DRAWS = {
+    blt: [[32, 12, 44, 25, 14, 30], [8, 20, 16, 9, 37, 49], [26, 49, 29, 37, 20, 31], [47, 29, 37, 48, 3, 27], [28, 12, 13, 21, 16, 48], [22, 38, 4, 26, 20, 47], [29, 35, 43, 16, 30, 42], [36, 6, 12, 19, 18, 32], [18, 43, 10, 25, 28, 39], [17, 37, 28, 4, 23, 33], [7, 43, 27, 35, 22, 48], [25, 32, 14, 10, 6, 26], [14, 37, 47, 39, 16, 7], [1, 20, 17, 19, 6, 40], [40, 22, 45, 7, 11, 10], [43, 8, 23, 21, 4, 24], [21, 40, 15, 10, 4, 17], [1, 26, 2, 16, 18, 6], [48, 36, 12, 25, 13, 5], [5, 45, 40, 25, 11, 47], [23, 29, 36, 8, 26, 4], [33, 48, 41, 44, 14, 42], [15, 43, 38, 33, 41, 11], [10, 22, 40, 45, 2, 6], [38, 47, 5, 48, 12, 13], [47, 43, 29, 11, 5, 37], [23, 9, 12, 11, 14, 25], [26, 35, 46, 27, 5, 45], [39, 19, 33, 28, 25, 27], [7, 4, 34, 40, 44, 49], [30, 37, 17, 49, 39, 23], [19, 45, 14, 34, 18, 47], [22, 1, 16, 24, 48, 47], [45, 22, 49, 15, 7, 38], [19, 28, 12, 31, 22, 27], [47, 27, 6, 23, 10, 48], [5, 22, 24, 17, 7, 47], [17, 13, 41, 48, 27, 12], [15, 18, 24, 49, 13, 33], [31, 28, 41, 20, 35, 29], [36, 49, 37, 16, 39, 35], [12, 24, 6, 46, 26, 37], [11, 18, 46, 27, 16, 38], [11, 6, 28, 3, 18, 25], [11, 1, 22, 40, 36, 35], [20, 35, 48, 39, 9, 25], [48, 1, 15, 3, 20, 8], [6, 20, 35, 21, 24, 16], [4, 12, 39, 48, 24, 25], [6, 14, 33, 32, 43, 39], [32, 39, 13, 31, 9, 27], [24, 4, 29, 25, 30, 11], [36, 32, 21, 23, 43, 39], [26, 2, 44, 41, 7, 45], [10, 25, 22, 36, 9, 21], [19, 10, 2, 39, 49, 18], [45, 1, 34, 7, 14, 13], [33, 45, 23, 2, 39, 38], [16, 40, 19, 42, 3, 7], [24, 10, 15, 5, 20, 29], [7, 5, 17, 30, 14, 9], [39, 3, 12, 41, 33, 1], [12, 6, 8, 46, 18, 11], [33, 15, 6, 7, 24, 19], [24, 26, 40, 15, 47, 17], [18, 10, 26, 44, 5, 28], [24, 41, 23, 47, 15, 8], [48, 20, 32, 14, 35, 42], [8, 46, 18, 12, 28, 37], [12, 20, 2, 24, 23, 10], [21, 31, 46, 14, 28, 20], [9, 43, 24, 10, 8, 23], [38, 46, 25, 26, 41, 21], [11, 16, 42, 47, 44, 24], [22, 33, 11, 41, 32, 4], [48, 27, 35, 16, 25, 47], [3, 10, 7, 18, 21, 4], [39, 8, 18, 5, 12, 11], [13, 33, 22, 39, 40, 23], [42, 44, 14, 25, 20, 49], [32, 3, 31, 15, 16, 45], [31, 11, 16, 20, 39, 41], [16, 39, 42, 22, 13, 18], [34, 42, 9, 16, 43, 2], [4, 40, 36, 18, 41, 43], [22, 42, 19, 20, 32, 36], [29, 1, 49, 2, 25, 41], [27, 25, 45, 14, 22, 5], [38, 41, 36, 17, 14, 26], [47, 7, 25, 18, 17, 22], [41, 2, 11, 15, 4, 3], [45, 40, 25, 12, 20, 26], [19, 17, 29, 10, 14, 13], [30, 9, 6, 20, 19, 2], [27, 20, 25, 28, 32, 13], [6, 32, 35, 3, 22, 39], [38, 45, 47, 23, 33, 43], [33, 41, 46, 25, 2, 23], [7, 47, 5, 15, 17, 3], [37, 42, 7, 15, 22, 6]],
+    six: [[19, 34, 5, 20, 12, 36], [4, 43, 47, 15, 7, 37], [14, 16, 45, 9, 35, 37], [39, 40, 21, 1, 12, 41], [35, 7, 13, 40, 25, 43], [32, 34, 10, 47, 18, 11], [20, 7, 2, 42, 49, 47], [7, 13, 15, 5, 31, 27], [2, 21, 27, 1, 20, 4], [25, 43, 41, 28, 11, 36], [47, 27, 23, 34, 30, 45], [4, 22, 16, 47, 25, 19], [17, 41, 26, 47, 9, 42], [23, 34, 28, 20, 14, 6], [47, 10, 7, 2, 18, 8], [8, 28, 48, 30, 3, 2], [21, 42, 46, 36, 4, 16], [12, 38, 45, 23, 48, 37], [4, 11, 44, 10, 2, 26], [17, 39, 20, 46, 27, 32], [6, 28, 44, 46, 14, 12], [19, 44, 8, 46, 33, 22], [14, 42, 40, 11, 17, 28], [24, 43, 45, 44, 13, 16], [33, 23, 25, 34, 29, 8], [32, 45, 40, 20, 35, 28], [20, 32, 28, 9, 19, 18], [42, 26, 27, 11, 21, 45], [27, 12, 23, 28, 37, 17], [26, 6, 22, 44, 49, 9], [9, 47, 18, 11, 5, 23], [6, 8, 45, 2, 41, 33], [22, 18, 45, 16, 28, 49], [7, 14, 26, 13, 16, 30], [34, 16, 25, 2, 35, 37], [18, 12, 22, 28, 15, 37], [4, 31, 24, 18, 46, 42], [20, 32, 31, 44, 13, 6], [47, 37, 15, 46, 39, 5], [6, 19, 38, 15, 42, 13], [10, 4, 3, 2, 23, 13], [34, 18, 35, 37, 49, 2], [8, 28, 46, 37, 36, 33], [3, 46, 37, 25, 2, 14], [39, 4, 26, 3, 18, 14], [32, 12, 37, 22, 44, 28], [35, 24, 36, 9, 1, 17], [42, 39, 23, 27, 12, 37], [30, 35, 32, 36, 25, 47], [14, 44, 9, 6, 35, 12], [38, 47, 25, 12, 14, 7], [16, 17, 48, 22, 28, 6], [31, 4, 24, 27, 15, 9], [6, 46, 44, 9, 1, 4], [27, 12, 42, 5, 23, 15], [44, 6, 37, 3, 38, 39], [38, 48, 14, 49, 24, 34], [37, 20, 22, 24, 16, 3], [45, 15, 46, 21, 24, 40], [12, 2, 8, 19, 28, 36], [20, 16, 2, 21, 13, 10], [7, 30, 19, 11, 25, 10], [1, 30, 41, 2, 4, 43], [34, 47, 39, 9, 17, 27], [23, 28, 34, 31, 33, 6], [38, 23, 3, 28, 12, 35], [49, 19, 28, 10, 17, 45], [1, 30, 25, 42, 6, 5], [6, 40, 4, 34, 26, 28], [18, 37, 38, 34, 6, 29], [17, 1, 48, 2, 37, 35], [36, 39, 26, 35, 33, 19], [4, 28, 10, 36, 2, 26], [47, 28, 38, 2, 11, 13], [28, 11, 37, 10, 39, 30], [37, 28, 20, 40, 38, 18], [16, 17, 9, 46, 7, 33], [41, 10, 17, 33, 22, 40], [19, 26, 39, 28, 20, 44], [45, 7, 15, 4, 46, 21], [39, 43, 6, 7, 27, 36], [19, 4, 26, 46, 24, 25], [11, 8, 1, 9, 32, 18], [13, 18, 31, 5, 44, 17], [40, 43, 11, 32, 2, 48], [17, 24, 3, 15, 44, 32], [19, 5, 39, 30, 6, 18], [45, 1, 39, 3, 31, 24], [24, 17, 34, 15, 19, 23], [46, 13, 21, 41, 33, 44], [18, 48, 26, 8, 16, 14], [11, 2, 22, 47, 27, 46], [17, 8, 43, 36, 13, 24], [22, 37, 35, 33, 48, 36], [21, 33, 32, 22, 28, 14], [47, 37, 23, 15, 21, 49], [44, 21, 25, 32, 22, 11], [44, 32, 40, 15, 42, 7], [43, 19, 6, 22, 23, 34], [5, 18, 29, 49, 23, 24]]
+  };
+
+  function installBuiltin49SeedDrawsOnce() {
+    try {
+      ['blt','six'].forEach(mode => {
+        if (loadDrawDb(mode).length > 0) return;
+        const rows = BUILTIN_49_SEED_DRAWS[mode] || [];
+        if (!rows.length) return;
+        const records = rows.map((nums, idx) => normalizeDrawRecord({ id:'seed49_' + mode + '_' + idx, date:'內建100期 #' + (idx + 1), nums, createdAt: Date.now() - idx }, mode)).filter(Boolean);
+        if (records.length) saveDrawDb(records, mode);
+      });
+    } catch (e) {}
+  }
+
+  function initDrawDatabase() { installBuiltin49SeedDrawsOnce(); const savedMode = localStorage.getItem(DB_VERSION_KEY) || '539'; applyGameMode(savedMode); dbTableWrap.classList.toggle('open', dbExpanded); }
 
 
   function tagItemsWithBacktestLabel(items, sourceLabel = '') {
@@ -7273,7 +7376,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const wantedGroups = Math.max(1, Math.min(5, Number(groupCount.value) || 2));
     countDraws.textContent = draws.length;
     if (!allDraws.length) {
-      alert('請先在資料庫或下方貼上欄位加入有效開獎號碼，每行需能辨識出 5 個 01~39 號碼。');
+      alert('請先在資料庫或下方貼上欄位加入有效開獎號碼，每行需能辨識出目前彩種需要的號碼數。');
       return;
     }
 
@@ -7624,7 +7727,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   let lastLucky5Results = [];
 
   function comboPassPatternForItem(groups, combo) {
-    if (!groups || groups.length < 3 || !combo || combo.length !== 5) return { pass:false, label:'0', counts:[0,0,0] };
+    if (!groups || groups.length < 3 || !combo || combo.length < 3) return { pass:false, label:'0', counts:[0,0,0] };
     const set = new Set(combo.map(Number));
     const counts = groups.slice(0,3).map(g => (g || []).filter(n => set.has(Number(n))).length);
     const pass = counts.every(v => v > 0);
@@ -7895,7 +7998,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function caishenPartitionOrder(order, variant) {
-    const nums = order.filter((n, i, ar) => n >= 1 && n <= 39 && ar.indexOf(n) === i);
+    const nums = order.filter((n, i, ar) => n >= 1 && n <= getBallMax() && ar.indexOf(n) === i);
     range39().forEach(n => { if (!nums.includes(n)) nums.push(n); });
     const groups = [[], [], []];
     const target = [10,14,15];
@@ -9315,6 +9418,39 @@ ${settleRecord.analysisLines.join('\n')}`;
         rejectThirdRatio: 0.64
       };
     }
+    if (mode === 'blt' || mode === 'six') {
+      return {
+        name: mode === 'blt' ? '大樂透穩定摘除型' : '香港六合彩穩定摘除型',
+        mode,
+        bothPassWeight: 275000,
+        bothFailPenalty: 430000,
+        onePassPenalty: 118000,
+        minBothPassWeight: 98000,
+        maxBothFailPenalty: 175000,
+        stabilityPenalty: 92000,
+        samePillarTarget: 8,
+        samePillarTargetPenalty: 9800,
+        lowConsensusLine: 5,
+        lowConsensusPenalty: 28000,
+        highConsensusLine: 12,
+        highConsensusPenalty: 31000,
+        moveRatioLine: 0.34,
+        moveRatioPenalty: 170000,
+        firstPillarMoveLine: 0.34,
+        firstPillarMovePenalty: 82000,
+        sameLowLine: 0.08,
+        sameHighLine: 0.32,
+        sameLowPenalty: 60000,
+        sameHighPenalty: 76000,
+        overlapHighLine: 0.42,
+        dangerPenalty: 2400,
+        hardFail100: 0.18,
+        rejectMoveRatio: 0.82,
+        rejectFirstRatio: 0.46,
+        rejectSecondRatio: 0.50,
+        rejectThirdRatio: 0.54
+      };
+    }
     return {
       name: '539互補型',
       mode,
@@ -9392,6 +9528,16 @@ ${settleRecord.analysisLines.join('\n')}`;
   function caishenSelfTuneCandidates() {
     const base = caishenBaseGameProfile();
     const mode = currentGameMode();
+    if (mode === 'blt' || mode === 'six') {
+      const prefix = mode === 'blt' ? '大樂透' : '香港六合彩';
+      return [
+        { name:`${prefix}穩定摘除型`, params:{ ...base, name:`${prefix}穩定摘除型`, bothPassWeight:275000, bothFailPenalty:430000, onePassPenalty:118000, samePillarTarget:8, lowConsensusLine:5, highConsensusLine:12, moveRatioLine:0.34, sameLowLine:0.08, sameHighLine:0.32, overlapHighLine:0.42, dangerPenalty:2400, hardFail100:0.18 } },
+        { name:`${prefix}防穿透型`, params:{ ...base, name:`${prefix}防穿透型`, bothPassWeight:252000, bothFailPenalty:560000, onePassPenalty:135000, samePillarTarget:7, lowConsensusLine:4, highConsensusLine:10, moveRatioLine:0.30, sameLowLine:0.06, sameHighLine:0.26, overlapHighLine:0.34, dangerPenalty:3600, hardFail100:0.14 } },
+        { name:`${prefix}爆發承接型`, params:{ ...base, name:`${prefix}爆發承接型`, bothPassWeight:340000, bothFailPenalty:365000, onePassPenalty:98000, samePillarTarget:13, lowConsensusLine:9, highConsensusLine:18, sameLowLine:0.18, sameHighLine:0.48, overlapHighLine:0.55, dangerPenalty:1400, hardFail100:0.22 } },
+        { name:`${prefix}反轉觀察型`, params:{ ...base, name:`${prefix}反轉觀察型`, bothPassWeight:228000, bothFailPenalty:455000, onePassPenalty:106000, samePillarTarget:8, lowConsensusLine:5, highConsensusLine:12, moveRatioLine:0.35, sameLowLine:0.08, sameHighLine:0.31, overlapHighLine:0.39, dangerPenalty:2700, hardFail100:0.18 } },
+        { name:`${prefix}極端爆擊型`, params:{ ...base, name:`${prefix}極端爆擊型`, bothPassWeight:322000, bothFailPenalty:340000, onePassPenalty:88000, samePillarTarget:15, lowConsensusLine:11, highConsensusLine:20, sameLowLine:0.22, sameHighLine:0.56, overlapHighLine:0.60, dangerPenalty:900, hardFail100:0.24 } }
+      ];
+    }
     if (mode === 'dayday') {
       return [
         { name:'天天樂同步保命型', params:{ ...base, name:'天天樂同步保命型' } },
@@ -9816,7 +9962,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       countDraws.textContent = draws.length;
 
       if (!allDraws.length) {
-        alert('請先在資料庫或下方貼上欄位加入有效開獎號碼，每行需能辨識出 5 個 01~39 號碼。');
+        alert('請先在資料庫或下方貼上欄位加入有效開獎號碼，每行需能辨識出目前彩種需要的號碼數。');
         return;
       }
       if (!draws.length) {
@@ -10304,7 +10450,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       db[mode] = (db[mode] || [])
         .map((x, idx) => {
           const rawGroups = Array.isArray(x?.groups) ? x.groups : (Array.isArray(x?.pillars) ? x.pillars : (Array.isArray(x?.pillarGroups) ? x.pillarGroups : []));
-          const groups = rawGroups.slice(0,3).map(g => (Array.isArray(g) ? g : String(g || '').match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || []).map(Number).filter(n => n >= 1 && n <= 39));
+          const groups = rawGroups.slice(0,3).map(g => (Array.isArray(g) ? g : String(g || '').match(/(?<!\d)(0[1-9]|[12][0-9]|3[0-9])(?!\d)/g) || []).map(Number).filter(n => n >= 1 && n <= getBallMax()));
           return {
             id: String(x?.id || `${Date.now()}_${mode}_${idx}_${Math.random().toString(36).slice(2)}`),
             title: x?.title || '記憶立柱',
@@ -10477,7 +10623,7 @@ function getMemoryBacktestDraws(){
       const records = loadDrawDb(getMemoryMode());
       if(Array.isArray(records) && records.length){
         rawDraws = records
-          .map(r => Array.isArray(r?.nums) ? r.nums.map(Number).filter(n => n >= 1 && n <= 39) : [])
+          .map(r => Array.isArray(r?.nums) ? r.nums.map(Number).filter(n => n >= 1 && n <= getBallMax()) : [])
           .filter(nums => nums.length === 5);
       }
     }catch(err){
@@ -10508,7 +10654,7 @@ function getMemoryRuntimeStats(item){
 
     const groups = item.groups
       .slice(0,3)
-      .map(g => (Array.isArray(g) ? g.map(Number).filter(n => n >= 1 && n <= 39) : []));
+      .map(g => (Array.isArray(g) ? g.map(Number).filter(n => n >= 1 && n <= getBallMax()) : []));
 
     if(groups.length < 3 || groups.some(g => !g.length)){
       return memoryDefaultStats({});
