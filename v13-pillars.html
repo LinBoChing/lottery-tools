@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP｜校正類型真分流版</title>
+  <meta name="generator" content="V14 coincidence code patch" />
+  <title>吸金穩贏 APP｜V14.3 雙柱優先＋巧合收合版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -961,7 +962,7 @@
 }
 
 
-/* v68 乾淨兩組出戰版 v18真分流：主畫面簡化 */
+/* v14 巧合密碼牌版：主畫面簡化 */
 .clean-action-panel{
   margin-top:8px;
   padding:16px;
@@ -1240,14 +1241,152 @@
   display:none !important;
 }
 
+
+/* V14 巧合密碼牌 */
+.coincidence-box{
+  margin-top:12px;
+  border:1px solid rgba(168,85,247,.55);
+  border-radius:14px;
+  background:linear-gradient(135deg, rgba(88,28,135,.28), rgba(14,165,233,.10));
+  padding:12px;
+}
+.coincidence-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.coincidence-title{font-weight:900;color:#e9d5ff;font-size:17px;}
+.coincidence-meta{color:#cbd5e1;font-size:13px;line-height:1.65;margin-top:6px;}
+.coincidence-kpi{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:10px 0;}
+.coincidence-kpi div{background:#020617;border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;color:#cbd5e1;line-height:1.45;}
+.coincidence-kpi b{display:block;color:#f8fafc;font-size:16px;margin-top:2px;}
+.coincidence-list{display:grid;gap:9px;margin-top:10px;}
+.coincidence-item{background:rgba(2,6,23,.82);border:1px solid rgba(168,85,247,.35);border-radius:12px;padding:10px;}
+.coincidence-item-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap;font-weight:900;}
+.coincidence-num{font-size:22px;color:#fff7ed;letter-spacing:.5px;}
+.coincidence-score{color:#86efac;}
+.coincidence-reasons{margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.65;}
+.coincidence-reason{border-top:1px solid rgba(51,65,85,.75);padding-top:6px;margin-top:6px;}
+.coincidence-reason:first-child{border-top:none;padding-top:0;margin-top:0;}
+.coincidence-tag{display:inline-block;padding:2px 7px;border-radius:999px;background:rgba(56,189,248,.14);border:1px solid rgba(56,189,248,.35);color:#7dd3fc;font-size:12px;font-weight:900;margin-right:5px;}
+.coincidence-copy{width:auto;padding:6px 10px;font-size:12px;border-radius:9px;}
+.coincidence-empty{color:#fca5a5;font-weight:800;}
+/* V14：天選相關入口全部收起 */
+.battle-memory-btn,
+.caishen-record-wrap,
+.caishen-review-wrap,
+.caishen-growth-box,
+.caishen-battle-analysis,
+#dailyAgentBtn{
+  display:none !important;
+}
+@media (max-width:768px){
+  .coincidence-kpi{grid-template-columns:1fr 1fr;}
+}
+
+
+/* V14.3：移除舊入口殘留 */
+#goMemoryDbBtn,
+.memory-db-card,
+.caishen-record-wrap,
+.caishen-review-wrap,
+.caishen-growth-box,
+.caishen-battle-analysis,
+#caishenBattleAnalysis,
+#caishenRecordWrap,
+#caishenReviewWrap,
+#caishenGrowthBox {
+  display:none !important;
+}
+
+/* V14.3：徹底收起舊入口殘留 */
+#goMemoryDbBtn,
+#goManualBtn,
+.memory-db-card,
+.caishen-growth-box,
+.caishen-record-wrap,
+.caishen-review-wrap,
+.caishen-battle-analysis,
+[id*="caishen" i][id*="battle" i],
+[class*="caishen" i][class*="battle" i],
+[id*="MemoryDb"],
+[class*="memory-db"] { display:none !important; visibility:hidden !important; height:0 !important; overflow:hidden !important; }
+
+/* V14.3：巧合牌改為預設收合，雙柱優先 */
+.coincidence-box{
+  padding:0 !important;
+  overflow:hidden;
+}
+.coincidence-box > summary{
+  list-style:none;
+  cursor:pointer;
+  padding:12px;
+  user-select:none;
+}
+.coincidence-box > summary::-webkit-details-marker{ display:none; }
+.coincidence-summary-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.coincidence-summary-title{
+  font-weight:900;
+  color:#e9d5ff;
+  font-size:17px;
+}
+.coincidence-summary-note{
+  color:#cbd5e1;
+  font-size:12px;
+  line-height:1.5;
+  margin-top:4px;
+}
+.coincidence-summary-toggle{
+  color:#7dd3fc;
+  font-weight:900;
+  font-size:13px;
+}
+.coincidence-box[open] .coincidence-summary-toggle::after{ content:"收起"; }
+.coincidence-box:not([open]) .coincidence-summary-toggle::after{ content:"展開"; }
+.coincidence-body{
+  padding:0 12px 12px;
+  border-top:1px solid rgba(168,85,247,.30);
+}
+.coincidence-track-box{
+  margin-top:10px;
+  border:1px solid rgba(56,189,248,.38);
+  border-radius:12px;
+  background:rgba(2,6,23,.64);
+  overflow:hidden;
+}
+.coincidence-track-box > summary{
+  list-style:none;
+  cursor:pointer;
+  padding:10px 12px;
+  color:#7dd3fc;
+  font-weight:900;
+  user-select:none;
+}
+.coincidence-track-box > summary::-webkit-details-marker{ display:none; }
+.coincidence-track-body{
+  padding:10px 12px;
+  border-top:1px solid rgba(56,189,248,.25);
+  color:#cbd5e1;
+  font-size:13px;
+  line-height:1.65;
+}
+.coincidence-track-row{
+  border-top:1px solid rgba(51,65,85,.75);
+  padding-top:7px;
+  margin-top:7px;
+}
+.coincidence-track-row:first-child{ border-top:none; padding-top:0; margin-top:0; }
+
 </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜校正類型真分流版</div>
+    <div class="title">吸金穩贏 APP｜V14.3 雙柱優先＋巧合收合版</div>
     <div class="sub">
-      主畫面改成每日兩組出戰：一組主力高過關，一組輔助低重疊。<br>
-      <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；本版只簡化畫面與出戰邏輯，不破壞原資料。
+      主畫面維持「天選雙柱優先」：按下後先看雙柱結果；巧合密碼牌改為手動展開，不影響雙柱生成。<br>
+      <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；V14.3 只調整顯示流程：雙柱優先、巧合收合、舊入口清除，不破壞原資料。
     </div>
 
     <div class="card weekly-calc-card">
@@ -1416,9 +1555,9 @@
         <div class="daily-agent-box clean-two-box">
           <div class="daily-agent-head">
             <div class="daily-agent-title clean-title">今日天選雙柱</div>
-            <button class="btn btn-danger" id="dailyAgentBtn" type="button" style="display:none;">啟動財神今日代理</button>
+            
           </div>
-          <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」生成；自我校正後會自動套用最高分性格；也可在工具區手動切換類型。</div>
+          <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」生成；結果會先顯示雙柱，獨支巧合牌想看時再手動展開。</div>
         </div>
 <div class="small-note">
           規則說明：<br>
@@ -1527,6 +1666,13 @@
 
 <script>
 (() => {
+  function hideV14RemovedLegacyBlocks(){
+    try {
+      const selectors = ['#goMemoryDbBtn','#goManualBtn','#memoryDbWrap','.memory-db-card','.caishen-growth-box','.caishen-record-wrap','.caishen-review-wrap','.caishen-battle-analysis','[id*="MemoryDb"]','[class*="memory-db"]'];
+      document.querySelectorAll(selectors.join(',')).forEach(el => { el.style.setProperty('display','none','important'); el.remove(); });
+    } catch(e) {}
+  }
+  setInterval(hideV14RemovedLegacyBlocks, 1200);
   const drawInput = document.getElementById('drawInput');
   const noDrawInput = document.getElementById('noDrawInput');
   const candidateInput = document.getElementById('candidateInput');
@@ -2248,7 +2394,7 @@
   }
 
   function getRecommendTopThreeForBattle(){
-    // 手動移入區已移除：出戰來源固定取目前天選雙柱 / 最終推薦結果。
+    // 手動移入區已移除：天選來源固定取目前天選雙柱 / 最終推薦結果。
     if (Array.isArray(lastRecommended) && lastRecommended.length) {
       const internal = lastRecommended
         .filter(item => item && Array.isArray(item.groups) && item.groups.length === 3)
@@ -2732,11 +2878,11 @@
         memory.todayBattles[battleGameMode] = battleData;
         memory.todayBattle = battleData;
         memory.lastLog =
-`今日出戰已建立
+`今日天選已建立
 來源：最終推薦區最上方三組
 彩種：${memory.todayBattle.gameName}
-出戰當下最新開獎：${memory.todayBattle.latestDrawAtSave || '未讀取'}
-出戰數量：${top3.length} 組
+建立當下最新開獎：${memory.todayBattle.latestDrawAtSave || '未讀取'}
+天選數量：${top3.length} 組
 
 ${top3.map(g => `第${g.index}組【${g.typeName || caishenTypeCodeToName(g.type)}】：${g.groups && g.groups.length === 3 ? '已保存完整三柱' : '未保存完整三柱'}｜來源：${g.source || '未知'}${(g.type || 'unknown') === 'unknown' ? '｜⚠️未識別類型，不納入類型權重' : ''}\n${g.text.slice(0,220)}${g.text.length>220?'...':''}`).join('\n\n')}
 
@@ -2748,7 +2894,7 @@ ${top3.map(g => `第${g.index}組【${g.typeName || caishenTypeCodeToName(g.type
         saveCaishenGrowthMemory(memory);
         updateCaishenGrowthLog(memory.lastLog);
         caishenRenderGrowthStats();
-        alert('已設為今日出戰');
+        alert('已建立今日天選');
       };
     }
 
@@ -2759,13 +2905,13 @@ ${top3.map(g => `第${g.index}組【${g.typeName || caishenTypeCodeToName(g.type
         const currentGameName = getCurrentGameModeNameForGrowth();
         const battleForCurrentGame = (memory.todayBattles && memory.todayBattles[currentGame]) || (memory.todayBattle && (memory.todayBattle.gameMode || '539') === currentGame ? memory.todayBattle : null);
         if (!battleForCurrentGame) {
-          alert(`尚未建立 ${currentGameName} 今日出戰`);
+          alert(`尚未建立 ${currentGameName} 今日天選`);
           return;
         }
         memory.todayBattle = battleForCurrentGame;
         const savedGame = memory.todayBattle.gameMode || currentGame;
         if (savedGame !== currentGame) {
-          const ok = confirm(`今日出戰彩種是 ${memory.todayBattle.gameName || savedGame}，但目前彩種是 ${currentGameName}。\n\n若直接結算，可能會把 539 / 天天樂資料混在一起。\n\n仍要繼續結算嗎？`);
+          const ok = confirm(`今日天選彩種是 ${memory.todayBattle.gameName || savedGame}，但目前彩種是 ${currentGameName}。\n\n若直接結算，可能會把 539 / 天天樂資料混在一起。\n\n仍要繼續結算嗎？`);
           if (!ok) return;
         }
 
@@ -2773,7 +2919,7 @@ ${top3.map(g => `第${g.index}組【${g.typeName || caishenTypeCodeToName(g.type
         const latestKey = latest.length ? latest.map(pad2).join(' ') : '';
         const savedLatest = memory.todayBattle.latestDrawAtSave || '';
         if (savedLatest && latestKey && savedLatest === latestKey) {
-          const ok = confirm(`目前最新開獎號碼與「設為今日出戰」時相同：${latestKey}\n\n如果你還沒輸入下一期開獎結果，現在結算會把舊資料拿來檢討。\n\n確定要繼續嗎？`);
+          const ok = confirm(`目前最新開獎號碼與「建立今日天選」時相同：${latestKey}\n\n如果你還沒輸入下一期開獎結果，現在結算會把舊資料拿來檢討。\n\n確定要繼續嗎？`);
           if (!ok) return;
         }
 
@@ -2826,7 +2972,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 最新開獎：${latest.length ? latest.map(pad2).join(' ') : '尚未讀取到最新開獎'}
 
 已保存：
-- 今日出戰三組
+- 今日天選三組
 - 最新開獎號碼
 - 各組過/倒分布
 - 等待財神檢討進行權重修正`;
@@ -6848,7 +6994,6 @@ ${settleRecord.analysisLines.join('\n')}`;
                 <span class="tag-hot">手動第 ${idx + 1} 組｜${item.sourceLabel || sourceTypeLabel(item.sourceType)}${item.sourceType === 'memory' ? '' : ` 第 ${Number(item.sourceIndex) + 1} 組`}${(manualActiveIndexes || []).includes(idx) ? '｜目前分析中' : ''}</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <button class="btn btn-secondary single-copy-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">複製這組</button>
-                  <button class="btn btn-danger battle-memory-btn" data-copy-type="manual" data-copy-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">出戰</button>
                   <button class="btn btn-dark move-manual-up-btn" data-manual-index="${idx}" ${idx === 0 ? 'disabled' : ''} style="padding:6px 10px; font-size:13px; width:auto;">順序上調</button>
                   <button class="btn btn-dark remove-manual-recommend-btn" data-manual-index="${idx}" style="padding:6px 10px; font-size:13px; width:auto;">移除</button>
                 </div>
@@ -7724,6 +7869,350 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
+
+  let lastCoincidenceResults = [];
+
+  function coincidenceBaseline(draws) {
+    const pick = getDrawPickCount();
+    const max = getBallMax();
+    return pick / Math.max(1, max);
+  }
+
+  function coincidenceEnsure(map, n) {
+    if (!map[n]) map[n] = { n:Number(n), score:0, reasons:[], hits:0, triggers:0 };
+    return map[n];
+  }
+
+  function coincidenceAdd(map, n, points, reason, hits, triggers) {
+    n = Number(n);
+    if (!Number.isFinite(n) || n < 1 || n > getBallMax()) return;
+    if (!points || points <= 0) return;
+    const item = coincidenceEnsure(map, n);
+    const tagMatch = String(reason || '').match(/coincidence-tag\">([^<]+)/);
+    const type = tagMatch ? tagMatch[1] : '其他';
+    if (!item.typeScores) item.typeScores = {};
+    if (!item.typeCounts) item.typeCounts = {};
+
+    // 避免畫面被「延遲 +1」洗版：延遲訊號仍採用，但單號延遲分數封頂；+1 期再降權。
+    let effectivePoints = Number(points) || 0;
+    if (type === '延遲') {
+      const used = item.typeScores[type] || 0;
+      const cap = 8;
+      effectivePoints = Math.max(0, Math.min(effectivePoints, cap - used));
+    }
+    if (effectivePoints <= 0 && type === '延遲') {
+      if (reason) item.reasons.push({ html: reason, type, pts: 0 });
+      return;
+    }
+
+    item.typeScores[type] = (item.typeScores[type] || 0) + effectivePoints;
+    item.typeCounts[type] = (item.typeCounts[type] || 0) + 1;
+    item.score += effectivePoints;
+    item.hits += Number(hits) || 0;
+    item.triggers += Number(triggers) || 0;
+    if (reason) item.reasons.push({ html: reason, type, pts: effectivePoints });
+  }
+
+  function coincidenceRateBonus(rate, baseline, weight, minBoost = 0) {
+    if (!Number.isFinite(rate) || rate <= baseline) return 0;
+    const lift = rate / Math.max(0.0001, baseline);
+    return Math.max(0, (rate - baseline) * weight + Math.max(0, lift - 1) * minBoost);
+  }
+
+  function buildCoincidencePredictions(draws, topN = 10) {
+    const list = (draws && draws.length ? draws : getBacktestDraws()).filter(d => Array.isArray(d) && d.length).map(d => [...new Set(d.map(Number).filter(n => n >= 1 && n <= getBallMax()))]);
+    const nums = ballRange();
+    const resultMap = {};
+    const baseline = coincidenceBaseline(list);
+    if (list.length < 12) return { ranking: [], summary: { drawCount: list.length, baseline } };
+
+    const latest = list[0] || [];
+    const latestSet = new Set(latest);
+
+    // 1. 延遲關聯：若 lag-1 期前出現 A，統計 A 經過 lag 期後帶出 B。
+    const maxLag = Math.min(8, list.length - 2);
+    for (let lag = 1; lag <= maxLag; lag++) {
+      const triggerDraw = list[lag - 1] || [];
+      if (!triggerDraw.length) continue;
+      triggerDraw.forEach(a => {
+        const triggers = [];
+        for (let i = lag; i < list.length; i++) {
+          if ((list[i] || []).includes(a)) triggers.push(i);
+        }
+        if (triggers.length < 3) return;
+        nums.forEach(b => {
+          let hits = 0;
+          triggers.forEach(i => { if ((list[i - lag] || []).includes(b)) hits++; });
+          if (hits < 2) return;
+          const rate = hits / triggers.length;
+          const lagWeight = lag === 1 ? 0.18 : (lag === 2 ? 0.52 : 0.86);
+          const pts = coincidenceRateBonus(rate, baseline, 38, 4) * Math.min(1.10, Math.log(triggers.length + 1) / 2.35) * lagWeight;
+          if (pts >= 3.2) {
+            coincidenceAdd(resultMap, b, pts, `<span class="coincidence-tag">延遲</span>${pad2(a)} → +${lag}期 → ${pad2(b)}，歷史命中 ${hits}/${triggers.length}（${(rate*100).toFixed(1)}%）`, hits, triggers.length);
+          }
+        });
+      });
+    }
+
+    // 2. 雙條件關聯：最新一期任兩支 A+B，統計下一期帶出 C。
+    if (latest.length >= 2) {
+      for (let x = 0; x < latest.length - 1; x++) {
+        for (let y = x + 1; y < latest.length; y++) {
+          const a = latest[x], b = latest[y];
+          const triggers = [];
+          for (let i = 1; i < list.length; i++) {
+            const d = list[i] || [];
+            if (d.includes(a) && d.includes(b)) triggers.push(i);
+          }
+          if (triggers.length < 2) continue;
+          nums.forEach(c => {
+            let hits = 0;
+            triggers.forEach(i => { if ((list[i - 1] || []).includes(c)) hits++; });
+            if (hits < 1) return;
+            const rate = hits / triggers.length;
+            const pts = coincidenceRateBonus(rate, baseline, 92, 12) * Math.min(1.20, Math.log(triggers.length + 1) / 1.7);
+            if (pts >= 3.0) {
+              coincidenceAdd(resultMap, c, pts, `<span class="coincidence-tag">雙條件</span>${pad2(a)}+${pad2(b)} 出現後下一期帶 ${pad2(c)}，歷史命中 ${hits}/${triggers.length}（${(rate*100).toFixed(1)}%）`, hits, triggers.length);
+            }
+          });
+        }
+      }
+    }
+
+    // 3. 轉移矩陣：最新任一號 A，統計 A 出現後下一期 B。
+    latest.forEach(a => {
+      const triggers = [];
+      for (let i = 1; i < list.length; i++) if ((list[i] || []).includes(a)) triggers.push(i);
+      if (triggers.length < 3) return;
+      nums.forEach(b => {
+        let hits = 0;
+        triggers.forEach(i => { if ((list[i - 1] || []).includes(b)) hits++; });
+        if (hits < 2) return;
+        const rate = hits / triggers.length;
+        const pts = coincidenceRateBonus(rate, baseline, 68, 8) * Math.min(1.18, Math.log(triggers.length + 1) / 2.0);
+        if (pts >= 2.8) {
+          coincidenceAdd(resultMap, b, pts, `<span class="coincidence-tag">轉移</span>最新 ${pad2(a)} 出現後，下一期 ${pad2(b)} 歷史命中 ${hits}/${triggers.length}（${(rate*100).toFixed(1)}%）`, hits, triggers.length);
+        }
+      });
+    });
+
+    // 4. 共生牌：最新任一號 A，找歷史同一期最常伴生 B。
+    latest.forEach(a => {
+      const triggers = [];
+      for (let i = 1; i < list.length; i++) if ((list[i] || []).includes(a)) triggers.push(i);
+      if (triggers.length < 4) return;
+      nums.forEach(b => {
+        if (b === a) return;
+        let hits = 0;
+        triggers.forEach(i => { if ((list[i] || []).includes(b)) hits++; });
+        if (hits < 2) return;
+        const rate = hits / triggers.length;
+        const pts = coincidenceRateBonus(rate, baseline, 56, 7) * 1.05;
+        if (pts >= 2.4) {
+          coincidenceAdd(resultMap, b, pts, `<span class="coincidence-tag">共生</span>${pad2(a)} 的伴侶牌 ${pad2(b)}，同開 ${hits}/${triggers.length}（${(rate*100).toFixed(1)}%）`, hits, triggers.length);
+        }
+      });
+    });
+
+    // 5. 熱度異常：近10/30/全部同向升溫。
+    const total = Math.max(1, list.length);
+    nums.forEach(n => {
+      const allHits = list.filter(d => d.includes(n)).length;
+      const r10Hits = list.slice(0, Math.min(10, total)).filter(d => d.includes(n)).length;
+      const r30Hits = list.slice(0, Math.min(30, total)).filter(d => d.includes(n)).length;
+      const allRate = allHits / total;
+      const r10Rate = r10Hits / Math.max(1, Math.min(10, total));
+      const r30Rate = r30Hits / Math.max(1, Math.min(30, total));
+      const hotLift = (r10Rate - allRate) * 32 + (r30Rate - allRate) * 20;
+      const continuity = (r10Hits >= 2 ? 2.5 : 0) + (r30Hits >= Math.max(4, Math.floor(30 * baseline * 1.05)) ? 2.0 : 0);
+      const pts = Math.max(0, hotLift + continuity);
+      if (pts >= 3.0) {
+        coincidenceAdd(resultMap, n, pts, `<span class="coincidence-tag">熱異常</span>${pad2(n)} 近10期 ${r10Hits} 次、近30期 ${r30Hits} 次，高於自身長期 ${(allRate*100).toFixed(1)}%`, r10Hits + r30Hits, Math.min(40, total));
+      }
+    });
+
+    let ranking = Object.values(resultMap).map(item => {
+      const typeCount = Object.keys(item.typeScores || {}).filter(k => (item.typeScores[k] || 0) > 0).length;
+      const nonDelayScore = Object.entries(item.typeScores || {}).filter(([k]) => k !== '延遲').reduce((sum, [,v]) => sum + v, 0);
+      const reasonBoost = Math.min(14, Math.max(0, typeCount - 1) * 5.2);
+      const diversityBoost = nonDelayScore > 0 ? Math.min(10, nonDelayScore * 0.18) : -4.0;
+      const trustPenalty = item.triggers && item.triggers < 5 ? 3.5 : 0;
+      const latestPenalty = latestSet.has(item.n) ? 2.2 : 0;
+      const finalScore = Math.max(0, item.score + reasonBoost + diversityBoost - trustPenalty - latestPenalty);
+      return { ...item, finalScore, typeCount, nonDelayScore };
+    }).sort((a,b)=>b.finalScore-a.finalScore || b.typeCount-a.typeCount || b.nonDelayScore-a.nonDelayScore || a.n-b.n);
+
+    ranking = ranking.slice(0, topN);
+    return { ranking, summary: { drawCount: list.length, baseline, latest: latest.slice(), maxLag, totalRules: Object.values(resultMap).reduce((sum,x)=>sum+(x.reasons?x.reasons.length:0),0) } };
+  }
+
+  function coincidenceReasonHtmlList(reasons, limit = 4) {
+    const list = (reasons || []).map(r => {
+      if (typeof r === 'string') return { html:r, type:(r.match(/coincidence-tag\">([^<]+)/)||[])[1] || '其他', pts:0 };
+      return r || { html:'', type:'其他', pts:0 };
+    }).filter(r => r.html);
+    const priority = { '雙條件': 1, '轉移': 2, '共生': 3, '熱異常': 4, '延遲': 5, '其他': 9 };
+    list.sort((a,b) => (priority[a.type] || 9) - (priority[b.type] || 9) || (b.pts || 0) - (a.pts || 0));
+    const picked = [];
+    const used = {};
+    for (const r of list) {
+      if (picked.length >= limit) break;
+      if (used[r.type]) continue;
+      picked.push(r); used[r.type] = 1;
+    }
+    for (const r of list) {
+      if (picked.length >= limit) break;
+      if (picked.includes(r)) continue;
+      if (r.type === '延遲' && picked.filter(x => x.type === '延遲').length >= 2) continue;
+      picked.push(r);
+    }
+    return picked.map(r => `<div class="coincidence-reason">${r.html}</div>`).join('');
+  }
+
+  function coincidenceDisplayScores(ranking) {
+    const arr = ranking || [];
+    if (!arr.length) return new Map();
+    const vals = arr.map(x => Number(x.finalScore) || 0);
+    const max = Math.max(...vals);
+    const min = Math.min(...vals);
+    const out = new Map();
+    arr.forEach((item, idx) => {
+      const raw = Number(item.finalScore) || 0;
+      let score;
+      if (max <= 0) score = Math.max(35, 70 - idx * 3);
+      else if (Math.abs(max - min) < 0.0001) score = Math.max(55, 88 - idx * 3);
+      else score = 58 + ((raw - min) / (max - min)) * 36;
+      const typeCount = Number(item.typeCount) || 0;
+      if (typeCount >= 3) score += 2;
+      if ((item.nonDelayScore || 0) <= 0) score -= 8;
+      score = Math.max(35, Math.min(96, Math.round(score)));
+      out.set(Number(item.n), score);
+    });
+    return out;
+  }
+
+  function coincidenceTypeSummary(item) {
+    const scores = item && item.typeScores ? item.typeScores : {};
+    const order = ['雙條件','轉移','共生','熱異常','延遲'];
+    const parts = order.filter(k => (scores[k] || 0) > 0).map(k => k);
+    return parts.length ? `來源：${parts.join('＋')}` : '來源：綜合訊號';
+  }
+
+  function buildCoincidenceHitTrackingHTML(draws) {
+    const list = (draws || getBacktestDraws() || []).filter(Boolean);
+    const minimumHistory = Math.min(80, Math.max(50, Math.floor(list.length * 0.45)));
+    const rows = [];
+    const maxCheck = Math.min(30, Math.max(0, list.length - minimumHistory - 1));
+    for (let i = 0; i < maxCheck; i++) {
+      const target = list[i] || [];
+      const history = list.slice(i + 1);
+      if (history.length < minimumHistory) break;
+      let pred = [];
+      try {
+        const pack = buildCoincidencePredictions(history, 10);
+        pred = ((pack && pack.ranking) || []).slice(0, 10).map(x => Number(x.n)).filter(Boolean);
+      } catch(e) { pred = []; }
+      if (!pred.length) continue;
+      const targetSet = new Set(target.map(Number));
+      const hits = pred.filter(n => targetSet.has(Number(n)));
+      rows.push({ idx:i + 1, pred, draw:target, hits });
+    }
+    if (!rows.length) {
+      return `<details class="coincidence-track-box">
+        <summary>巧合命中追蹤（手動展開）</summary>
+        <div class="coincidence-track-body">目前資料量不足，暫時無法做近30期回放追蹤；等資料庫累積更多期數後會自動顯示。</div>
+      </details>`;
+    }
+    const avg = rows.reduce((s,r)=>s + r.hits.length, 0) / rows.length;
+    const last = rows[0];
+    const lastLine = `最近一期回放：推薦 ${last.pred.map(pad2).join(' ')}；實開 ${last.draw.map(pad2).join(' ')}；命中 ${last.hits.length} 支${last.hits.length ? '（' + last.hits.map(pad2).join(' ') + '）' : ''}`;
+    return `<details class="coincidence-track-box">
+      <summary>巧合命中追蹤（手動展開）</summary>
+      <div class="coincidence-track-body">
+        <div><b>${lastLine}</b></div>
+        <div>近${rows.length}期回放平均命中：<b>${avg.toFixed(2)} 支 / TOP10</b>。這裡只做驗證，不介入天選雙柱權重。</div>
+        ${rows.slice(0, 8).map(r => `<div class="coincidence-track-row">第${r.idx}期回放｜命中 <b>${r.hits.length}</b> 支　${r.hits.length ? r.hits.map(pad2).join(' ') : '未命中'}<br><span style="color:#94a3b8;">推薦：${r.pred.map(pad2).join(' ')}｜實開：${r.draw.map(pad2).join(' ')}</span></div>`).join('')}
+      </div>
+    </details>`;
+  }
+
+  function buildCoincidenceHTML(data, drawsForTrack) {
+    const ranking = (data && data.ranking) || [];
+    const summary = (data && data.summary) || {};
+    if (!ranking.length) {
+      return `<details class="coincidence-box" id="coincidenceBox">
+        <summary>
+          <div class="coincidence-summary-row">
+            <div>
+              <div class="coincidence-summary-title">巧合密碼牌｜獨支排行榜</div>
+              <div class="coincidence-summary-note">預設收合，不影響天選雙柱；資料不足時可先略過。</div>
+            </div>
+            <div class="coincidence-summary-toggle"></div>
+          </div>
+        </summary>
+        <div class="coincidence-body">
+          <div class="coincidence-empty">資料或觸發條件不足，暫時抓不到可用巧合。建議至少累積 80～100 期後再看這區。</div>
+          ${buildCoincidenceHitTrackingHTML(drawsForTrack || getBacktestDraws())}
+        </div>
+      </details>`;
+    }
+    const topNums = ranking.slice(0, 10).map(x => pad2(x.n)).join(' ');
+    return `<details class="coincidence-box" id="coincidenceBox">
+      <summary>
+        <div class="coincidence-summary-row">
+          <div>
+            <div class="coincidence-summary-title">巧合密碼牌｜獨支排行榜</div>
+            <div class="coincidence-summary-note">TOP10：<b>${topNums}</b>。想玩獨支時再展開；目前不介入雙柱生成。</div>
+          </div>
+          <div class="coincidence-summary-toggle"></div>
+        </div>
+      </summary>
+      <div class="coincidence-body">
+        <div class="coincidence-head">
+          <div class="coincidence-title">今日巧合密碼牌｜獨支排行榜</div>
+          <button class="btn btn-secondary coincidence-copy" data-copy-coincidence="top" type="button">複製TOP10</button>
+        </div>
+        <div class="coincidence-meta">只看獨支號碼，不看碰數循環。來源：延遲關聯、雙條件、共生牌、轉移矩陣、熱度異常；V14.3 維持獨立觀察，不污染天選雙柱。TOP10：<b>${topNums}</b></div>
+        <div class="coincidence-kpi">
+          <div>參考期數<b>${summary.drawCount || 0}</b></div>
+          <div>基準機率<b>${(((summary.baseline || 0) * 100)).toFixed(1)}%</b></div>
+          <div>延遲掃描<b>+1~+${summary.maxLag || 0}</b></div>
+          <div>觸發規則<b>${summary.totalRules || 0}</b></div>
+          <div>最新期<b>${((summary.latest || []).map(pad2).join(' ') || '-')}</b></div>
+        </div>
+        <div class="coincidence-list">
+          ${(() => {
+            const scoreMap = coincidenceDisplayScores(ranking);
+            return ranking.map((item, idx) => {
+              const score = scoreMap.get(Number(item.n)) || Math.max(35, 88 - idx * 3);
+              const reasons = coincidenceReasonHtmlList(item.reasons, 5);
+              const sourceLine = coincidenceTypeSummary(item);
+              return `<div class="coincidence-item">
+                <div class="coincidence-item-top">
+                  <div><span class="coincidence-num">#${idx + 1}　${pad2(item.n)}</span> <span class="coincidence-score">巧合分數 ${score}</span><div class="coincidence-meta" style="margin-top:2px;">${sourceLine}</div></div>
+                  <button class="btn btn-secondary coincidence-copy" data-copy-coincidence="${item.n}" type="button">複製</button>
+                </div>
+                <div class="coincidence-reasons">${reasons || '此號碼由綜合分數入選。'}</div>
+              </div>`;
+            }).join('');
+          })()}
+        </div>
+        <div class="coincidence-meta">提醒：這是把歷史巧合轉成候選訊號，不保證預測；重點是每天能看見「為什麼選它」，之後也方便回測淘汰失效規則。</div>
+        ${buildCoincidenceHitTrackingHTML(drawsForTrack || getBacktestDraws())}
+      </div>
+    </details>`;
+  }
+
+  function renderCoincidenceIntoDailyResult(draws) {
+    if (!dailyAgentResult) return;
+    const old = document.getElementById('coincidenceBox');
+    if (old) old.remove();
+    const data = buildCoincidencePredictions(draws || getBacktestDraws(), 10);
+    lastCoincidenceResults = data.ranking || [];
+    dailyAgentResult.insertAdjacentHTML('beforeend', buildCoincidenceHTML(data, draws || getBacktestDraws()));
+    try { log(`巧合密碼牌完成：產生 ${lastCoincidenceResults.length} 支候選，觸發規則 ${data.summary.totalRules || 0} 條。`); } catch(e) {}
+  }
+
   let lastLucky5Results = [];
 
   function comboPassPatternForItem(groups, combo) {
@@ -7920,10 +8409,11 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>單過單倒率<br><b>${((pairPack.weightedStats || pairStats).onePassRate * 100).toFixed(2)}%</b></div>
         <div>同柱共識 / 搬柱比例<br><b>${pairPack.samePillarShared || 0} / ${(((pairPack.maxMoveRatio || 0) * 100).toFixed(0))}%</b></div>
       </div>
-      ${buildRecent10DailyPairHistoryHTML(items, draws || getBacktestDraws())}
       <div class="clean-two-grid">
         ${items.map((item, idx) => buildDailyTwoCardHTML(item, idx, items)).join('')}
       </div>
+      ${buildRecent10DailyPairHistoryHTML(items, draws || getBacktestDraws())}
+      ${buildCoincidenceHTML(buildCoincidencePredictions(draws || getBacktestDraws(), 10), draws || getBacktestDraws())}
       <div class="small-note">天選雙柱模式：539維持互補；天天樂已修正為真正多核心：自我校正逐一回放時會鎖定單一性格，不再全部套同一個多核心結果；沒有校正選用時才把同步、防穿透、高爆發、反轉、極端各自候選混合比對；已有校正選用時會鎖定該性格。</div>`;
   }
 
@@ -9218,7 +9708,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       return await caishenPickDaydayProfileSpecificPair(merged, draws);
     }
 
-    // 一般出戰：直接挑「雙過率高、雙倒率低、單倒率低」的最佳兩組配對。
+    // 一般天選：直接挑「雙過率高、雙倒率低、單倒率低」的最佳兩組配對。
     return await caishenPickBestPairByJointStats(merged, draws);
   }
 
@@ -10027,6 +10517,11 @@ ${settleRecord.analysisLines.join('\n')}`;
       // 重要：實戰近10期只能讀取「當期開獎前已實際生成並保存的預測快照」。
       // 不再用目前雙柱，也不再用歷史重建/補算去冒充實戰。
       renderDailyTwoResult(lastDailyTwo, draws);
+      try {
+        const cData = buildCoincidencePredictions(draws, 10);
+        lastCoincidenceResults = cData.ranking || [];
+        log(`巧合密碼牌完成：產生 ${lastCoincidenceResults.length} 支候選，觸發規則 ${cData.summary.totalRules || 0} 條。`);
+      } catch (cErr) { console.warn('coincidence skipped', cErr); }
       lastLucky5Results = [];
       try {
         const oldLuckyBox = document.getElementById('lucky5Box');
@@ -10133,6 +10628,22 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (manualBox.parentNode) manualBox.parentNode.removeChild(manualBox);
     }, 15000);
   }
+
+
+  document.addEventListener('click', async (event) => {
+    const cBtn = event.target.closest && event.target.closest('[data-copy-coincidence]');
+    if (!cBtn) return;
+    const raw = cBtn.getAttribute('data-copy-coincidence');
+    if (raw === 'top') {
+      const text = (lastCoincidenceResults || []).slice(0, 10).map(x => pad2(x.n)).join(',');
+      if (!text) return alert('目前沒有巧合密碼牌可複製。');
+      await copyTextSmart(text, '巧合密碼牌 TOP10 已複製');
+      return;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    await copyTextSmart(pad2(n), `巧合密碼牌 ${pad2(n)} 已複製`);
+  });
 
   function getItemByCopyType(copyType) {
     if (copyType === 'ai') return lastAI || [];
@@ -10544,14 +11055,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
           <div>
             <div class="section-title" style="margin-bottom:4px;">天天樂 / 539 財神立柱記憶資料庫</div>
-            <div class="db-mini">539 與天天樂分開保存；v60 輕量模式只保存三柱號碼與出戰狀態，回測結果顯示時即時計算，避免瀏覽器儲存空間不足。</div>
+            <div class="db-mini">539 與天天樂分開保存；v60 輕量模式只保存三柱號碼與天選狀態，回測結果顯示時即時計算，避免瀏覽器儲存空間不足。</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-dark" id="toggleMemoryDbBtn" type="button" style="width:auto;padding:8px 12px;">展開</button>
             <button class="btn btn-dark" id="clearMemoryDbBtn" type="button" style="width:auto;padding:8px 12px;">全部刪除</button>
           </div>
         </div>
-        <div class="db-chip" style="margin-top:8px;">目前彩種：<b id="memoryDbGameLabel">-</b>｜記憶筆數：<b id="memoryDbCount">0</b></div><div class="memory-lite-note">輕量保存中：只儲存三柱號碼 / 標題 / 出戰狀態 / 時間；整體過關率、近5期連倒、最新倒過等會直接讀目前彩種資料庫即時計算。</div>
+        <div class="db-chip" style="margin-top:8px;">目前彩種：<b id="memoryDbGameLabel">-</b>｜記憶筆數：<b id="memoryDbCount">0</b></div><div class="memory-lite-note">輕量保存中：只儲存三柱號碼 / 標題 / 天選狀態 / 時間；整體過關率、近5期連倒、最新倒過等會直接讀目前彩種資料庫即時計算。</div>
         <div id="memoryDbBody" style="display:none;margin-top:12px;"></div>`;
       const target=document.querySelector('.results') || document.querySelector('.compare') || document.querySelector('.wrap');
       target.parentNode.insertBefore(wrap,target);
@@ -10760,11 +11271,11 @@ function renderMemoryDb(){
           <div class="recommend-item-head">
             <div>
               <b>${title}</b>
-              ${item.battle?'<span class="badge badge-ai">出戰中</span>':''}
+              ${item.battle?'<span class="badge badge-ai">天選中</span>':''}
               <div class="recommend-meta">${item.time || ''}${item.sourceBacktestLabel ? '｜' + item.sourceBacktestLabel : ''}｜即時回測：${typeof getBacktestLimitLabel === 'function' ? getBacktestLimitLabel() : '目前期數'}</div>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-dark memory-battle-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">出戰</button>
+              <button class="btn btn-dark memory-battle-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">天選</button>
               <button class="btn btn-dark remove-memory-btn" data-memory-id="${item.id}" type="button" style="padding:6px 10px;font-size:13px;width:auto;">刪除</button>
             </div>
           </div>
@@ -10970,7 +11481,7 @@ function moveMemoryItemToManualTop(id, triggerEl=null){
         requestAnimationFrame(restoreViewport);
         setTimeout(restoreViewport, 30);
         setTimeout(restoreViewport, 120);
-        logBox.textContent += `\n已設為出戰並置頂：${title}`;
+        logBox.textContent += `\n已設為天選並置頂：${title}`;
       }
       return;
     }
@@ -11025,7 +11536,6 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 })();
 
 </script>
-<button id="goMemoryDbBtn" type="button">記憶庫</button>
 
 
 
