@@ -1240,6 +1240,74 @@
   display:none !important;
 }
 
+
+/* v14.5 今日適合我的天選個性 */
+.daily-personality-box{
+  margin-top:12px;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid rgba(245,158,11,.55);
+  background:linear-gradient(135deg, rgba(245,158,11,.16), rgba(56,189,248,.10));
+}
+.daily-personality-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.daily-personality-title{
+  color:#fcd34d;
+  font-size:18px;
+  font-weight:900;
+}
+.daily-personality-main{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin:10px 0;
+}
+.daily-personality-chip{
+  background:#020617;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:9px 10px;
+  color:#cbd5e1;
+  font-size:13px;
+  line-height:1.45;
+}
+.daily-personality-chip b{
+  display:block;
+  color:#f8fafc;
+  font-size:17px;
+  margin-top:3px;
+}
+.daily-personality-result{
+  color:#cbd5e1;
+  font-size:13px;
+  line-height:1.65;
+}
+.daily-personality-table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:8px;
+  font-size:12px;
+}
+.daily-personality-table th,.daily-personality-table td{
+  border-bottom:1px solid rgba(51,65,85,.75);
+  padding:6px 4px;
+  text-align:center;
+}
+.daily-personality-table th{ color:#94a3b8; font-weight:800; }
+.daily-personality-best{ color:#86efac; font-weight:900; }
+.daily-personality-avoid{ color:#fca5a5; font-weight:900; }
+.daily-personality-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.daily-personality-actions .btn{ width:auto; padding:8px 11px; font-size:13px; }
+@media (max-width:768px){
+  .daily-personality-main{ grid-template-columns:1fr; }
+}
+
 </style>
 </head>
 <body>
@@ -1394,6 +1462,14 @@
         </div>
         <textarea id="noDrawInput" style="display:none;"></textarea>
         <textarea id="candidateInput" style="display:none;"></textarea>
+
+        <div class="daily-personality-box" id="dailyPersonalityBox">
+          <div class="daily-personality-head">
+            <div class="daily-personality-title">今日適合我的天選個性</div>
+            <button class="btn btn-secondary" id="applyDailyPersonalityBtn" type="button">套用今日推薦</button>
+          </div>
+          <div id="dailyPersonalityResult" class="daily-personality-result">讀取今日命理與資料庫狀態中...</div>
+        </div>
         <div class="clean-action-panel">
           <select id="groupCount" class="btn btn-dark" style="text-align:center; appearance:auto; display:none;">
             <option value="2" selected>每日固定 2 組</option>
@@ -1550,6 +1626,8 @@
   const recommendResult = document.getElementById('recommendResult');
   const dailyAgentBtn = document.getElementById('dailyAgentBtn');
   const dailyAgentResult = document.getElementById('dailyAgentResult');
+  const dailyPersonalityResult = document.getElementById('dailyPersonalityResult');
+  const applyDailyPersonalityBtn = document.getElementById('applyDailyPersonalityBtn');
   const scoreBoardBody = document.getElementById('scoreBoardBody');
   const candidateScoreBoardBody = document.getElementById('candidateScoreBoardBody');
   const antiAnalysisBody = document.getElementById('antiAnalysisBody');
@@ -7261,8 +7339,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
   }
 
-  gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
-  backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
+  gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(() => { caishenRenderSelfTuneProfileSelect(); caishenRenderDailyPersonality(); }, 30); });
+  backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); caishenRenderDailyPersonality(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
   addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); addRecordToDb(nums, newDrawDate.value, currentGameMode(), true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
   copyDbBackupBtn.addEventListener('click', copyDatabaseBackup);
@@ -9728,6 +9806,154 @@ ${settleRecord.analysisLines.join('\n')}`;
     ];
   }
 
+
+  const DAILY_PERSONALITY_BIRTH = { y: 1991, m: 8, d: 1, hourBranch: '丑時', place: '台灣' };
+  let lastDailyPersonalityPick = null;
+
+  function caishenDailyStyleKey(name) {
+    const n = String(name || '');
+    if (n.includes('防穿透') || n.includes('低雙倒') || n.includes('低重疊')) return 'defense';
+    if (n.includes('高爆發') || n.includes('爆發承接') || n.includes('高雙過')) return 'attack';
+    if (n.includes('反轉') || n.includes('觀察')) return 'reverse';
+    if (n.includes('極端') || n.includes('爆擊')) return 'burst';
+    if (n.includes('同步') || n.includes('保命') || n.includes('互補') || n.includes('穩定')) return 'stable';
+    return 'balanced';
+  }
+
+  function caishenDailyStyleLabel(key) {
+    return key === 'defense' ? '防穿透' : key === 'attack' ? '高爆發' : key === 'reverse' ? '反轉觀察' : key === 'burst' ? '極端爆擊' : key === 'stable' ? '穩守保命' : '平衡';
+  }
+
+  function caishenClampScore(v) {
+    return Math.max(1, Math.min(99, Math.round(Number(v) || 0)));
+  }
+
+  function caishenDailyDateEnergy(style, dateObj) {
+    const d = dateObj || new Date();
+    const daySeed = d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
+    const lunarLike = (daySeed + DAILY_PERSONALITY_BIRTH.y + DAILY_PERSONALITY_BIRTH.m * 3 + DAILY_PERSONALITY_BIRTH.d * 7 + 2) % 10;
+    const weekday = d.getDay();
+    const month = d.getMonth() + 1;
+    let score = 72;
+    const styleBias = { stable: 4, defense: 7, attack: -1, reverse: 2, burst: -4, balanced: 3 };
+    score += styleBias[style] || 0;
+    if ([1,2,8,9].includes(lunarLike) && style === 'defense') score += 9;
+    if ([3,4].includes(lunarLike) && style === 'attack') score += 9;
+    if ([5,6].includes(lunarLike) && style === 'reverse') score += 8;
+    if ([7].includes(lunarLike) && style === 'burst') score += 7;
+    if ([0].includes(lunarLike) && style === 'stable') score += 8;
+    if (weekday === 2 || weekday === 5) score += style === 'defense' ? 4 : 0;
+    if (weekday === 0 || weekday === 6) score += style === 'attack' || style === 'burst' ? 4 : 0;
+    if ([2,6,10].includes(month) && style === 'stable') score += 3;
+    if ([3,7,11].includes(month) && style === 'reverse') score += 3;
+    return caishenClampScore(score);
+  }
+
+  function caishenDailyDestinyScore(style) {
+    // 1991/08/01 凌晨約 2 點：辛未年、丑時。這裡只做固定個人權重，不做神化預言。
+    const base = { stable: 86, defense: 90, balanced: 82, reverse: 78, attack: 73, burst: 68 };
+    return base[style] || 76;
+  }
+
+  function caishenDailySavedDataScore(option) {
+    const rawScore = Number(option && option.score);
+    const profit = Number(option && option.profit);
+    const bothFail = Number(option && option.bothFail);
+    const bothPass = Number(option && option.bothPass);
+    const onePass = Number(option && option.onePass);
+    if (!Number.isFinite(rawScore) && !Number.isFinite(profit)) return null;
+    let s = 72;
+    if (Number.isFinite(rawScore)) s += Math.max(-18, Math.min(18, rawScore / 160000));
+    if (Number.isFinite(profit)) s += Math.max(-14, Math.min(14, profit / 35000));
+    if (Number.isFinite(bothPass)) s += Math.min(8, bothPass / 10);
+    if (Number.isFinite(onePass)) s -= Math.min(7, onePass / 12);
+    if (Number.isFinite(bothFail)) s -= Math.min(16, bothFail * 1.6);
+    return caishenClampScore(s);
+  }
+
+  function caishenDailySimpleDataScore(name, draws) {
+    const style = caishenDailyStyleKey(name);
+    const recent = (draws || []).slice(0, Math.min(30, (draws || []).length));
+    if (!recent.length) return style === 'defense' ? 78 : style === 'stable' ? 76 : 70;
+    let odd = 0, high = 0, repeatHot = 0;
+    const freq = {};
+    recent.forEach(dr => (dr || []).forEach(n => { freq[n] = (freq[n] || 0) + 1; }));
+    recent.slice(0, 10).forEach(dr => (dr || []).forEach(n => { if (n % 2) odd++; if (n > (is49Mode() ? 25 : 20)) high++; if ((freq[n] || 0) >= 3) repeatHot++; }));
+    const volatility = Math.abs(odd - high) + repeatHot;
+    let s = 74;
+    if (style === 'defense') s += Math.min(12, volatility / 2);
+    if (style === 'stable') s += Math.max(0, 10 - volatility / 3);
+    if (style === 'attack') s += Math.min(10, repeatHot / 2);
+    if (style === 'reverse') s += volatility > 18 ? 8 : 1;
+    if (style === 'burst') s += repeatHot > 13 ? 9 : -3;
+    return caishenClampScore(s);
+  }
+
+  function caishenBuildDailyPersonalityRanking() {
+    const mode = currentGameMode();
+    const candidates = caishenSelfTuneCandidates();
+    const saved = ((caishenLoadSelfTuneOptions() || {})[mode] || []);
+    const draws = getBacktestDraws();
+    const today = new Date();
+    const ranked = candidates.map(c => {
+      const savedOpt = saved.find(x => x && x.name === c.name);
+      const style = caishenDailyStyleKey(c.name);
+      const dataScore = caishenDailySavedDataScore(savedOpt) || caishenDailySimpleDataScore(c.name, draws);
+      const destinyScore = caishenDailyDestinyScore(style);
+      const dayScore = caishenDailyDateEnergy(style, today);
+      const total = caishenClampScore(dataScore * 0.70 + destinyScore * 0.20 + dayScore * 0.10);
+      return { ...c, style, styleLabel: caishenDailyStyleLabel(style), dataScore, destinyScore, dayScore, total, savedOpt };
+    }).sort((a,b)=>b.total-a.total || b.dataScore-a.dataScore || a.name.localeCompare(b.name));
+    return ranked;
+  }
+
+  function caishenRenderDailyPersonality() {
+    if (!dailyPersonalityResult) return;
+    let ranked = [];
+    try { ranked = caishenBuildDailyPersonalityRanking(); } catch (e) { console.warn('daily personality skipped', e); }
+    if (!ranked.length) {
+      dailyPersonalityResult.innerHTML = '<span class="bad">今日個性讀取失敗，仍可直接按天選雙柱。</span>';
+      return;
+    }
+    lastDailyPersonalityPick = ranked[0];
+    const second = ranked[1] || ranked[0];
+    const avoid = ranked[ranked.length - 1] || ranked[0];
+    const todayText = `${new Date().getMonth()+1}/${new Date().getDate()}`;
+    const rows = ranked.map((r, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td class="${idx === 0 ? 'daily-personality-best' : (idx === ranked.length - 1 ? 'daily-personality-avoid' : '')}">${escapeHtml(r.name)}</td>
+        <td>${r.total}</td><td>${r.dataScore}</td><td>${r.destinyScore}</td><td>${r.dayScore}</td>
+      </tr>`).join('');
+    dailyPersonalityResult.innerHTML = `
+      <div class="daily-personality-main">
+        <div class="daily-personality-chip">今日主推<b>${escapeHtml(ranked[0].name)}｜${ranked[0].total}分</b></div>
+        <div class="daily-personality-chip">備用個性<b>${escapeHtml(second.name)}｜${second.total}分</b></div>
+        <div class="daily-personality-chip">今日避開<b>${escapeHtml(avoid.name)}｜${avoid.total}分</b></div>
+      </div>
+      <div>命理基準：1991/08/01 丑時、台灣出生。今日 ${todayText} 採 <b>資料庫70%＋個人命理20%＋當日能量10%</b>，主推偏向「${escapeHtml(ranked[0].styleLabel)}」。</div>
+      <table class="daily-personality-table"><thead><tr><th>名次</th><th>個性</th><th>總分</th><th>資料</th><th>命理</th><th>今日</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="small-note">按「套用今日推薦」會先切換校正類型，再按天選雙柱生成；不會刪除你的資料庫。</div>
+    `;
+  }
+
+  function caishenApplyDailyPersonality() {
+    const ranked = caishenBuildDailyPersonalityRanking();
+    const pick = ranked[0];
+    if (!pick) return;
+    if (selfTuneProfileSelect) {
+      caishenRenderSelfTuneProfileSelect();
+      const exists = Array.from(selfTuneProfileSelect.options || []).some(o => o.value === pick.name);
+      if (!exists) caishenRenderSelfTuneProfileSelect();
+      selfTuneProfileSelect.value = pick.name;
+    }
+    caishenPersistProfileOption(currentGameMode(), pick.savedOpt || pick, true);
+    caishenRenderSelfTuneProfileSelect();
+    if (dailyAgentResult) dailyAgentResult.innerHTML = `已套用今日推薦：<b>${escapeHtml(pick.name)}</b><br><span class="small-note">分數 ${pick.total}；現在可直接按「天選雙柱」，或本按鈕會替你啟動。</span>`;
+    try { log(`今日適合我的天選個性：已套用 ${pick.name}，總分${pick.total}。`); } catch (e) {}
+    if (runBtn && !runBtn.disabled) runDailyTwoGroups();
+  }
+
   function caishenProfitForComboLabel(label) {
     const cost = 13130 * 2;
     if (!label || label === '0') return -cost;
@@ -10241,9 +10467,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (dailyAgentResult) dailyAgentResult.innerHTML = selected ? `已選擇校正後類型：<b>${selected.name}</b><br><span class="small-note">現在按「天選雙柱」會用這個類型生成。</span>` : '已取消校正後類型，將使用原始預設生成。';
   });
   if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
+  if (applyDailyPersonalityBtn) applyDailyPersonalityBtn.addEventListener('click', caishenApplyDailyPersonality);
   autoRebuildDaydayCacheOnce();
   initDrawDatabase();
   caishenRenderSelfTuneProfileSelect();
+  caishenRenderDailyPersonality();
 
   function legacyCopyText(text) {
     const ta = document.createElement('textarea');
