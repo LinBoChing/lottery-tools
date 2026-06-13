@@ -1439,7 +1439,7 @@
           • 539/天天樂每行抓前5個01~39；大樂透/六合彩每行抓前6個01~49，第7個特別號自動忽略。<br>
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
-          • 本版固定只生成兩組：539維持互補型；天天樂維持多核心分流；大樂透/六合彩改為共同摘除7支＋各自差異3支，兼顧共同判斷與防穿透。<br>
+          • 大樂透/六合彩：同一個 A～E 大組內，A1/A2 共同摘除同樣10支號碼；摘除名單固定取完整資料庫「目前遺漏最多期」前10名。<br>
           • 固定立柱說明：各彩種獨立保存 A～E 五組雙柱；539 與天天樂不共用，大樂透與六合彩也不共用。<br>
         </div>
       </div>
@@ -3219,14 +3219,20 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function parseDrawLineSmart(line, mode = currentGameMode()) {
-    // 539/天天樂：只取前5個 01~39；大樂透/六合彩：只取前6個 01~49，第7個特別號自動忽略。
+    // 539/天天樂：取5個主號；大樂透/六合彩：取6個主號，第7個特別號自動忽略。
+    // 修正重點：若前面有日期（例 2026/06/13），不可把日期裡的 06、13 當成開獎號碼。
     const max = getBallMax(mode);
     const need = getDrawPickCount(mode);
-    const nums = (String(line || '').match(/(?<!\d)(0[1-9]|[1-4][0-9])(?!\d)/g) || [])
+    let text = String(line || '').trim();
+    text = text
+      .replace(/^\s*\d{2,4}[\/\-.年]\d{1,2}[\/\-.月]\d{1,2}日?\s*/u, '')
+      .replace(/^\s*\d{1,2}[\/\-.月]\d{1,2}日?\s*/u, '')
+      .replace(/^\s*(第)?\d{4,12}(期)?[：:\s,-]+/u, '');
+    const nums = (text.match(/(?<!\d)(0?[1-9]|[1-4][0-9])(?!\d)/g) || [])
       .map(n => Number(n))
       .filter(n => n >= 1 && n <= max);
     if (nums.length < need) return null;
-    const candidate = nums.slice(0, need);
+    const candidate = is49Mode(mode) ? nums.slice(0, need) : nums.slice(0, need);
     const unique = [...new Set(candidate)];
     return unique.length === need ? unique : null;
   }
@@ -7939,7 +7945,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="clean-two-grid">
         ${items.map((item, idx) => buildDailyTwoCardHTML(item, idx, items)).join('')}
       </div>
-      <div class="small-note">天選雙柱模式：539維持互補；天天樂維持多核心；大樂透/六合彩採共同摘除7支＋各自差異3支，避免兩組摘除完全各玩各的，也避免10支全相同一起死。</div>`;
+      <div class="small-note">天選雙柱模式：539維持互補；天天樂維持多核心；大樂透/六合彩採同組共同摘除10支，A1/A2摘除號碼完全相同。</div>`;
   }
 
 
@@ -9347,7 +9353,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (((second.stats || {}).passRate || 0) > ((first.stats || {}).passRate || 0)) [first, second] = [second, first];
     const finalPack = caishen49JointPairScore(first, second, draws);
     const commonText = finalPack.excludedInfo.common.map(pad2).join(' ');
-    first = { ...first, sourceLabel: '主柱｜共同摘除7支', sourceType: 'daily', pairStats: finalPack.pairStats, pairPack: finalPack, excludedInfo: finalPack.excludedInfo };
+    first = { ...first, sourceLabel: '主柱｜共同摘除10支', sourceType: 'daily', pairStats: finalPack.pairStats, pairPack: finalPack, excludedInfo: finalPack.excludedInfo };
     second = { ...second, sourceLabel: '副柱｜差異防穿透3支', sourceType: 'daily', pairStats: finalPack.pairStats, pairPack: finalPack, excludedInfo: finalPack.excludedInfo };
     first.jointExclusionNote = `共同摘除：${commonText}`;
     second.jointExclusionNote = `共同摘除：${commonText}`;
@@ -9399,7 +9405,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       return await caishenPickDaydayProfileSpecificPair(merged, draws);
     }
 
-    // V14.4：大樂透 / 香港六合彩改為 49球共同摘除邏輯：共同摘除7支＋各自差異3支。
+    // V14.4：大樂透 / 香港六合彩改為 49球共同摘除邏輯：共同摘除10支。
     if (is49Mode()) {
       return await caishenPick49JointExclusionPair(merged, draws);
     }
@@ -10129,7 +10135,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v1';
+  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v4_all_history_high_miss_common_exclude';
   const FIXED_PAIR_LABELS = ['A','B','C','D','E'];
 
   function fixedDualStorageKey(mode = currentGameMode()) {
@@ -10150,11 +10156,101 @@ ${settleRecord.analysisLines.join('\n')}`;
     return arr;
   }
 
-  function fixedBuildOnePillar(mode = currentGameMode()) {
-    const nums = fixedShuffleNumbers(mode).slice(0, 39);
+  function fixedBuildOnePillarFromPool(pool) {
+    const nums = (pool || []).slice();
+    for (let i = nums.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [nums[i], nums[j]] = [nums[j], nums[i]];
+    }
     const groups = [nums.slice(0, 10), nums.slice(10, 24), nums.slice(24, 39)];
     groups.forEach(g => g.sort((a, b) => a - b));
     return groups;
+  }
+
+  function fixedBuildOnePillar(mode = currentGameMode()) {
+    const pool = fixedShuffleNumbers(mode).slice(0, 39);
+    return fixedBuildOnePillarFromPool(pool);
+  }
+
+  function fixedFullDrawsForMiss(mode = currentGameMode()) {
+    // 遺漏排行只看「目前彩種完整資料庫」。若使用者正在貼上欄位暫測，才改看貼上欄位。
+    // 這裡直接讀 loadDrawDb().nums，避免把日期、期別誤判成開獎號碼。
+    const pasted = drawInput && drawInput.value && drawInput.value.trim();
+    if (pasted) return parseDraws(drawInput.value, mode);
+    return loadDrawDb(mode).map(r => Array.isArray(r.nums) ? r.nums.map(Number) : []).filter(nums => nums.length >= getDrawPickCount(mode));
+  }
+
+  function fixedCurrentMissRanking(mode = currentGameMode()) {
+    const max = getBallMax(mode);
+    const drawList = fixedFullDrawsForMiss(mode);
+    const recentLimit = drawList.length;
+    const freqWindow = Math.min(drawList.length, 30);
+    const ranking = [];
+    for (let n = 1; n <= max; n++) {
+      let miss = recentLimit;
+      for (let i = 0; i < recentLimit; i++) {
+        const draw = drawList[i] || [];
+        if (draw.includes(n)) { miss = i; break; }
+      }
+      let recentFreq = 0;
+      for (let i = 0; i < freqWindow; i++) {
+        const draw = drawList[i] || [];
+        if (draw.includes(n)) recentFreq++;
+      }
+      ranking.push({ n, miss, recentFreq });
+    }
+    ranking.sort((a, b) => {
+      if (b.miss !== a.miss) return b.miss - a.miss;
+      if (a.recentFreq !== b.recentFreq) return a.recentFreq - b.recentFreq;
+      return a.n - b.n;
+    });
+    return ranking;
+  }
+
+  function fixedHighMissExcludeInfo(mode = currentGameMode()) {
+    const max = getBallMax(mode);
+    if (max !== 49) return [];
+    return fixedCurrentMissRanking(mode).slice(0, 10);
+  }
+
+  function fixedHighMissSharedPool(mode = currentGameMode()) {
+    const max = getBallMax(mode);
+    const all = fixedRangeForMode(mode);
+    if (max !== 49) return all;
+    const omittedInfo = fixedHighMissExcludeInfo(mode);
+    // 保留遺漏排序：第1個就是目前遺漏最多期的號碼。
+    const omitted = omittedInfo.map(x => x.n);
+    const omittedSet = new Set(omitted);
+    const pool = all.filter(n => !omittedSet.has(n));
+    return pool.length === 39 ? pool : fixedShuffleNumbers(mode).slice(0, 39).sort((a, b) => a - b);
+  }
+
+  function fixedBuildOnePair(label, mode = currentGameMode(), used = new Set()) {
+    const max = getBallMax(mode);
+    const pair = [];
+    let sharedPool = null;
+    let omitted = [];
+    let omittedInfo = [];
+    if (max === 49) {
+      // 大樂透 / 六合彩：同一大組內 A1/A2 使用同一批 39 號碼；共同摘除 = 完整資料庫目前遺漏最高的10支。
+      omittedInfo = fixedHighMissExcludeInfo(mode);
+      sharedPool = fixedHighMissSharedPool(mode).sort((a, b) => a - b);
+      omitted = omittedInfo.map(x => x.n);
+    }
+    let guard = 0;
+    while (pair.length < 2 && guard < 300) {
+      guard++;
+      const groups = sharedPool ? fixedBuildOnePillarFromPool(sharedPool) : fixedBuildOnePillar(mode);
+      const key = fixedGroupsKey(groups);
+      if (used.has(key)) continue;
+      used.add(key);
+      pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
+    }
+    while (pair.length < 2) {
+      const groups = sharedPool ? fixedBuildOnePillarFromPool(sharedPool) : fixedBuildOnePillar(mode);
+      pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
+    }
+    return pair;
   }
 
   function fixedGroupsKey(groups) {
@@ -10164,20 +10260,10 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedGenerateFivePairs(mode = currentGameMode()) {
     const used = new Set();
     const pairs = FIXED_PAIR_LABELS.map(label => {
-      const pair = [];
-      let guard = 0;
-      while (pair.length < 2 && guard < 300) {
-        guard++;
-        const groups = fixedBuildOnePillar(mode);
-        const key = fixedGroupsKey(groups);
-        if (used.has(key)) continue;
-        used.add(key);
-        pair.push({ groups, label: `${label}${pair.length + 1}` });
-      }
-      while (pair.length < 2) pair.push({ groups: fixedBuildOnePillar(mode), label: `${label}${pair.length + 1}` });
+      const pair = fixedBuildOnePair(label, mode, used);
       return { label, pair, createdAt: new Date().toISOString(), mode };
     });
-    return { version: 1, mode, createdAt: new Date().toISOString(), pairs };
+    return { version: 2, mode, createdAt: new Date().toISOString(), pairs };
   }
 
   function fixedNormalizePack(raw, mode = currentGameMode()) {
@@ -10232,6 +10318,24 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `<div class="recent10-box"><div class="recent10-title">${label}組近10期過倒情況（固定 A1/A2 同批號碼）</div>${rows}</div>`;
   }
 
+  function fixedActualOmittedFromGroups(groups, mode = currentGameMode()) {
+    const used = new Set((groups || []).flat().map(Number));
+    return fixedRangeForMode(mode).filter(n => !used.has(n));
+  }
+
+  function fixedFormatMissList(list) {
+    return (list || []).map(x => `${pad2(x.n)}（漏${x.miss}）`).join(' ｜ ');
+  }
+
+  function fixedCurrentTopMissHTML(mode = currentGameMode()) {
+    if (getBallMax(mode) !== 49) return '';
+    const top = fixedHighMissExcludeInfo(mode);
+    if (!top.length) return '<div class="fixed-warning">目前沒有可計算遺漏排行的完整資料庫，請先匯入或新增開獎資料。</div>';
+    return `<div class="small-note" style="margin:10px 0;padding:10px 12px;border:1px solid rgba(245,158,11,.45);border-radius:12px;background:rgba(245,158,11,.10);">
+      <b>目前完整資料庫遺漏最高前10名：</b><br>${fixedFormatMissList(top)}
+    </div>`;
+  }
+
   function fixedBuildOneGroupHTML(groupPack, draws) {
     const label = groupPack.label;
     const items = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`));
@@ -10239,11 +10343,19 @@ ${settleRecord.analysisLines.join('\n')}`;
     const bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
     const onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
     const bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
+    const storedInfo = (groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo)) ? groupPack.pair[0].omittedInfo : [];
+    const actualOmitted = groupPack.pair && groupPack.pair[0] ? fixedActualOmittedFromGroups(groupPack.pair[0].groups, currentGameMode()) : [];
+    const currentTop = getBallMax(currentGameMode()) === 49 ? fixedHighMissExcludeInfo(currentGameMode()) : [];
+    const storedLine = storedInfo.length ? `<div class="small-note">精選當下共同摘除：<b>${fixedFormatMissList(storedInfo)}</b></div>` : '';
+    const actualLine = actualOmitted.length ? `<div class="small-note">本組實際摘除號碼：<b>${actualOmitted.map(pad2).join(' ｜ ')}</b></div>` : '';
+    const currentLine = currentTop.length ? `<div class="small-note">目前完整資料庫遺漏前10：<b>${fixedFormatMissList(currentTop)}</b></div>` : '';
+    const omittedLine = storedLine + actualLine + currentLine;
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
         <div class="fixed-pair-title">${label}組固定雙柱</div>
         <div class="fixed-pair-summary">雙過 ${bothPass}%｜單過 ${onePass}%｜雙倒 ${bothFail}%</div>
       </div>
+      ${omittedLine}
       ${fixedBuildRecent10HTML(label, items, draws)}
       <div class="fixed-two-grid">
         ${items.map((item, idx) => `<div class="fixed-sub-card">${buildDailyTwoCardHTML(item, idx, items)}</div>`).join('')}
@@ -10263,6 +10375,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>精選時間<br><b>${created}</b></div>
       </div>
       <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。不按「重新精選立柱」就不會換號碼，只會因新增開獎資料而更新近10期過倒。</div>
+      ${fixedCurrentTopMissHTML(mode)}
       <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws)).join('')}</div>`;
     document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
   }
@@ -10278,6 +10391,9 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (dailyAgentResult) fixedRenderPack(pack, draws);
     resetLog();
     log(`已重新精選 ${gameLabel(mode)} 固定立柱：A～E 各 2 組 10-14-15。其他彩種不受影響。`);
+    if (getBallMax(mode) === 49) {
+      log('本次大樂透/六合彩共同摘除依完整資料庫遺漏最高前10名：' + fixedFormatMissList(fixedHighMissExcludeInfo(mode)));
+    }
   }
 
   async function runDailyTwoGroups() {
