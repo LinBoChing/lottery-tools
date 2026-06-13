@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>吸金穩贏 APP｜校正類型真分流版</title>
+  <title>吸金穩贏 APP｜固定雙柱精選版</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -1240,13 +1240,30 @@
   display:none !important;
 }
 
+
+/* 固定雙柱精選版 */
+.fixed-five-wrap{display:grid;gap:16px;margin-top:12px;}
+.fixed-pair-card{background:#020617;border:1px solid rgba(245,158,11,.42);border-radius:16px;padding:14px;}
+.fixed-pair-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.fixed-pair-title{font-size:20px;font-weight:1000;color:#fcd34d;}
+.fixed-pair-summary{color:#cbd5e1;font-size:13px;line-height:1.6;}
+.fixed-two-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px;}
+.fixed-sub-card{background:#0b1220;border:1px solid var(--border);border-radius:14px;padding:10px;}
+.fixed-sub-title{font-weight:900;color:#7dd3fc;margin-bottom:8px;}
+.fixed-warning{padding:12px;border-radius:14px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.45);color:#fecaca;font-weight:800;line-height:1.7;}
+@media (max-width:768px){.fixed-two-grid{grid-template-columns:1fr;}}
+
+
+/* 已移除：財神立柱記憶資料庫與右側記憶庫快捷按鈕 */
+#goMemoryDbBtn, #memoryDbWrap, .memory-db-card { display:none !important; }
+
 </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="title">吸金穩贏 APP｜校正類型真分流版</div>
+    <div class="title">吸金穩贏 APP｜固定雙柱精選版</div>
     <div class="sub">
-      主畫面改成每日兩組出戰：一組主力高過關，一組輔助低重疊。<br>
+      主畫面改成固定五組雙柱：A～E 各有 A1/A2 兩組 10-14-15。<br>
       <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；本版只簡化畫面與出戰邏輯，不破壞原資料。
     </div>
 
@@ -1403,13 +1420,10 @@
             <button id="clearLockBtn" type="button" style="display:none;"></button>
           </div>
           <details class="learn-tools-panel">
-            <summary>學習 / 校正 / 維護工具（點開後使用，避免誤按）</summary>
+            <summary>固定立柱維護工具（點開後使用，避免誤按）</summary>
             <div class="learn-tools-body">
-              <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新學習100期</button>
-              <button class="btn btn-secondary" id="selfTuneBtn" type="button">財神自我校正</button>
-              <select id="selfTuneProfileSelect" class="btn btn-dark" style="text-align:center; appearance:auto;">
-                <option value="">校正後類型：未選擇</option>
-              </select>
+              <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新精選立柱</button>
+              
             </div>
           </details>
         </div>
@@ -1418,7 +1432,7 @@
             <div class="daily-agent-title clean-title">今日天選雙柱</div>
             <button class="btn btn-danger" id="dailyAgentBtn" type="button" style="display:none;">啟動財神今日代理</button>
           </div>
-          <div id="dailyAgentResult" class="daily-agent-result">按上方「天選雙柱」生成；自我校正後會自動套用最高分性格；也可在工具區手動切換類型。</div>
+          <div id="dailyAgentResult" class="daily-agent-result">按「天選雙柱」讀取目前彩種固定 A～E 雙柱；不按「重新精選立柱」就每天維持同一批號碼，只更新近10期表現。</div>
         </div>
 <div class="small-note">
           規則說明：<br>
@@ -1426,7 +1440,7 @@
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
           • 本版固定只生成兩組：539維持互補型；天天樂維持多核心分流；大樂透/六合彩改為共同摘除7支＋各自差異3支，兼顧共同判斷與防穿透。<br>
-          • 本版修正自我校正核心：完成校正後會自動套用最高分性格，重新開啟後仍會沿用，不再回到未選擇。<br>
+          • 固定立柱說明：各彩種獨立保存 A～E 五組雙柱；539 與天天樂不共用，大樂透與六合彩也不共用。<br>
         </div>
       </div>
 
@@ -9953,7 +9967,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       window.CAISHEN_BACKTRAIN_FAST = false;
       backtrain50Btn.disabled = false;
       runBtn.disabled = false;
-      backtrain50Btn.textContent = '重新學習100期';
+      backtrain50Btn.textContent = '重新精選立柱';
     }
   }
 
@@ -10114,117 +10128,189 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `增量校正完成：依近期結果 ${caishenOutcomeStatusText(outcome.status)} 小幅調整 ${updated.name || caishenGameProfile().name}。`;
   }
 
-  async function runDailyTwoGroups() {
-    CAISHEN_FAST_MODE = true;
 
-    runBtn.disabled = true;
-    runBtn.textContent = '天運推演中...';
-    if (dailyAgentResult) {
-      dailyAgentResult.innerHTML = '已收到指令，正在啟動推演...<br><span class="small-note">若舊學習資料有錯，系統會自動略過，不會卡住。</span>';
+  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v1';
+  const FIXED_PAIR_LABELS = ['A','B','C','D','E'];
+
+  function fixedDualStorageKey(mode = currentGameMode()) {
+    return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}`;
+  }
+
+  function fixedRangeForMode(mode = currentGameMode()) {
+    const max = getBallMax(mode);
+    return Array.from({ length: max }, (_, i) => i + 1);
+  }
+
+  function fixedShuffleNumbers(mode = currentGameMode()) {
+    const arr = fixedRangeForMode(mode);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+    return arr;
+  }
+
+  function fixedBuildOnePillar(mode = currentGameMode()) {
+    const nums = fixedShuffleNumbers(mode).slice(0, 39);
+    const groups = [nums.slice(0, 10), nums.slice(10, 24), nums.slice(24, 39)];
+    groups.forEach(g => g.sort((a, b) => a - b));
+    return groups;
+  }
+
+  function fixedGroupsKey(groups) {
+    return (groups || []).map(g => (g || []).join(',')).join('|');
+  }
+
+  function fixedGenerateFivePairs(mode = currentGameMode()) {
+    const used = new Set();
+    const pairs = FIXED_PAIR_LABELS.map(label => {
+      const pair = [];
+      let guard = 0;
+      while (pair.length < 2 && guard < 300) {
+        guard++;
+        const groups = fixedBuildOnePillar(mode);
+        const key = fixedGroupsKey(groups);
+        if (used.has(key)) continue;
+        used.add(key);
+        pair.push({ groups, label: `${label}${pair.length + 1}` });
+      }
+      while (pair.length < 2) pair.push({ groups: fixedBuildOnePillar(mode), label: `${label}${pair.length + 1}` });
+      return { label, pair, createdAt: new Date().toISOString(), mode };
+    });
+    return { version: 1, mode, createdAt: new Date().toISOString(), pairs };
+  }
+
+  function fixedNormalizePack(raw, mode = currentGameMode()) {
+    if (!raw || raw.mode !== mode || !Array.isArray(raw.pairs) || raw.pairs.length !== 5) return null;
+    const ok = raw.pairs.every(p => p && Array.isArray(p.pair) && p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15));
+    return ok ? raw : null;
+  }
+
+  function fixedLoadPack(mode = currentGameMode()) {
+    try { return fixedNormalizePack(JSON.parse(localStorage.getItem(fixedDualStorageKey(mode)) || 'null'), mode); }
+    catch (e) { return null; }
+  }
+
+  function fixedSavePack(pack, mode = currentGameMode()) {
+    localStorage.setItem(fixedDualStorageKey(mode), JSON.stringify(pack));
+  }
+
+  function fixedGetOrCreatePack(mode = currentGameMode()) {
+    const existing = fixedLoadPack(mode);
+    if (existing) return existing;
+    const pack = fixedGenerateFivePairs(mode);
+    fixedSavePack(pack, mode);
+    return pack;
+  }
+
+  function fixedItemFromGroups(groups, draws, sourceLabel) {
+    return { groups: cloneGroups(groups), stats: evaluate(groups, draws), sourceType: 'fixed', sourceLabel };
+  }
+
+  function fixedStatusClass(status) {
+    if (status === 'bothPass') return 'recent10-status-bothpass';
+    if (status === 'onePass') return 'recent10-status-onepass';
+    return 'recent10-status-bothfail';
+  }
+
+  function fixedBuildRecent10HTML(label, items, draws) {
+    const list = (draws && draws.length ? draws : getBacktestDraws()).slice(0, 10);
+    if (!items || items.length < 2 || !list.length) return '';
+    const rows = list.map((draw, idx) => {
+      const result = caishenEvaluatePairOnDraw(items.slice(0, 2), draw);
+      const statusText = caishenOutcomeStatusText(result.status);
+      const labels = result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB);
+      const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
+      const detailHTML = caishenBuildPairDetailHTML([items[0].groups, items[1].groups], [`${label}1`, `${label}2`], `${label}組固定雙柱對照此期`);
+      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組固定雙柱">
+        <div>${issue}</div>
+        <div class="${fixedStatusClass(result.status)}">${statusText}</div>
+        <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}</span></div>
+        ${detailHTML}
+      </div>`;
+    }).join('');
+    return `<div class="recent10-box"><div class="recent10-title">${label}組近10期過倒情況（固定 A1/A2 同批號碼）</div>${rows}</div>`;
+  }
+
+  function fixedBuildOneGroupHTML(groupPack, draws) {
+    const label = groupPack.label;
+    const items = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`));
+    const pairStats = caishenPairBacktestStats(items[0], items[1], draws);
+    const bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
+    const onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
+    const bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
+    return `<div class="fixed-pair-card">
+      <div class="fixed-pair-head">
+        <div class="fixed-pair-title">${label}組固定雙柱</div>
+        <div class="fixed-pair-summary">雙過 ${bothPass}%｜單過 ${onePass}%｜雙倒 ${bothFail}%</div>
+      </div>
+      ${fixedBuildRecent10HTML(label, items, draws)}
+      <div class="fixed-two-grid">
+        ${items.map((item, idx) => `<div class="fixed-sub-card">${buildDailyTwoCardHTML(item, idx, items)}</div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  function fixedRenderPack(pack, draws) {
+    if (!dailyAgentResult) return;
+    const mode = currentGameMode();
+    const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW', { hour12: false }) : '未知';
+    dailyAgentResult.innerHTML = `
+      <div class="daily-agent-kpi">
+        <div>目前彩種<br><b>${gameLabel(mode)}</b></div>
+        <div>固定大組<br><b>A～E</b></div>
+        <div>每組規格<br><b>A1/A2 10-14-15</b></div>
+        <div>精選時間<br><b>${created}</b></div>
+      </div>
+      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。不按「重新精選立柱」就不會換號碼，只會因新增開獎資料而更新近10期過倒。</div>
+      <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws)).join('')}</div>`;
+    document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
+  }
+
+  async function runReselectFixedPillars() {
+    const mode = currentGameMode();
+    const ok = confirm(`確定要重新精選「${gameLabel(mode)}」固定立柱嗎？\n\n只會重生目前彩種的 A～E 雙柱，不會影響其他彩種。`);
+    if (!ok) return;
+    const pack = fixedGenerateFivePairs(mode);
+    fixedSavePack(pack, mode);
+    const draws = getBacktestDraws();
+    lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`));
+    if (dailyAgentResult) fixedRenderPack(pack, draws);
     resetLog();
-    log('已啟動推演，正在讀取資料庫...');
+    log(`已重新精選 ${gameLabel(mode)} 固定立柱：A～E 各 2 組 10-14-15。其他彩種不受影響。`);
+  }
 
+  async function runDailyTwoGroups() {
+    runBtn.disabled = true;
+    runBtn.textContent = '讀取固定雙柱中...';
+    resetLog();
     try {
-      await caishenYieldFrame();
-
       const activeDrawText = getActiveDrawText();
       const allDraws = parseDraws(activeDrawText);
       const draws = getBacktestDraws();
       countDraws.textContent = draws.length;
-
-      if (!allDraws.length) {
-        alert('請先在資料庫或下方貼上欄位加入有效開獎號碼，每行需能辨識出目前彩種需要的號碼數。');
+      if (!allDraws.length || !draws.length) {
+        if (dailyAgentResult) dailyAgentResult.innerHTML = '<div class="fixed-warning">請先新增或匯入目前彩種的開獎資料，再按天選雙柱。</div>';
+        alert('請先在資料庫或下方貼上欄位加入有效開獎號碼。');
         return;
       }
-      if (!draws.length) {
-        alert('目前沒有可回測資料，請先新增或匯入開獎號碼。');
-        return;
-      }
-
-      const selectedProfile = caishenApplySelectedProfileFromUI();
-      log(`天選雙柱模式：${gameLabel(currentGameMode())}，本次使用 ${getBacktestLimitLabel()}，判斷基準 ${draws.length} 期。`);
-      log(`${selectedProfile ? '已套用你手動選擇的校正類型：' + selectedProfile.name + '（本次會鎖定此類型單獨生成）' : caishenSelectedProfileNotice()}`);
-      log(`已啟用${caishenGameProfile().name}${caishenGameProfile().selfTuned ? '（手動選用校正）' : ''}：依彩種分流挑選雙柱（安全快速版）。`);
-
-      const bootstrap = await caishenBootstrapLearn100(draws);
-      if (bootstrap && !bootstrap.skipped) {
-        log(`已自動預學習${bootstrap.usable}期：雙過${bootstrap.bothPass}、單過${bootstrap.onePass}、雙倒${bootstrap.bothFail}。`);
-      } else if (bootstrap && bootstrap.skipped) {
-        log(`已載入既有100期學習班底。`);
-      }
-
-
-      try {
-        const outcomeLearningLog = caishenRecordLatestDrawOutcome(draws);
-        if (outcomeLearningLog) log(outcomeLearningLog);
-        log(caishenAdaptiveText(caishenAdaptiveProfile()));
-      } catch (learnErr) {
-        console.warn('learning skipped', learnErr);
-        log('開獎學習資料讀取略過：舊資料格式不影響本次推演。');
-      }
-
-      if (dailyAgentResult) {
-        dailyAgentResult.innerHTML = '財神正在推演今日雙柱...<br><span class="small-note">安全快速版：先求穩定生成，再慢慢加強。</span>';
-      }
-
-      await caishenYieldFrame();
-      const startTime = performance.now();
-
-      log('建立號碼評分與候選池...');
-      let candidateScoreData = null;
-      try {
-        candidateScoreData = buildCandidateScoreRanking(draws, parseCandidateShares(candidateInput.value).counts);
-        lastCandidateScoreData = candidateScoreData;
-      } catch (scoreErr) {
-        console.warn('candidate score skipped', scoreErr);
-        log('候選排行略過：不影響雙柱推演。');
-      }
-
-      log('開始生成雙柱候選...');
-      const items = await caishenGenerateFastDailyTwo(draws);
-
-      if (!items || !items.length) {
-        throw new Error('沒有產生可用雙柱，請確認資料庫期數是否足夠。');
-      }
-
-      lastDailyTwo = items;
-      lastAI = items[0] ? [items[0]] : [];
-      lastAnti = items[1] ? [items[1]] : [];
+      const mode = currentGameMode();
+      const pack = fixedGetOrCreatePack(mode);
+      fixedRenderPack(pack, draws);
+      lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`));
+      lastAI = lastDailyTwo[0] ? [lastDailyTwo[0]] : [];
+      lastAnti = lastDailyTwo[1] ? [lastDailyTwo[1]] : [];
       lastReverse = [];
       lastRandom = [];
-      lastRecommended = items.slice();
-
-      try { caishenReconcilePredictionArchive(draws); } catch (recErr) { console.warn('prediction archive reconcile skipped', recErr); }
-      // 重要：實戰近10期只能讀取「當期開獎前已實際生成並保存的預測快照」。
-      // 不再用目前雙柱，也不再用歷史重建/補算去冒充實戰。
-      renderDailyTwoResult(lastDailyTwo, draws);
-      lastLucky5Results = [];
-      try {
-        const oldLuckyBox = document.getElementById('lucky5Box');
-        if (oldLuckyBox) oldLuckyBox.remove();
-      } catch (e) {}
-
-      try { caishenSaveCurrentPair(lastDailyTwo, draws); } catch (saveErr) { console.warn('save pair skipped', saveErr); }
-      try { refreshRecommendArea(); } catch (refErr) { console.warn('recommend refresh skipped', refErr); }
-
-      const spent = ((performance.now() - startTime) / 1000).toFixed(2);
-      if (lastDailyTwo.length >= 2) {
-        log(`同旺雙柱完成：耗時 ${spent} 秒。`);
-        const pairStatsLog = caishenPairScore(lastDailyTwo[0], lastDailyTwo[1], draws);
-        const wsLog = pairStatsLog.weightedStats || pairStatsLog.pairStats;
-        log(`加權雙過率 ${(wsLog.bothPassRate * 100).toFixed(2)}%，加權雙倒率 ${(wsLog.bothFailRate * 100).toFixed(2)}%，單過單倒率 ${(wsLog.onePassRate * 100).toFixed(2)}%。`);
-        log(`同柱共識 ${pairStatsLog.samePillarShared} 支，最大搬柱比例 ${((pairStatsLog.maxMoveRatio || 0) * 100).toFixed(1)}%（${pairStatsLog.maxMoveRatioText || '0/0'}），搬柱風險 ${pairStatsLog.hardReject || '通過'}。`);
-      } else {
-        log(`候選不足，目前只產生到一組。耗時 ${spent} 秒。`);
-      }
+      lastRecommended = pack.pairs.flatMap(p => p.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`)));
+      log(`天選雙柱已讀取：${gameLabel(mode)} 固定 A～E 雙柱。`);
+      log(`每個大組 = 兩組 10-14-15；近10期顯示為雙過 / 單過 / 雙倒。`);
+      log(`若要換一批號碼，請到固定立柱維護工具按「重新精選立柱」。`);
     } catch (err) {
       console.error(err);
-      log('推演發生錯誤：' + (err && err.message ? err.message : String(err)));
-      if (dailyAgentResult) {
-        dailyAgentResult.innerHTML = '<div class="bad">推演發生錯誤：' + (err && err.message ? err.message : String(err)) + '</div>';
-      }
-      alert('推演時發生錯誤：' + (err && err.message ? err.message : String(err)));
+      log('固定雙柱讀取錯誤：' + (err && err.message ? err.message : String(err)));
+      if (dailyAgentResult) dailyAgentResult.innerHTML = '<div class="bad">固定雙柱讀取錯誤：' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
+      alert('固定雙柱讀取錯誤：' + (err && err.message ? err.message : String(err)));
     } finally {
       runBtn.disabled = false;
       runBtn.textContent = '天選雙柱';
@@ -10232,8 +10318,8 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   runBtn.addEventListener('click', runDailyTwoGroups);
-  if (backtrain50Btn) backtrain50Btn.addEventListener('click', runBacktrain50);
-  if (selfTuneBtn) selfTuneBtn.addEventListener('click', runSelfTune100);
+  if (backtrain50Btn) backtrain50Btn.addEventListener('click', runReselectFixedPillars);
+  if (selfTuneBtn) selfTuneBtn.style.display = 'none';
   if (lucky5Btn) lucky5Btn.addEventListener('click', runLucky5);
   if (selfTuneProfileSelect) selfTuneProfileSelect.addEventListener('change', () => {
     const selected = caishenApplySelectedProfileFromUI();
@@ -10707,6 +10793,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
   function ensureMemoryDbPanel(){
+    return null;
     let wrap=document.getElementById('memoryDbWrap');
     if(!wrap){
       wrap=document.createElement('div');
@@ -10883,6 +10970,7 @@ function safeBuildMemoryCardHTML(title, groups, stats){
   }
 
 function renderMemoryDb(){
+    return;
     try{
       ensureMemoryDbPanel();
       migrateMemoryDbOrderOnce();
@@ -11190,14 +11278,11 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     }
   });
 
-  migrateMemoryDbToLiteOnce();
-  setTimeout(renderMemoryDb,300);
-  gameMode.addEventListener('change', ()=>setTimeout(renderMemoryDb,50));
+  // 財神立柱記憶資料庫已移除：不再初始化、不再渲染、不再綁定快捷跳轉。
 
 })();
 
 </script>
-<button id="goMemoryDbBtn" type="button">記憶庫</button>
 
 
 
