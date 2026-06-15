@@ -7562,6 +7562,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
   let lastDailyTwo = [];
+  let lastFixedDaily = [];
 
   function dailyTwoOverlapScore(groupsA, groupsB) {
     return samePillarOverlapRate(groupsA, groupsB) * 0.68 + crossOverlapRate(groupsA, groupsB) * 0.32;
@@ -10391,7 +10392,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       ${omittedLine}
       ${fixedBuildRecent10HTML(label, items, draws)}
       <div class="fixed-two-grid">
-        ${items.map((item, idx) => `<div class="fixed-sub-card">${buildDailyTwoCardHTML(item, idx, items)}</div>`).join('')}
+        ${items.map((item, idx) => {
+          const globalIndex = Math.max(0, 'ABCDE'.indexOf(String(label || '').toUpperCase())) * 2 + idx;
+          const cardHTML = buildDailyTwoCardHTML(item, idx, items)
+            .replace(`data-copy-type="daily" data-copy-index="${idx}"`, `data-copy-type="fixedDaily" data-copy-index="${globalIndex}"`)
+            .replace('複製這一組</button>', `複製${label}${idx + 1}</button>`);
+          return `<div class="fixed-sub-card">${cardHTML}</div>`;
+        }).join('')}
       </div>
     </div>`;
   }
@@ -10399,6 +10406,9 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedRenderPack(pack, draws) {
     if (!dailyAgentResult) return;
     const mode = currentGameMode();
+    lastFixedDaily = pack && Array.isArray(pack.pairs)
+      ? pack.pairs.flatMap(p => (p.pair || []).map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`)))
+      : [];
     const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW', { hour12: false }) : '未知';
     dailyAgentResult.innerHTML = `
       <div class="daily-agent-kpi">
@@ -10549,6 +10559,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (copyType === 'reverse') return lastReverse || [];
     if (copyType === 'recommended') return lastRecommended || [];
     if (copyType === 'daily') return lastDailyTwo || [];
+    if (copyType === 'fixedDaily') return lastFixedDaily || [];
     if (copyType === 'manual') return manualRecommendItems || [];
     
     return [];
