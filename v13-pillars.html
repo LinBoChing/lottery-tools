@@ -1439,7 +1439,7 @@
           • 539/天天樂每行抓前5個01~39；大樂透/六合彩每行抓前6個01~49，第7個特別號自動忽略。<br>
           • 最上方視為最新一期，但本版 AI 主要以整體回測過關率最高為目標。<br>
           • AI 搜尋時會把「過關率」放最大權重，並對極端失衡的單雙 / 大小分布做輕度懲罰。<br>
-          • 大樂透/六合彩：同一個 A～E 大組內，A1/A2 共同摘除同樣10支號碼；摘除名單固定取完整資料庫「目前遺漏最多期」前10名。<br>
+          • 大樂透/六合彩：同一個 A～E 大組內，A1/A2 共同摘除同樣10支號碼；摘除名單固定取「最新一期6個正碼」優先，再由完整資料庫「目前遺漏最多期」補4名。<br>
           • 固定立柱說明：各彩種獨立保存 A～E 五組雙柱；539 與天天樂不共用，大樂透與六合彩也不共用。<br>
         </div>
       </div>
@@ -7945,7 +7945,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="clean-two-grid">
         ${items.map((item, idx) => buildDailyTwoCardHTML(item, idx, items)).join('')}
       </div>
-      <div class="small-note">天選雙柱模式：539維持互補；天天樂維持多核心；大樂透/六合彩採同組共同摘除10支，A1/A2摘除號碼完全相同。</div>`;
+      <div class="small-note">天選雙柱模式：539維持互補；天天樂維持多核心；大樂透/六合彩採同組共同摘除10支（最新一期6碼 + 遺漏補4碼），A1/A2摘除號碼完全相同。</div>`;
   }
 
 
@@ -10135,7 +10135,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v4_all_history_high_miss_common_exclude';
+  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v5_latest6_highmiss4_common_exclude';
   const FIXED_PAIR_LABELS = ['A','B','C','D','E'];
 
   function fixedDualStorageKey(mode = currentGameMode()) {
@@ -10207,10 +10207,40 @@ ${settleRecord.analysisLines.join('\n')}`;
     return ranking;
   }
 
-  function fixedHighMissExcludeInfo(mode = currentGameMode()) {
+  function fixedLatestThenHighMissExcludeInfo(mode = currentGameMode()) {
     const max = getBallMax(mode);
     if (max !== 49) return [];
-    return fixedCurrentMissRanking(mode).slice(0, 10);
+    const drawList = fixedFullDrawsForMiss(mode);
+    const latest = (drawList && drawList[0] ? drawList[0] : [])
+      .map(Number)
+      .filter(n => Number.isFinite(n) && n >= 1 && n <= 49)
+      .slice(0, 6);
+    const ranking = fixedCurrentMissRanking(mode);
+    const rankMap = new Map(ranking.map(x => [Number(x.n), x]));
+    const picked = [];
+    const pickedSet = new Set();
+
+    latest.forEach(n => {
+      if (pickedSet.has(n)) return;
+      const info = rankMap.get(n) || { n, miss: 0, recentFreq: 0 };
+      picked.push({ ...info, n, source: 'latest' });
+      pickedSet.add(n);
+    });
+
+    ranking.forEach(info => {
+      if (picked.length >= 10) return;
+      const n = Number(info.n);
+      if (pickedSet.has(n)) return;
+      picked.push({ ...info, n, source: 'miss' });
+      pickedSet.add(n);
+    });
+
+    return picked.slice(0, 10);
+  }
+
+  function fixedHighMissExcludeInfo(mode = currentGameMode()) {
+    // 相容舊函式名稱：49彩種摘除規則已改為「最新一期6碼 + 遺漏最多補4碼」。
+    return fixedLatestThenHighMissExcludeInfo(mode);
   }
 
   function fixedHighMissSharedPool(mode = currentGameMode()) {
@@ -10218,7 +10248,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const all = fixedRangeForMode(mode);
     if (max !== 49) return all;
     const omittedInfo = fixedHighMissExcludeInfo(mode);
-    // 保留遺漏排序：第1個就是目前遺漏最多期的號碼。
+    // 排序保留：前6碼為最新一期正碼，後4碼為遺漏最多補位。
     const omitted = omittedInfo.map(x => x.n);
     const omittedSet = new Set(omitted);
     const pool = all.filter(n => !omittedSet.has(n));
@@ -10324,15 +10354,18 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fixedFormatMissList(list) {
-    return (list || []).map(x => `${pad2(x.n)}（漏${x.miss}）`).join(' ｜ ');
+    return (list || []).map(x => {
+      const tag = x && x.source === 'latest' ? '最新期' : `漏${x && x.miss != null ? x.miss : 0}`;
+      return `${pad2(x.n)}（${tag}）`;
+    }).join(' ｜ ');
   }
 
   function fixedCurrentTopMissHTML(mode = currentGameMode()) {
     if (getBallMax(mode) !== 49) return '';
     const top = fixedHighMissExcludeInfo(mode);
-    if (!top.length) return '<div class="fixed-warning">目前沒有可計算遺漏排行的完整資料庫，請先匯入或新增開獎資料。</div>';
+    if (!top.length) return '<div class="fixed-warning">目前沒有可計算摘除名單的完整資料庫，請先匯入或新增開獎資料。</div>';
     return `<div class="small-note" style="margin:10px 0;padding:10px 12px;border:1px solid rgba(245,158,11,.45);border-radius:12px;background:rgba(245,158,11,.10);">
-      <b>目前完整資料庫遺漏最高前10名：</b><br>${fixedFormatMissList(top)}
+      <b>目前49彩種摘除規則：最新一期6碼 + 遺漏最多補4碼</b><br>${fixedFormatMissList(top)}
     </div>`;
   }
 
@@ -10348,7 +10381,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const currentTop = getBallMax(currentGameMode()) === 49 ? fixedHighMissExcludeInfo(currentGameMode()) : [];
     const storedLine = storedInfo.length ? `<div class="small-note">精選當下共同摘除：<b>${fixedFormatMissList(storedInfo)}</b></div>` : '';
     const actualLine = actualOmitted.length ? `<div class="small-note">本組實際摘除號碼：<b>${actualOmitted.map(pad2).join(' ｜ ')}</b></div>` : '';
-    const currentLine = currentTop.length ? `<div class="small-note">目前完整資料庫遺漏前10：<b>${fixedFormatMissList(currentTop)}</b></div>` : '';
+    const currentLine = currentTop.length ? `<div class="small-note">目前規則摘除名單：<b>${fixedFormatMissList(currentTop)}</b></div>` : '';
     const omittedLine = storedLine + actualLine + currentLine;
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
@@ -10392,7 +10425,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     resetLog();
     log(`已重新精選 ${gameLabel(mode)} 固定立柱：A～E 各 2 組 10-14-15。其他彩種不受影響。`);
     if (getBallMax(mode) === 49) {
-      log('本次大樂透/六合彩共同摘除依完整資料庫遺漏最高前10名：' + fixedFormatMissList(fixedHighMissExcludeInfo(mode)));
+      log('本次大樂透/六合彩共同摘除依最新一期6碼 + 遺漏最多補4碼：' + fixedFormatMissList(fixedHighMissExcludeInfo(mode)));
     }
   }
 
