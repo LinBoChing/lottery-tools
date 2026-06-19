@@ -9698,7 +9698,9 @@ ${settleRecord.analysisLines.join('\n')}`;
   function caishenHitComboLabel(scoreA, scoreB) {
     if (!scoreA && !scoreB) return '0';
     if (scoreA && scoreB) return `${scoreA}+${scoreB}`;
-    return `${Math.max(scoreA, scoreB)}+0`;
+    if (scoreA) return `${scoreA}+0`;
+    if (scoreB) return `0+${scoreB}`;
+    return '0';
   }
 
   function caishenHitComboClass(scoreA, scoreB) {
