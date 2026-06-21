@@ -1268,8 +1268,8 @@
     </div>
 
     <div class="card weekly-calc-card">
-      <div class="section-title">七日財運盈虧試算表</div>
-      <div class="weekly-note">不用再先展開今日輸入；直接在上方輸入天天樂 / 539 / 大樂透 / 六合彩 / 金富翁遊戲輸贏金額即可。贏錢填正數，例如 5000；輸錢填負數，例如 -1000。</div>
+      <div class="section-title">每日結算損益表</div>
+      <div class="weekly-note">改成一天一結算格式，直接填當天各項收入/損益，複製到 LINE 會更清楚。贏錢填正數，輸錢填負數。</div>
       <div class="weekly-summary-grid">
         <div class="weekly-summary-box">
           <div class="weekly-summary-title" id="weeklyTodayMorningLabel">今日天天樂損益</div>
@@ -1295,6 +1295,11 @@
           <div class="weekly-summary-title" id="weeklyTodayGoldLabel">今日金富翁遊戲損益</div>
           <input id="weeklyTodayGoldInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
           <div class="weekly-mini-total">金富翁合計：<b id="weeklyGoldSummary">0</b></div>
+        </div>
+        <div class="weekly-summary-box">
+          <div class="weekly-summary-title" id="weeklyTodayWorkLabel">今日幫哥工作收入</div>
+          <input id="weeklyTodayWorkInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
+          <div class="weekly-mini-total">幫哥工作合計：<b id="weeklyWorkSummary">0</b></div>
         </div>
         <div class="weekly-summary-box">
           <div class="weekly-summary-title">上週結算損益</div>
@@ -3012,7 +3017,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     if (clearWeeklyCalcBtn) {
       clearWeeklyCalcBtn.addEventListener('click', () => {
-        if (!confirm('確定要清除七日財運盈虧試算表嗎？')) return;
+        if (!confirm('確定要清除每日結算損益表嗎？')) return;
         const payload = loadWeeklyCalcPayload();
         payload.data = emptyWeeklyCalcData();
         saveWeeklyCalcPayload(payload);
