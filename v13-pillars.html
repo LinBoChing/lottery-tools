@@ -2028,6 +2028,74 @@
     let bltTotal = 0;
     let sixTotal = 0;
     let goldTotal = 0;
+    let workTotal = 0;
+    let grandTotal = 0;
+
+    const startText = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(monday)}（${getWeekdayNameFromDate(monday)}）` : '';
+    const endText = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(sunday)}（${getWeekdayNameFromDate(sunday)}）` : '';
+
+    rows.push('📊 本週每日結算報表');
+    rows.push(`期間：${startText}～${endText}`);
+    rows.push('');
+
+    WEEKLY_DAYS.forEach((day, idx) => {
+      const d = typeof getDateForWeeklyIndex === 'function' ? getDateForWeeklyIndex(idx) : new Date();
+      const dateLabel = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(d)} ${getWeekdayNameFromDate(d).replace('星期','週')}` : day;
+      const morning = parseMoneyValue(data[idx]?.morning);
+      const night = parseMoneyValue(data[idx]?.night);
+      const blt = parseMoneyValue(data[idx]?.blt);
+      const six = parseMoneyValue(data[idx]?.six);
+      const gold = parseMoneyValue(data[idx]?.gold);
+      const work = parseMoneyValue(data[idx]?.work);
+      const total = morning + night + blt + six + gold + work;
+
+      morningTotal += morning;
+      nightTotal += night;
+      bltTotal += blt;
+      sixTotal += six;
+      goldTotal += gold;
+      workTotal += work;
+      grandTotal += total;
+
+      rows.push(`${dateLabel}`);
+      rows.push(`天天樂：${morning >= 0 ? '+' : ''}${formatMoneyValue(morning)}`);
+      rows.push(`539：${night >= 0 ? '+' : ''}${formatMoneyValue(night)}`);
+      rows.push(`大樂透：${blt >= 0 ? '+' : ''}${formatMoneyValue(blt)}`);
+      rows.push(`六合彩：${six >= 0 ? '+' : ''}${formatMoneyValue(six)}`);
+      rows.push(`金富翁：${gold >= 0 ? '+' : ''}${formatMoneyValue(gold)}`);
+      rows.push(`幫哥工作：${work >= 0 ? '+' : ''}${formatMoneyValue(work)}`);
+      rows.push(`今日總結：${total >= 0 ? '+' : ''}${formatMoneyValue(total)}`);
+      rows.push('────────────');
+    });
+
+    const settlementTotal = loadWeeklySettlementTotal();
+    const afterSettlementTotal = settlementTotal + grandTotal;
+    if (weeklySettlementInput && document.activeElement !== weeklySettlementInput) weeklySettlementInput.value = settlementTotal || '';
+    if (weeklySettlementInput) weeklySettlementInput.className = `weekly-summary-input ${moneyClass(settlementTotal)}`;
+    const pairs = [
+      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyBltTotal, bltTotal], [weeklySixTotal, sixTotal], [weeklyGoldTotal, goldTotal], [weeklyGrandTotal, grandTotal],
+      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyBltSummary, bltTotal], [weeklySixSummary, sixTotal], [weeklyGoldSummary, goldTotal], [weeklyGrandSummary, grandTotal],
+      [weeklyAfterSettlementSummary, afterSettlementTotal]
+    ];
+    pairs.forEach(([el, value]) => {
+      if (!el) return;
+      el.textContent = formatMoneyValue(value);
+      el.className = `weekly-money ${moneyClass(value)}`;
+    });
+  }
+
+  function buildWeeklyLineReportText() {
+    const data = loadWeeklyCalcData();
+    const monday = typeof getMondayOfCurrentWeek === 'function' ? getMondayOfCurrentWeek() : new Date();
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const rows = [];
+    let morningTotal = 0;
+    let nightTotal = 0;
+    let bltTotal = 0;
+    let sixTotal = 0;
+    let goldTotal = 0;
+    let workTotal = 0;
     let grandTotal = 0;
 
     const startText = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(monday)}（${getWeekdayNameFromDate(monday)}）` : '';
