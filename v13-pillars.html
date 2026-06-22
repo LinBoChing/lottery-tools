@@ -1341,6 +1341,7 @@
                 <th>大樂透損益</th>
                 <th>六合彩損益</th>
                 <th>金富翁遊戲損益</th>
+                <th>幫哥工作</th>
                 <th>當日小計</th>
               </tr>
             </thead>
@@ -1353,6 +1354,7 @@
                 <th id="weeklyBltTotal">0</th>
                 <th id="weeklySixTotal">0</th>
                 <th id="weeklyGoldTotal">0</th>
+                <th id="weeklyWorkTotal">0</th>
                 <th id="weeklyGrandTotal">0</th>
               </tr>
             </tfoot>
@@ -1831,7 +1833,7 @@
   }
 
   function emptyWeeklyCalcData() {
-    return WEEKLY_DAYS.map(() => ({ morning: '', night: '', blt: '', six: '', gold: '' }));
+    return WEEKLY_DAYS.map(() => ({ morning: '', night: '', blt: '', six: '', gold: '', work: '' }));
   }
 
   function normalizeWeeklyCalcData(data) {
@@ -1841,7 +1843,8 @@
       night: String(data[idx]?.night || ''),
       blt: String(data[idx]?.blt || ''),
       six: String(data[idx]?.six || ''),
-      gold: String(data[idx]?.gold || '')
+      gold: String(data[idx]?.gold || ''),
+      work: String(data[idx]?.work || '')
     }));
   }
 
@@ -1851,7 +1854,7 @@
 
   function calcWeeklyDataTotal(data) {
     return normalizeWeeklyCalcData(data).reduce((sum, row) => {
-      return sum + parseMoneyValue(row.morning) + parseMoneyValue(row.night) + parseMoneyValue(row.blt) + parseMoneyValue(row.six) + parseMoneyValue(row.gold);
+      return sum + parseMoneyValue(row.morning) + parseMoneyValue(row.night) + parseMoneyValue(row.blt) + parseMoneyValue(row.six) + parseMoneyValue(row.gold) + parseMoneyValue(row.work);
     }, 0);
   }
 
@@ -1946,6 +1949,7 @@
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="blt" placeholder="0" value="${data[idx].blt}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="six" placeholder="0" value="${data[idx].six}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="gold" placeholder="0" value="${data[idx].gold}"></td>
+        <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="work" placeholder="0" value="${data[idx].work || ""}"></td>
         <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
       </tr>
     `).join('');
@@ -1971,18 +1975,21 @@
     let bltTotal = 0;
     let sixTotal = 0;
     let goldTotal = 0;
+    let workTotal = 0;
     data.forEach((row, idx) => {
       const morning = parseMoneyValue(row.morning);
       const night = parseMoneyValue(row.night);
       const blt = parseMoneyValue(row.blt);
       const six = parseMoneyValue(row.six);
       const gold = parseMoneyValue(row.gold);
-      const dayTotal = morning + night + blt + six + gold;
+      const work = parseMoneyValue(row.work);
+      const dayTotal = morning + night + blt + six + gold + work;
       morningTotal += morning;
       nightTotal += night;
       bltTotal += blt;
       sixTotal += six;
       goldTotal += gold;
+      workTotal += work;
       const cell = document.getElementById(`weeklyDayTotal${idx}`);
       if (cell) {
         cell.textContent = formatMoneyValue(dayTotal);
@@ -1995,19 +2002,21 @@
     if (weeklyTodayBltInput && document.activeElement !== weeklyTodayBltInput) weeklyTodayBltInput.value = data[todayIdx]?.blt || '';
     if (weeklyTodaySixInput && document.activeElement !== weeklyTodaySixInput) weeklyTodaySixInput.value = data[todayIdx]?.six || '';
     if (weeklyTodayGoldInput && document.activeElement !== weeklyTodayGoldInput) weeklyTodayGoldInput.value = data[todayIdx]?.gold || '';
+    if (weeklyTodayWorkInput && document.activeElement !== weeklyTodayWorkInput) weeklyTodayWorkInput.value = data[todayIdx]?.work || '';
     if (weeklyTodayMorningInput) weeklyTodayMorningInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.morning))}`;
     if (weeklyTodayNightInput) weeklyTodayNightInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.night))}`;
     if (weeklyTodayBltInput) weeklyTodayBltInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.blt))}`;
     if (weeklyTodaySixInput) weeklyTodaySixInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.six))}`;
     if (weeklyTodayGoldInput) weeklyTodayGoldInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.gold))}`;
-    const grandTotal = morningTotal + nightTotal + bltTotal + sixTotal + goldTotal;
+    if (weeklyTodayWorkInput) weeklyTodayWorkInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.work))}`;
+    const grandTotal = morningTotal + nightTotal + bltTotal + sixTotal + goldTotal + workTotal;
     const settlementTotal = loadWeeklySettlementTotal();
     const afterSettlementTotal = settlementTotal + grandTotal;
     if (weeklySettlementInput && document.activeElement !== weeklySettlementInput) weeklySettlementInput.value = settlementTotal || '';
     if (weeklySettlementInput) weeklySettlementInput.className = `weekly-summary-input ${moneyClass(settlementTotal)}`;
     const pairs = [
-      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyBltTotal, bltTotal], [weeklySixTotal, sixTotal], [weeklyGoldTotal, goldTotal], [weeklyGrandTotal, grandTotal],
-      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyBltSummary, bltTotal], [weeklySixSummary, sixTotal], [weeklyGoldSummary, goldTotal], [weeklyGrandSummary, grandTotal],
+      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyBltTotal, bltTotal], [weeklySixTotal, sixTotal], [weeklyGoldTotal, goldTotal], [weeklyWorkTotal, workTotal], [weeklyGrandTotal, grandTotal],
+      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyBltSummary, bltTotal], [weeklySixSummary, sixTotal], [weeklyGoldSummary, goldTotal], [weeklyWorkSummary, workTotal], [weeklyGrandSummary, grandTotal],
       [weeklyAfterSettlementSummary, afterSettlementTotal]
     ];
     pairs.forEach(([el, value]) => {
@@ -2045,12 +2054,12 @@
       grandTotal += total;
 
       rows.push(dateLabel);
-      rows.push(`天天樂：${morning > 0 ? '+' : ''}${formatMoneyValue(morning)}`);
-      rows.push(`539：${night > 0 ? '+' : ''}${formatMoneyValue(night)}`);
-      rows.push(`大樂透：${blt > 0 ? '+' : ''}${formatMoneyValue(blt)}`);
-      rows.push(`六合彩：${six > 0 ? '+' : ''}${formatMoneyValue(six)}`);
-      rows.push(`金富翁：${gold > 0 ? '+' : ''}${formatMoneyValue(gold)}`);
-      rows.push(`幫哥工作：${work > 0 ? '+' : ''}${formatMoneyValue(work)}`);
+      if (morning !== 0) rows.push(`天天樂：${morning > 0 ? '+' : ''}${formatMoneyValue(morning)}`);
+      if (night !== 0) rows.push(`539：${night > 0 ? '+' : ''}${formatMoneyValue(night)}`);
+      if (blt !== 0) rows.push(`大樂透：${blt > 0 ? '+' : ''}${formatMoneyValue(blt)}`);
+      if (six !== 0) rows.push(`六合彩：${six > 0 ? '+' : ''}${formatMoneyValue(six)}`);
+      if (gold !== 0) rows.push(`金富翁：${gold > 0 ? '+' : ''}${formatMoneyValue(gold)}`);
+      if (work !== 0) rows.push(`幫哥工作：${work > 0 ? '+' : ''}${formatMoneyValue(work)}`);
       rows.push(`今日總計：${total > 0 ? '+' : ''}${formatMoneyValue(total)}`);
       rows.push('────────────');
       rows.push('');
@@ -2938,7 +2947,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const day = Number(input.dataset.weeklyDay);
       const field = input.dataset.weeklyField;
       const data = loadWeeklyCalcData();
-      if (Number.isInteger(day) && data[day] && ['morning','night','blt','six','gold'].includes(field)) {
+      if (Number.isInteger(day) && data[day] && ['morning','night','blt','six','gold','work'].includes(field)) {
         data[day][field] = input.value;
         saveWeeklyCalcData(data);
         updateWeeklyCalcTotals();
@@ -2969,6 +2978,9 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     if (weeklyTodayGoldInput) {
       weeklyTodayGoldInput.addEventListener('input', () => saveTodaySummaryInput('gold', weeklyTodayGoldInput.value));
+    }
+    if (weeklyTodayWorkInput) {
+      weeklyTodayWorkInput.addEventListener('input', () => saveTodaySummaryInput('work', weeklyTodayWorkInput.value));
     }
     if (weeklySettlementInput) {
       weeklySettlementInput.addEventListener('input', () => {
