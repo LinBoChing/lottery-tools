@@ -9215,12 +9215,14 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function build49ExcludedLineHTML(item, other) {
     if (!is49Mode() || !item || !item.groups) return '';
-    const info = other ? caishenExcludedOverlapInfo(item.groups, other.groups) : { a: caishenExcludedNumbersForGroups(item.groups), common: [], onlyA: [] };
-    const own = info.a || [];
-    const common = info.common || [];
-    const diff = info.onlyA || [];
-    return `<br>摘除號碼：<b>${own.map(pad2).join(' ')}</b>` +
-      (other ? `<br>共同摘除：<b>${common.map(pad2).join(' ') || '無'}</b>（${common.length}/10）｜本組差異：<b>${diff.map(pad2).join(' ') || '無'}</b>` : '');
+    const ruleInfo = Array.isArray(item.omittedInfo) && item.omittedInfo.length
+      ? item.omittedInfo
+      : fixedHighMissExcludeInfo(currentGameMode());
+    if (ruleInfo && ruleInfo.length) {
+      return `<br>共同摘除號碼：<b>${fixedFormatMissList(ruleInfo)}</b>`;
+    }
+    const own = caishenExcludedNumbersForGroups(item.groups, currentGameMode());
+    return `<br>共同摘除號碼：<b>${own.map(pad2).join(' ')}</b>`;
   }
 
   function caishenPartitionOrderWithAllowed(order, allowedNumbers, variant) {
@@ -10297,8 +10299,26 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedNormalizePack(raw, mode = currentGameMode()) {
     if (!raw || raw.mode !== mode || !Array.isArray(raw.pairs) || raw.pairs.length !== 5) return null;
-    const ok = raw.pairs.every(p => p && Array.isArray(p.pair) && p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15));
-    return ok ? raw : null;
+    const basicOk = raw.pairs.every(p => p && Array.isArray(p.pair) && p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15));
+    if (!basicOk) return null;
+
+    // 49彩種只採一套共同摘除規則：最新一期6碼 + 遺漏最多補4碼。
+    // 只要目前資料庫的共同摘除名單改變，就自動重生 A～E，確保 A1/A2 完全一致。
+    if (getBallMax(mode) === 49) {
+      const rule = fixedHighMissExcludeInfo(mode).map(x => Number(x.n)).sort((a, b) => a - b).join(',');
+      if (!rule) return null;
+      const ruleSet = new Set(rule.split(',').filter(Boolean).map(Number));
+      const ok49 = raw.pairs.every(p => {
+        const pair = p.pair || [];
+        return pair.length === 2 && pair.every(x => {
+          const omitted = fixedActualOmittedFromGroups(x.groups, mode).sort((a, b) => a - b);
+          if (omitted.length !== 10) return false;
+          return omitted.every(n => ruleSet.has(Number(n)));
+        });
+      });
+      if (!ok49) return null;
+    }
+    return raw;
   }
 
   function fixedLoadPack(mode = currentGameMode()) {
@@ -10318,8 +10338,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     return pack;
   }
 
-  function fixedItemFromGroups(groups, draws, sourceLabel) {
-    return { groups: cloneGroups(groups), stats: evaluate(groups, draws), sourceType: 'fixed', sourceLabel };
+  function fixedItemFromGroups(groups, draws, sourceLabel, meta = {}) {
+    return { groups: cloneGroups(groups), stats: evaluate(groups, draws), sourceType: 'fixed', sourceLabel, ...meta };
   }
 
   function fixedStatusClass(status) {
@@ -10370,18 +10390,15 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedBuildOneGroupHTML(groupPack, draws) {
     const label = groupPack.label;
-    const items = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`));
+    const items = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
     const pairStats = caishenPairBacktestStats(items[0], items[1], draws);
     const bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
     const onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
     const bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
-    const storedInfo = (groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo)) ? groupPack.pair[0].omittedInfo : [];
-    const actualOmitted = groupPack.pair && groupPack.pair[0] ? fixedActualOmittedFromGroups(groupPack.pair[0].groups, currentGameMode()) : [];
     const currentTop = getBallMax(currentGameMode()) === 49 ? fixedHighMissExcludeInfo(currentGameMode()) : [];
-    const storedLine = storedInfo.length ? `<div class="small-note">精選當下共同摘除：<b>${fixedFormatMissList(storedInfo)}</b></div>` : '';
-    const actualLine = actualOmitted.length ? `<div class="small-note">本組實際摘除號碼：<b>${actualOmitted.map(pad2).join(' ｜ ')}</b></div>` : '';
-    const currentLine = currentTop.length ? `<div class="small-note">目前規則摘除名單：<b>${fixedFormatMissList(currentTop)}</b></div>` : '';
-    const omittedLine = storedLine + actualLine + currentLine;
+    const storedInfo = (groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo)) ? groupPack.pair[0].omittedInfo : [];
+    const displayInfo = currentTop.length ? currentTop : storedInfo;
+    const omittedLine = displayInfo.length ? `<div class="small-note">共同摘除號碼（最新6碼＋遺漏補4碼）：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
         <div class="fixed-pair-title">${label}組固定雙柱</div>
@@ -10405,7 +10422,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (!dailyAgentResult) return;
     const mode = currentGameMode();
     lastFixedDaily = pack && Array.isArray(pack.pairs)
-      ? pack.pairs.flatMap(p => (p.pair || []).map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`)))
+      ? pack.pairs.flatMap(p => (p.pair || []).map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] })))
       : [];
     const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW', { hour12: false }) : '未知';
     dailyAgentResult.innerHTML = `
@@ -10428,7 +10445,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const pack = fixedGenerateFivePairs(mode);
     fixedSavePack(pack, mode);
     const draws = getBacktestDraws();
-    lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`));
+    lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
     if (dailyAgentResult) fixedRenderPack(pack, draws);
     resetLog();
     log(`已重新精選 ${gameLabel(mode)} 固定立柱：A～E 各 2 組 10-14-15。其他彩種不受影響。`);
@@ -10454,7 +10471,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const mode = currentGameMode();
       const pack = fixedGetOrCreatePack(mode);
       fixedRenderPack(pack, draws);
-      lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`));
+      lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
       lastAI = lastDailyTwo[0] ? [lastDailyTwo[0]] : [];
       lastAnti = lastDailyTwo[1] ? [lastDailyTwo[1]] : [];
       lastReverse = [];
