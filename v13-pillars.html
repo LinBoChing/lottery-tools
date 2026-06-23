@@ -10484,6 +10484,24 @@ ${settleRecord.analysisLines.join('\n')}`;
     return null;
   }
 
+  function fixedClearRecent10ResultsForMode(mode = currentGameMode()) {
+    // 按「重新精選立柱」代表使用者主動換一批固定 A～E。
+    // 因此下方近10期要改用新批雙柱重新判斷，不可沿用上一批封存結果。
+    // 平常新增開獎號碼時不會呼叫這裡，舊實戰過倒仍維持封存不重算。
+    try {
+      const prefix = `${FIXED_RECENT10_RESULT_PREFIX}_${mode}_`;
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) keys.push(k);
+      }
+      keys.forEach(k => localStorage.removeItem(k));
+      return keys.length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   function fixedSaveRecent10Result(mode, label, draw, pairSource, result, sourceNote) {
     try {
       if (!draw || !draw.length || !pairSource || pairSource.length < 2 || !result) return;
@@ -10752,7 +10770,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>每組規格<br><b>A1/A2 10-14-15</b></div>
         <div>精選時間<br><b>${created}</b></div>
       </div>
-      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂沒有按「重新精選立柱」就不會換號；大樂透/六合彩按「天選雙柱」時會先封存最新一期真實過倒，再依目前最新6碼＋遺漏補4碼自動產生下一期固定雙柱。近10期舊結果不會被重新回算或變動；狀態顯示以 A/B 實際碰數為準。</div>
+      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂沒有按「重新精選立柱」就不會換號；大樂透/六合彩按「天選雙柱」時會先封存最新一期真實過倒，再依目前最新6碼＋遺漏補4碼自動產生下一期固定雙柱。平常新增開獎號碼時近10期舊結果不會被重新回算或變動；只有按「重新精選立柱」時，近10期才會改用新批雙柱重新判斷。狀態顯示以 A/B 實際碰數為準。</div>
       ${fixedCurrentTopMissHTML(mode)}
       <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws)).join('')}</div>`;
     document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
@@ -10760,8 +10778,9 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   async function runReselectFixedPillars() {
     const mode = currentGameMode();
-    const ok = confirm(`確定要重新精選「${gameLabel(mode)}」固定立柱嗎？\n\n只會重生目前彩種的 A～E 雙柱，不會影響其他彩種。`);
+    const ok = confirm(`確定要重新精選「${gameLabel(mode)}」固定立柱嗎？\n\n只會重生目前彩種的 A～E 雙柱，不會影響其他彩種。\n下方近10期過倒也會改用新批雙柱重新判斷。`);
     if (!ok) return;
+    const clearedRecent10 = fixedClearRecent10ResultsForMode(mode);
     const pack = fixedGenerateFivePairs(mode);
     fixedSavePack(pack, mode);
     const draws = getBacktestDraws();
@@ -10769,6 +10788,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (dailyAgentResult) fixedRenderPack(pack, draws);
     resetLog();
     log(`已重新精選 ${gameLabel(mode)} 固定立柱：A～E 各 2 組 10-14-15。其他彩種不受影響。`);
+    log(`已清除本彩種上一批近10期封存結果 ${clearedRecent10} 筆；下方過倒已改用新批雙柱重新判斷。`);
     if (getBallMax(mode) === 49) {
       log('本次大樂透/六合彩共同摘除依最新一期6碼 + 遺漏最多補4碼：' + fixedFormatMissList(fixedHighMissExcludeInfo(mode)));
     }
