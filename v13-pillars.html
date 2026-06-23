@@ -10143,6 +10143,37 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}`;
   }
 
+  const FIXED_DUAL_HISTORY_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_history_v2';
+
+  function fixedDrawsFingerprint(draws) {
+    return (draws || []).map(d => (d || []).map(Number).filter(Number.isFinite).join('-')).join('|');
+  }
+
+  function fixedHistoryStorageKey(mode = currentGameMode(), draws = null) {
+    const fp = fixedDrawsFingerprint(draws || getBacktestDraws());
+    return `${FIXED_DUAL_HISTORY_PREFIX}_${mode}_${hashString(fp)}`;
+  }
+
+  function fixedSaveHistorySnapshot(pack, mode = currentGameMode(), draws = null) {
+    if (!pack || !Array.isArray(pack.pairs) || pack.pairs.length !== 5) return;
+    try {
+      const key = fixedHistoryStorageKey(mode, draws || getBacktestDraws());
+      const snap = JSON.parse(JSON.stringify(pack));
+      snap.historySnapshot = true;
+      snap.historyFingerprint = fixedDrawsFingerprint(draws || getBacktestDraws());
+      snap.historySavedAt = new Date().toISOString();
+      localStorage.setItem(key, JSON.stringify(snap));
+    } catch (e) {}
+  }
+
+  function fixedLoadHistorySnapshot(mode = currentGameMode(), draws = null) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(fixedHistoryStorageKey(mode, draws || getBacktestDraws())) || 'null');
+      if (raw && raw.mode === mode && Array.isArray(raw.pairs) && raw.pairs.length === 5) return raw;
+    } catch (e) {}
+    return null;
+  }
+
   function fixedRangeForMode(mode = currentGameMode()) {
     const max = getBallMax(mode);
     return Array.from({ length: max }, (_, i) => i + 1);
@@ -10302,38 +10333,124 @@ ${settleRecord.analysisLines.join('\n')}`;
     const basicOk = raw.pairs.every(p => p && Array.isArray(p.pair) && p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15));
     if (!basicOk) return null;
 
-    // 49彩種只採一套共同摘除規則：最新一期6碼 + 遺漏最多補4碼。
-    // 只要目前資料庫的共同摘除名單改變，就自動重生 A～E，確保 A1/A2 完全一致。
+    // 固定雙柱規則：沒有按「重新精選立柱」就絕對沿用同一批 A～E。
+    // 539 / 天天樂如此；大樂透 / 六合彩也相同。
+    // 49彩種的「最新6碼＋遺漏補4碼」只在「建立新批次 / 重新精選」時決定摘除名單，
+    // 新增或移除開獎號碼後按天選雙柱，不得因目前摘除規則改變而自動重生雙柱。
     if (getBallMax(mode) === 49) {
-      const rule = fixedHighMissExcludeInfo(mode).map(x => Number(x.n)).sort((a, b) => a - b).join(',');
-      if (!rule) return null;
-      const ruleSet = new Set(rule.split(',').filter(Boolean).map(Number));
-      const ok49 = raw.pairs.every(p => {
-        const pair = p.pair || [];
-        return pair.length === 2 && pair.every(x => {
-          const omitted = fixedActualOmittedFromGroups(x.groups, mode).sort((a, b) => a - b);
-          if (omitted.length !== 10) return false;
-          return omitted.every(n => ruleSet.has(Number(n)));
+      raw.pairs.forEach(p => {
+        (p.pair || []).forEach(x => {
+          const actual = fixedActualOmittedFromGroups(x.groups, mode).sort((a, b) => a - b);
+          if (actual.length === 10) x.omitted = actual;
+          if (!Array.isArray(x.omittedInfo) || !x.omittedInfo.length) {
+            x.omittedInfo = actual.map(n => ({ n, source: 'fixed', miss: null, recentFreq: null }));
+          }
         });
       });
-      if (!ok49) return null;
     }
     return raw;
   }
 
-  function fixedLoadPack(mode = currentGameMode()) {
-    try { return fixedNormalizePack(JSON.parse(localStorage.getItem(fixedDualStorageKey(mode)) || 'null'), mode); }
+  function fixedLoadRawPack(mode = currentGameMode()) {
+    try { return JSON.parse(localStorage.getItem(fixedDualStorageKey(mode)) || 'null'); }
     catch (e) { return null; }
+  }
+
+  function fixedLoadPack(mode = currentGameMode()) {
+    const raw = fixedLoadRawPack(mode);
+    const normalized = fixedNormalizePack(raw, mode);
+    if (normalized) {
+      fixedSaveHistorySnapshot(normalized, mode, getBacktestDraws());
+      return normalized;
+    }
+    return null;
   }
 
   function fixedSavePack(pack, mode = currentGameMode()) {
     localStorage.setItem(fixedDualStorageKey(mode), JSON.stringify(pack));
+    fixedSaveHistorySnapshot(pack, mode, getBacktestDraws());
+  }
+
+  function fixedPackOmittedKey(pack, mode = currentGameMode()) {
+    if (getBallMax(mode) !== 49) return '';
+    try {
+      const first = pack && pack.pairs && pack.pairs[0] && pack.pairs[0].pair && pack.pairs[0].pair[0];
+      let nums = first && Array.isArray(first.omitted) ? first.omitted.map(Number).filter(Number.isFinite) : [];
+      if (nums.length !== 10 && first && Array.isArray(first.groups)) nums = fixedActualOmittedFromGroups(first.groups, mode);
+      return nums.slice().sort((a, b) => a - b).map(n => String(n).padStart(2, '0')).join('-');
+    } catch (e) { return ''; }
+  }
+
+  function fixedCurrentOmittedKey(mode = currentGameMode(), draws = null) {
+    if (getBallMax(mode) !== 49) return '';
+    const info = draws ? fixedLatestThenHighMissExcludeInfoFromDraws(mode, draws) : fixedHighMissExcludeInfo(mode);
+    return (info || []).map(x => Number(x.n)).filter(Number.isFinite).sort((a, b) => a - b).map(n => String(n).padStart(2, '0')).join('-');
+  }
+
+  function fixedArchiveLatestDrawWithPack(pack, mode = currentGameMode(), draws = null) {
+    const list = draws || getBacktestDraws();
+    if (!pack || !Array.isArray(pack.pairs) || !list || list.length < 2) return;
+    const latestDraw = list[0];
+    const historyBeforeLatest = list.slice(1);
+    try {
+      pack.pairs.forEach(groupPack => {
+        const label = String(groupPack.label || '').toUpperCase();
+        if (!label || fixedLoadRecent10Result(mode, label, latestDraw)) return;
+        const pairSource = (groupPack.pair || []).slice(0, 2).map(x => ({
+          groups: cloneGroups((x && x.groups) || []),
+          omitted: (x && x.omitted) || [],
+          omittedInfo: (x && x.omittedInfo) || []
+        }));
+        if (pairSource.length < 2) return;
+        const histItems = pairSource.map((x, pIdx) => fixedItemFromGroups(x.groups, historyBeforeLatest, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
+        const result = fixedNormalizeRecent10Result(caishenEvaluatePairOnDraw(histItems, latestDraw));
+        fixedSaveRecent10Result(mode, label, latestDraw, pairSource, result, '開獎前固定雙柱封存');
+      });
+    } catch (e) {}
   }
 
   function fixedGetOrCreatePack(mode = currentGameMode()) {
-    const existing = fixedLoadPack(mode);
-    if (existing) return existing;
-    const pack = fixedGenerateFivePairs(mode);
+    const currentDraws = getBacktestDraws();
+    const raw = fixedLoadRawPack(mode);
+    const existing = fixedNormalizePack(raw, mode);
+
+    if (getBallMax(mode) !== 49) {
+      if (existing) {
+        fixedSaveHistorySnapshot(existing, mode, currentDraws);
+        return existing;
+      }
+      const pack = fixedGenerateFivePairs(mode);
+      fixedSavePack(pack, mode);
+      return pack;
+    }
+
+    // 大樂透/六合彩：先看目前資料指紋有沒有舊快照。
+    // 這可讓「手動刪除最新一期」後，回到新增前那批固定雙柱，而不是重新亂抽。
+    const snap = fixedNormalizePack(fixedLoadHistorySnapshot(mode, currentDraws), mode);
+    const currentOmitKey = fixedCurrentOmittedKey(mode, currentDraws);
+    if (snap && fixedPackOmittedKey(snap, mode) === currentOmitKey) {
+      localStorage.setItem(fixedDualStorageKey(mode), JSON.stringify(snap));
+      fixedSaveHistorySnapshot(snap, mode, currentDraws);
+      return snap;
+    }
+
+    if (existing) {
+      const existingOmitKey = fixedPackOmittedKey(existing, mode);
+      if (existingOmitKey === currentOmitKey) {
+        fixedSaveHistorySnapshot(existing, mode, currentDraws);
+        return existing;
+      }
+
+      // 新增最新開獎號碼後：
+      // 1) 先用「開獎前那批固定雙柱」封存最新一期真實過倒。
+      // 2) 再依目前最新6碼 + 遺漏補4碼，自動產生下一期要用的新固定雙柱。
+      if (currentDraws.length > 1) {
+        fixedSaveHistorySnapshot(existing, mode, currentDraws.slice(1));
+        fixedArchiveLatestDrawWithPack(existing, mode, currentDraws);
+      }
+    }
+
+    const pack = fixedGenerateFivePairsFromHistory(mode, currentDraws, 'next-after-latest6-highmiss4');
     fixedSavePack(pack, mode);
     return pack;
   }
@@ -10348,23 +10465,226 @@ ${settleRecord.analysisLines.join('\n')}`;
     return 'recent10-status-bothfail';
   }
 
+
+  const FIXED_RECENT10_RESULT_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_recent10_result_archive_v4_fixedpair';
+
+  function fixedDrawKey(draw) {
+    return (draw || []).map(Number).filter(Number.isFinite).map(n => String(n).padStart(2, '0')).join('-');
+  }
+
+  function fixedRecent10ResultKey(mode, label, draw) {
+    return `${FIXED_RECENT10_RESULT_PREFIX}_${mode}_${String(label || '').toUpperCase()}_${fixedDrawKey(draw)}`;
+  }
+
+  function fixedLoadRecent10Result(mode, label, draw) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(fixedRecent10ResultKey(mode, label, draw)) || 'null');
+      if (raw && raw.mode === mode && raw.label === String(label || '').toUpperCase() && raw.drawKey === fixedDrawKey(draw) && raw.result && Array.isArray(raw.pairSource)) return raw;
+    } catch (e) {}
+    return null;
+  }
+
+  function fixedSaveRecent10Result(mode, label, draw, pairSource, result, sourceNote) {
+    try {
+      if (!draw || !draw.length || !pairSource || pairSource.length < 2 || !result) return;
+      const rec = {
+        version: 1,
+        mode,
+        label: String(label || '').toUpperCase(),
+        drawKey: fixedDrawKey(draw),
+        draw: (draw || []).map(Number).filter(Number.isFinite),
+        pairSource: pairSource.slice(0, 2).map(x => ({ groups: cloneGroups(x.groups || []), omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] })),
+        result: {
+          status: result.status,
+          scoreA: result.scoreA,
+          scoreB: result.scoreB,
+          comboLabel: result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB)
+        },
+        sourceNote: sourceNote || '',
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem(fixedRecent10ResultKey(mode, label, draw), JSON.stringify(rec));
+    } catch (e) {}
+  }
+
+  function fixedLocalRng(seedText) {
+    let state = hashString(seedText || 'fixed-walk-forward') || 1;
+    return function() {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+  }
+
+  function fixedShuffleWithRng(arr, rng) {
+    const nums = (arr || []).slice();
+    for (let i = nums.length - 1; i > 0; i--) {
+      const j = Math.floor((rng ? rng() : Math.random()) * (i + 1));
+      [nums[i], nums[j]] = [nums[j], nums[i]];
+    }
+    return nums;
+  }
+
+  function fixedMissRankingFromDraws(mode, drawList) {
+    const max = getBallMax(mode);
+    const list = (drawList || []).map(d => (d || []).map(Number).filter(n => Number.isFinite(n) && n >= 1 && n <= max));
+    const recentLimit = list.length;
+    const freqWindow = Math.min(list.length, 30);
+    const ranking = [];
+    for (let n = 1; n <= max; n++) {
+      let miss = recentLimit;
+      for (let i = 0; i < recentLimit; i++) {
+        if ((list[i] || []).includes(n)) { miss = i; break; }
+      }
+      let recentFreq = 0;
+      for (let i = 0; i < freqWindow; i++) {
+        if ((list[i] || []).includes(n)) recentFreq++;
+      }
+      ranking.push({ n, miss, recentFreq });
+    }
+    ranking.sort((a, b) => {
+      if (b.miss !== a.miss) return b.miss - a.miss;
+      if (a.recentFreq !== b.recentFreq) return a.recentFreq - b.recentFreq;
+      return a.n - b.n;
+    });
+    return ranking;
+  }
+
+  function fixedLatestThenHighMissExcludeInfoFromDraws(mode, drawList) {
+    if (getBallMax(mode) !== 49) return [];
+    const list = (drawList || []).map(d => (d || []).map(Number).filter(n => Number.isFinite(n) && n >= 1 && n <= 49));
+    const latest = (list[0] || []).slice(0, 6);
+    const ranking = fixedMissRankingFromDraws(mode, list);
+    const rankMap = new Map(ranking.map(x => [Number(x.n), x]));
+    const picked = [];
+    const pickedSet = new Set();
+    latest.forEach(n => {
+      if (pickedSet.has(n)) return;
+      const info = rankMap.get(n) || { n, miss: 0, recentFreq: 0 };
+      picked.push({ ...info, n, source: 'latest' });
+      pickedSet.add(n);
+    });
+    ranking.forEach(info => {
+      if (picked.length >= 10) return;
+      const n = Number(info.n);
+      if (pickedSet.has(n)) return;
+      picked.push({ ...info, n, source: 'miss' });
+      pickedSet.add(n);
+    });
+    return picked.slice(0, 10);
+  }
+
+  function fixedBuildOnePillarFromPoolDet(pool, rng) {
+    const nums = fixedShuffleWithRng(pool || [], rng);
+    const groups = [nums.slice(0, 10), nums.slice(10, 24), nums.slice(24, 39)];
+    groups.forEach(g => g.sort((a, b) => a - b));
+    return groups;
+  }
+
+  function fixedGenerateFivePairsFromHistory(mode, historyDraws, seedTag) {
+    const max = getBallMax(mode);
+    const rng = fixedLocalRng([FIXED_DUAL_STORAGE_PREFIX, mode, seedTag || '', (historyDraws || []).map(d => (d || []).join('-')).join('|')].join('::'));
+    const used = new Set();
+    const all = fixedRangeForMode(mode);
+    let sharedPool = all;
+    let omittedInfo = [];
+    let omitted = [];
+    if (max === 49) {
+      omittedInfo = fixedLatestThenHighMissExcludeInfoFromDraws(mode, historyDraws);
+      omitted = omittedInfo.map(x => Number(x.n));
+      const omittedSet = new Set(omitted);
+      sharedPool = all.filter(n => !omittedSet.has(n));
+      if (sharedPool.length !== 39) sharedPool = fixedShuffleWithRng(all, rng).slice(0, 39).sort((a, b) => a - b);
+    }
+    const pairs = FIXED_PAIR_LABELS.map(label => {
+      const pair = [];
+      let guard = 0;
+      while (pair.length < 2 && guard < 300) {
+        guard++;
+        const groups = fixedBuildOnePillarFromPoolDet(sharedPool, rng);
+        const key = fixedGroupsKey(groups);
+        if (used.has(key)) continue;
+        used.add(key);
+        pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
+      }
+      while (pair.length < 2) pair.push({ groups: fixedBuildOnePillarFromPoolDet(sharedPool, rng), label: `${label}${pair.length + 1}`, omitted, omittedInfo });
+      return { label, pair, createdAt: 'walk-forward', mode };
+    });
+    return { version: 3, mode, createdAt: 'walk-forward', pairs };
+  }
+
+  function fixedNormalizeRecent10Result(result) {
+    if (!result || typeof result !== 'object') return result;
+    let scoreA = Number(result.scoreA || 0);
+    let scoreB = Number(result.scoreB || 0);
+
+    // 舊封存資料可能出現「comboLabel 已是 4+3，但 status 還停在 onePass」的矛盾。
+    // 近10期的狀態一律以 A/B 實際碰數為準：兩邊都有碰數 = 雙過；只有一邊 = 單過單倒；兩邊 0 = 雙倒。
+    if ((!scoreA && !scoreB) && typeof result.comboLabel === 'string') {
+      const m = result.comboLabel.match(/^(\d+)\s*\+\s*(\d+)$/);
+      if (m) {
+        scoreA = Number(m[1] || 0);
+        scoreB = Number(m[2] || 0);
+      } else if (result.comboLabel.trim() === '0') {
+        scoreA = 0;
+        scoreB = 0;
+      }
+    }
+
+    const status = scoreA > 0 && scoreB > 0 ? 'bothPass' : ((scoreA > 0 || scoreB > 0) ? 'onePass' : 'bothFail');
+    return {
+      ...result,
+      scoreA,
+      scoreB,
+      aPass: scoreA > 0,
+      bPass: scoreB > 0,
+      status,
+      comboLabel: caishenHitComboLabel(scoreA, scoreB)
+    };
+  }
+
   function fixedBuildRecent10HTML(label, items, draws) {
-    const list = (draws && draws.length ? draws : getBacktestDraws()).slice(0, 10);
-    if (!items || items.length < 2 || !list.length) return '';
+    const allList = (draws && draws.length ? draws : getBacktestDraws());
+    const list = allList.slice(0, 10);
+    if (!list.length) return '';
+    const mode = currentGameMode();
     const rows = list.map((draw, idx) => {
-      const result = caishenEvaluatePairOnDraw(items.slice(0, 2), draw);
+      // 真實走勢定義：沒有按「重新精選立柱」前，539/天天樂/大樂透/六合彩都沿用同一批固定雙柱。
+      // 大樂透/六合彩只是在重新精選時依「最新6碼+遺漏補4碼」決定共同摘除；近10期不得再按每期歷史資料重生雙柱。
+      // 因此：同一期第一次看到時，用當下畫面固定雙柱計算並封存；之後新增開獎號碼或再按天選雙柱，舊期都讀封存，不重算。
+      const historyBeforeDraw = allList.slice(idx + 1);
+      let pairSource = null;
+      let sourceNote = '已封存真實過倒，不重新回算';
+      let result = null;
+
+      const archived = fixedLoadRecent10Result(mode, label, draw);
+      if (archived) {
+        pairSource = archived.pairSource;
+        sourceNote = archived.sourceNote || sourceNote;
+      } else {
+        pairSource = (items || []).slice(0, 2).map(x => ({
+          groups: cloneGroups((x && x.groups) || []),
+          omitted: (x && x.omitted) || [],
+          omittedInfo: (x && x.omittedInfo) || []
+        }));
+        sourceNote = '使用當下固定雙柱計算並封存';
+      }
+
+      const histItems = pairSource.slice(0, 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBeforeDraw, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
+      result = fixedNormalizeRecent10Result(caishenEvaluatePairOnDraw(histItems, draw));
+      if (!archived) fixedSaveRecent10Result(mode, label, draw, pairSource, result, sourceNote);
+
       const statusText = caishenOutcomeStatusText(result.status);
       const labels = result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB);
       const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
-      const detailHTML = caishenBuildPairDetailHTML([items[0].groups, items[1].groups], [`${label}1`, `${label}2`], `${label}組固定雙柱對照此期`);
-      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組固定雙柱">
+      const detailHTML = caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${sourceNote}，再對照本期開獎`);
+      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期封存雙柱">
         <div>${issue}</div>
         <div class="${fixedStatusClass(result.status)}">${statusText}</div>
-        <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}</span></div>
+        <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}｜${sourceNote}</span></div>
         ${detailHTML}
       </div>`;
     }).join('');
-    return `<div class="recent10-box"><div class="recent10-title">${label}組近10期過倒情況（固定 A1/A2 同批號碼）</div>${rows}</div>`;
+    return `<div class="recent10-box"><div class="recent10-title">${label}組近10期真實過倒（固定雙柱封存，不隨新增號碼重算）</div>${rows}</div>`;
   }
 
   function fixedActualOmittedFromGroups(groups, mode = currentGameMode()) {
@@ -10395,10 +10715,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     const bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
     const onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
     const bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
-    const currentTop = getBallMax(currentGameMode()) === 49 ? fixedHighMissExcludeInfo(currentGameMode()) : [];
     const storedInfo = (groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo)) ? groupPack.pair[0].omittedInfo : [];
-    const displayInfo = currentTop.length ? currentTop : storedInfo;
-    const omittedLine = displayInfo.length ? `<div class="small-note">共同摘除號碼（最新6碼＋遺漏補4碼）：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
+    const actualOmitted = (groupPack.pair && groupPack.pair[0]) ? fixedActualOmittedFromGroups(groupPack.pair[0].groups, currentGameMode()).map(n => ({ n, source: 'fixed', miss: null })) : [];
+    const displayInfo = storedInfo.length ? storedInfo : actualOmitted;
+    const omittedLine = displayInfo.length ? `<div class="small-note">本批固定共同摘除號碼（49彩種按天選會隨最新資料更新）：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
         <div class="fixed-pair-title">${label}組固定雙柱</div>
@@ -10432,7 +10752,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>每組規格<br><b>A1/A2 10-14-15</b></div>
         <div>精選時間<br><b>${created}</b></div>
       </div>
-      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。不按「重新精選立柱」就不會換號碼，只會因新增開獎資料而更新近10期過倒。</div>
+      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂沒有按「重新精選立柱」就不會換號；大樂透/六合彩按「天選雙柱」時會先封存最新一期真實過倒，再依目前最新6碼＋遺漏補4碼自動產生下一期固定雙柱。近10期舊結果不會被重新回算或變動；狀態顯示以 A/B 實際碰數為準。</div>
       ${fixedCurrentTopMissHTML(mode)}
       <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws)).join('')}</div>`;
     document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
@@ -10479,7 +10799,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       lastRecommended = pack.pairs.flatMap(p => p.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`)));
       log(`天選雙柱已讀取：${gameLabel(mode)} 固定 A～E 雙柱。`);
       log(`每個大組 = 兩組 10-14-15；近10期顯示為雙過 / 單過 / 雙倒。`);
-      log(`若要換一批號碼，請到固定立柱維護工具按「重新精選立柱」。`);
+      log(`539/天天樂若要換一批號碼，請按「重新精選立柱」；大樂透/六合彩會在新增最新開獎後按天選時，自動切換下一期摘除名單與雙柱。`);
     } catch (err) {
       console.error(err);
       log('固定雙柱讀取錯誤：' + (err && err.message ? err.message : String(err)));
