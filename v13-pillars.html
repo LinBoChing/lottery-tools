@@ -9215,14 +9215,11 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function build49ExcludedLineHTML(item, other) {
     if (!is49Mode() || !item || !item.groups) return '';
-    const ruleInfo = Array.isArray(item.omittedInfo) && item.omittedInfo.length
-      ? item.omittedInfo
-      : fixedHighMissExcludeInfo(currentGameMode());
+    const ruleInfo = fixedHighMissExcludeInfo(currentGameMode());
     if (ruleInfo && ruleInfo.length) {
       return `<br>共同摘除號碼：<b>${fixedFormatMissList(ruleInfo)}</b>`;
     }
-    const own = caishenExcludedNumbersForGroups(item.groups, currentGameMode());
-    return `<br>共同摘除號碼：<b>${own.map(pad2).join(' ')}</b>`;
+    return '';
   }
 
   function caishenPartitionOrderWithAllowed(order, allowedNumbers, variant) {
@@ -10143,7 +10140,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}`;
   }
 
-  const FIXED_DUAL_HISTORY_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_history_v2';
+  const FIXED_DUAL_HISTORY_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_history_v4_rowdraw_omitfix';
 
   function fixedDrawsFingerprint(draws) {
     return (draws || []).map(d => (d || []).map(Number).filter(Number.isFinite).join('-')).join('|');
@@ -10333,17 +10330,19 @@ ${settleRecord.analysisLines.join('\n')}`;
     const basicOk = raw.pairs.every(p => p && Array.isArray(p.pair) && p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15));
     if (!basicOk) return null;
 
-    // 固定雙柱規則：沒有按「重新精選立柱」就絕對沿用同一批 A～E。
-    // 539 / 天天樂如此；大樂透 / 六合彩也相同。
-    // 49彩種的「最新6碼＋遺漏補4碼」只在「建立新批次 / 重新精選」時決定摘除名單，
-    // 新增或移除開獎號碼後按天選雙柱，不得因目前摘除規則改變而自動重生雙柱。
+    // 49彩種浮動規則：既有 pack 可能是「前一期資料建立、用來對最新開獎對照」的雙柱。
+    // 不可因目前最新6碼改變，就在 normalize 階段直接作廢，否則會來不及封存。
+    // 这里只補齊 omitted / omittedInfo，真正是否要更新為下一期雙柱由 fixedGetOrCreatePack 判斷。
     if (getBallMax(mode) === 49) {
       raw.pairs.forEach(p => {
         (p.pair || []).forEach(x => {
-          const actual = fixedActualOmittedFromGroups(x.groups, mode).sort((a, b) => a - b);
-          if (actual.length === 10) x.omitted = actual;
-          if (!Array.isArray(x.omittedInfo) || !x.omittedInfo.length) {
-            x.omittedInfo = actual.map(n => ({ n, source: 'fixed', miss: null, recentFreq: null }));
+          if (!Array.isArray(x.omitted) || x.omitted.length !== 10) {
+            x.omitted = fixedActualOmittedFromGroups(x.groups || [], mode);
+          }
+          if (!Array.isArray(x.omittedInfo) || x.omittedInfo.length !== 10) {
+            const omitSet = new Set((x.omitted || []).map(Number));
+            const rankMap = new Map(fixedCurrentMissRanking(mode).map(v => [Number(v.n), v]));
+            x.omittedInfo = fixedRangeForMode(mode).filter(n => omitSet.has(n)).map(n => ({ n, ...(rankMap.get(n) || {}), source: 'batch' }));
           }
         });
       });
@@ -10381,10 +10380,28 @@ ${settleRecord.analysisLines.join('\n')}`;
     } catch (e) { return ''; }
   }
 
+  function fixedOmittedKeyFromInfo(info) {
+    return (info || [])
+      .map(x => Number(x && x.n != null ? x.n : x))
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b)
+      .map(n => String(n).padStart(2, '0'))
+      .join('-');
+  }
+
   function fixedCurrentOmittedKey(mode = currentGameMode(), draws = null) {
     if (getBallMax(mode) !== 49) return '';
     const info = draws ? fixedLatestThenHighMissExcludeInfoFromDraws(mode, draws) : fixedHighMissExcludeInfo(mode);
-    return (info || []).map(x => Number(x.n)).filter(Number.isFinite).sort((a, b) => a - b).map(n => String(n).padStart(2, '0')).join('-');
+    return fixedOmittedKeyFromInfo(info);
+  }
+
+  function fixedPackFirstOmittedKey(pack, mode = currentGameMode()) {
+    if (getBallMax(mode) !== 49 || !pack || !Array.isArray(pack.pairs)) return '';
+    const first = pack.pairs[0] && pack.pairs[0].pair && pack.pairs[0].pair[0];
+    if (!first) return '';
+    if (Array.isArray(first.omitted) && first.omitted.length) return fixedOmittedKeyFromInfo(first.omitted);
+    if (Array.isArray(first.omittedInfo) && first.omittedInfo.length) return fixedOmittedKeyFromInfo(first.omittedInfo);
+    return fixedOmittedKeyFromInfo(fixedActualOmittedFromGroups(first.groups || [], mode));
   }
 
   function fixedArchiveLatestDrawWithPack(pack, mode = currentGameMode(), draws = null) {
@@ -10411,9 +10428,9 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedGetOrCreatePack(mode = currentGameMode()) {
     const currentDraws = getBacktestDraws();
-    const raw = fixedLoadRawPack(mode);
-    const existing = fixedNormalizePack(raw, mode);
+    const existing = fixedNormalizePack(fixedLoadRawPack(mode), mode);
 
+    // 539 / 天天樂：沒按「重新精選立柱」就固定沿用同一批 A～E。
     if (getBallMax(mode) !== 49) {
       if (existing) {
         fixedSaveHistorySnapshot(existing, mode, currentDraws);
@@ -10424,42 +10441,21 @@ ${settleRecord.analysisLines.join('\n')}`;
       return pack;
     }
 
-    const currentOmitKey = fixedCurrentOmittedKey(mode, currentDraws);
-
+    // 大樂透 / 香港六合彩：每日摘除隨最新資料浮動。
+    // 新增開獎後：舊 pack = 開獎前已建立、用來判斷最新期；先封存到「新增前資料狀態」；
+    // 再依目前最新6碼 + 遺漏補4碼建立下一期要用的新 pack。
+    const currentOmittedKey = fixedCurrentOmittedKey(mode, currentDraws);
     if (existing) {
-      const existingOmitKey = fixedPackOmittedKey(existing, mode);
-      if (existingOmitKey === currentOmitKey) {
+      const existingKey = fixedPackOmittedKey(existing, mode);
+      if (existingKey === currentOmittedKey) {
         fixedSaveHistorySnapshot(existing, mode, currentDraws);
         return existing;
       }
-
-      // 49彩種正確流程（大樂透 / 六合彩完全共用）：
-      // A. 若目前資料是「在原本資料最上方新增一期」：
-      //    先用新增前那批 fixed pack 封存最新一期真實過倒，再產生下一期新雙柱。
-      // B. 若目前資料是「刪除最新一期回到舊資料」：
-      //    優先回讀該資料指紋的歷史快照，不用目前 pack 去亂封存。
       const previousDraws = currentDraws.slice(1);
-      const previousOmitKey = previousDraws.length ? fixedCurrentOmittedKey(mode, previousDraws) : '';
-      const looksLikeOneNewDrawAdded = currentDraws.length > 1 && existingOmitKey === previousOmitKey;
-      if (looksLikeOneNewDrawAdded) {
-        fixedSaveHistorySnapshot(existing, mode, previousDraws);
-        fixedArchiveLatestDrawWithPack(existing, mode, currentDraws);
-        const pack = fixedGenerateFivePairsFromHistory(mode, currentDraws, 'next-after-latest6-highmiss4');
-        fixedSavePack(pack, mode);
-        return pack;
-      }
+      if (previousDraws.length) fixedSaveHistorySnapshot(existing, mode, previousDraws);
     }
 
-    // 刪除最新一期或切回舊資料時，直接回到該資料狀態曾保存的雙柱。
-    const snap = fixedNormalizePack(fixedLoadHistorySnapshot(mode, currentDraws), mode);
-    if (snap && fixedPackOmittedKey(snap, mode) === currentOmitKey) {
-      localStorage.setItem(fixedDualStorageKey(mode), JSON.stringify(snap));
-      fixedSaveHistorySnapshot(snap, mode, currentDraws);
-      return snap;
-    }
-
-    // 沒有任何可回復快照時，才依目前最新6碼 + 遺漏補4碼建立新批次。
-    const pack = fixedGenerateFivePairsFromHistory(mode, currentDraws, 'next-after-latest6-highmiss4');
+    const pack = fixedGenerateFivePairsFromHistory(mode, currentDraws, 'current-49-floating');
     fixedSavePack(pack, mode);
     return pack;
   }
@@ -10475,7 +10471,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  const FIXED_RECENT10_RESULT_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_recent10_result_archive_v5_blt_six_sameflow';
+  const FIXED_RECENT10_RESULT_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_recent10_result_archive_v7_basis_target_fix';
 
   function fixedDrawKey(draw) {
     return (draw || []).map(Number).filter(Number.isFinite).map(n => String(n).padStart(2, '0')).join('-');
@@ -10669,64 +10665,102 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
-  function fixedBuildRecent10HTML(label, items, draws) {
+  function fixedHitScoreForGroupsDirect(groups, draw) {
+    const drawSet = new Set((draw || []).map(Number).filter(Number.isFinite));
+    const hits = (groups || []).map(g => (g || []).map(Number).filter(n => drawSet.has(n)).length);
+    const score = hits.length >= 3 ? (hits[0] || 0) * (hits[1] || 0) * (hits[2] || 0) : 0;
+    return { hits, score };
+  }
+
+  function fixedEvaluatePairDirect(pairSource, draw) {
+    const a = fixedHitScoreForGroupsDirect(pairSource && pairSource[0] ? pairSource[0].groups : [], draw);
+    const b = fixedHitScoreForGroupsDirect(pairSource && pairSource[1] ? pairSource[1].groups : [], draw);
+    const scoreA = a.score || 0;
+    const scoreB = b.score || 0;
+    const status = scoreA > 0 && scoreB > 0 ? 'bothPass' : ((scoreA > 0 || scoreB > 0) ? 'onePass' : 'bothFail');
+    return {
+      scoreA,
+      scoreB,
+      aPass: scoreA > 0,
+      bPass: scoreB > 0,
+      status,
+      comboLabel: caishenHitComboLabel(scoreA, scoreB),
+      hitsA: a.hits,
+      hitsB: b.hits
+    };
+  }
+
+  function fixedPackPairSourceForLabel(pack, label) {
+    const labelText = String(label || '').toUpperCase();
+    const groupPack = pack && Array.isArray(pack.pairs) ? pack.pairs.find(p => String(p.label || '').toUpperCase() === labelText) : null;
+    if (!groupPack || !Array.isArray(groupPack.pair) || groupPack.pair.length < 2) return null;
+    return groupPack.pair.slice(0, 2).map(x => ({
+      groups: cloneGroups((x && x.groups) || []),
+      omitted: (x && x.omitted) || [],
+      omittedInfo: (x && x.omittedInfo) || []
+    }));
+  }
+
+  function fixedWalkForwardPackForRow(mode, allList, idx, currentPack) {
+    if (getBallMax(mode) !== 49) return currentPack;
+
+    // 第 idx 列展開時，畫面列出的開獎號碼就是「建立下方雙柱前已知的上一期號碼」。
+    // 所以下方 A1/A2 必須共同摘除：本列顯示的6個開獎號碼 + 以本列為最新資料時計算的遺漏最多4碼。
+    // 例：第3期列上方顯示 03 26 49 29 37 20，下方雙柱就必須排除這6碼，再補當時漏最多4碼。
+    const historyDraws = (allList || []).slice(idx);
+    const expectedKey = fixedCurrentOmittedKey(mode, historyDraws);
+    const snap = fixedLoadHistorySnapshot(mode, historyDraws);
+    if (snap && (!expectedKey || fixedPackFirstOmittedKey(snap, mode) === expectedKey)) return snap;
+
+    const gen = fixedGenerateFivePairsFromHistory(mode, historyDraws, `row-${idx}-displayed-draw`);
+    fixedSaveHistorySnapshot(gen, mode, historyDraws);
+    return gen;
+  }
+
+  function fixedBuildRecent10HTML(label, items, draws, currentPack = null) {
     const allList = (draws && draws.length ? draws : getBacktestDraws());
-    const list = allList.slice(0, 10);
-    if (!list.length) return '';
     const mode = currentGameMode();
-    const rows = list.map((draw, idx) => {
-      // 真實走勢定義：沒有按「重新精選立柱」前，539/天天樂/大樂透/六合彩都沿用同一批固定雙柱。
-      // 大樂透/六合彩只是在重新精選時依「最新6碼+遺漏補4碼」決定共同摘除；近10期不得再按每期歷史資料重生雙柱。
-      // 因此：同一期第一次看到時，用當下畫面固定雙柱計算並封存；之後新增開獎號碼或再按天選雙柱，舊期都讀封存，不重算。
-      const historyBeforeDraw = allList.slice(idx + 1);
-      let pairSource = null;
-      let sourceNote = '已封存真實過倒，不重新回算';
-      let result = null;
+    const is49 = getBallMax(mode) === 49;
 
-      const archived = fixedLoadRecent10Result(mode, label, draw);
-      if (archived) {
-        pairSource = archived.pairSource;
-        sourceNote = archived.sourceNote || sourceNote;
-      } else {
-        // 大樂透 / 六合彩與六合彩測試通過的邏輯一致：
-        // 最新一期必須優先使用「新增該期之前」的固定雙柱快照來驗證，
-        // 驗證封存後，畫面下方才顯示下一期新雙柱。
-        let snapshotPair = null;
-        if (idx === 0 && getBallMax(mode) === 49) {
-          const prevSnap = fixedNormalizePack(fixedLoadHistorySnapshot(mode, historyBeforeDraw), mode);
-          const gp = prevSnap && Array.isArray(prevSnap.pairs) ? prevSnap.pairs.find(p => String(p.label || '').toUpperCase() === String(label || '').toUpperCase()) : null;
-          if (gp && Array.isArray(gp.pair) && gp.pair.length >= 2) {
-            snapshotPair = gp.pair.slice(0, 2).map(x => ({
-              groups: cloneGroups((x && x.groups) || []),
-              omitted: (x && x.omitted) || [],
-              omittedInfo: (x && x.omittedInfo) || []
-            }));
-          }
-        }
-        pairSource = snapshotPair || (items || []).slice(0, 2).map(x => ({
-          groups: cloneGroups((x && x.groups) || []),
-          omitted: (x && x.omitted) || [],
-          omittedInfo: (x && x.omittedInfo) || []
-        }));
-        sourceNote = snapshotPair ? '使用新增本期前固定雙柱驗證並封存' : '使用當下固定雙柱計算並封存';
-      }
+    // 49彩種的近10期列，畫面顯示的是「建立該期雙柱前已知的上一期號碼」。
+    // 所以判斷時不能拿這6碼自己對照自己，否則因為已被摘除，會全部變成0、雙倒。
+    // 正確流程：basisDraw = 上一期號碼，用它+當時漏最多4碼建柱；targetDraw = 下一期實際開獎，用它判斷過倒。
+    const rowCount = is49 ? Math.min(10, Math.max(0, allList.length - 1)) : Math.min(10, allList.length);
+    if (!rowCount) return '';
+    const defaultPairSource = (items || []).slice(0, 2).map(x => ({
+      groups: cloneGroups((x && x.groups) || []),
+      omitted: (x && x.omitted) || [],
+      omittedInfo: (x && x.omittedInfo) || []
+    }));
 
-      const histItems = pairSource.slice(0, 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBeforeDraw, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
-      result = fixedNormalizeRecent10Result(caishenEvaluatePairOnDraw(histItems, draw));
-      if (!archived) fixedSaveRecent10Result(mode, label, draw, pairSource, result, sourceNote);
-
+    const rows = Array.from({ length: rowCount }).map((_, idx) => {
+      const targetDraw = is49 ? allList[idx] : allList[idx];
+      const basisIndex = is49 ? idx + 1 : idx;
+      const displayDraw = is49 ? allList[basisIndex] : targetDraw;
+      const historyBasis = is49 ? allList.slice(basisIndex) : allList.slice(idx);
+      const rowPack = is49 ? fixedWalkForwardPackForRow(mode, allList, basisIndex, currentPack) : fixedWalkForwardPackForRow(mode, allList, idx, currentPack);
+      const pairSource = fixedPackPairSourceForLabel(rowPack, label) || defaultPairSource;
+      const result = fixedEvaluatePairDirect(pairSource, targetDraw);
       const statusText = caishenOutcomeStatusText(result.status);
       const labels = result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB);
       const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
-      const detailHTML = caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${sourceNote}，再對照本期開獎`);
-      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期封存雙柱">
+      const omitInfoForRow = is49 ? fixedLatestThenHighMissExcludeInfoFromDraws(mode, historyBasis) : [];
+      const omitLineForRow = omitInfoForRow.length ? `｜開獎前摘除=${fixedFormatMissList(omitInfoForRow)}` : '';
+      const notePrefix = is49 ? '使用上列號碼建立雙柱，再對照下一期開獎' : '使用畫面目前固定雙柱直接對照';
+      const noteText = `${notePrefix}｜A=${(result.hitsA || []).join('-')}→${result.scoreA}；B=${(result.hitsB || []).join('-')}→${result.scoreB}${omitLineForRow}`;
+      const histItems = pairSource.slice(0, 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBasis, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
+      const detailHTML = caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}`);
+      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期雙柱對照">
         <div>${issue}</div>
         <div class="${fixedStatusClass(result.status)}">${statusText}</div>
-        <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}｜${sourceNote}</span></div>
+        <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(displayDraw || []).map(pad2).join(' ')}｜${notePrefix}</span></div>
         ${detailHTML}
       </div>`;
     }).join('');
-    return `<div class="recent10-box"><div class="recent10-title">${label}組近10期真實過倒（固定雙柱封存，不隨新增號碼重算）</div>${rows}</div>`;
+    const title = is49
+      ? `${label}組近10期真實過倒（顯示上一期號碼，建立雙柱後對照下一期）`
+      : `${label}組近10期真實過倒（開獎號碼 × 畫面固定雙柱）`;
+    return `<div class="recent10-box"><div class="recent10-title">${title}</div>${rows}</div>`;
   }
 
   function fixedActualOmittedFromGroups(groups, mode = currentGameMode()) {
@@ -10746,28 +10780,27 @@ ${settleRecord.analysisLines.join('\n')}`;
     const top = fixedHighMissExcludeInfo(mode);
     if (!top.length) return '<div class="fixed-warning">目前沒有可計算摘除名單的完整資料庫，請先匯入或新增開獎資料。</div>';
     return `<div class="small-note" style="margin:10px 0;padding:10px 12px;border:1px solid rgba(245,158,11,.45);border-radius:12px;background:rgba(245,158,11,.10);">
-      <b>目前49彩種摘除規則：最新一期6碼 + 遺漏最多補4碼</b><br>${fixedFormatMissList(top)}
+      <b>目前49彩種共同摘除號碼：最新一期6碼 + 遺漏最多補4碼</b><br>${fixedFormatMissList(top)}<br><span style="color:#fcd34d;">大樂透/六合彩會依這10碼建立下一期要用的雙柱；近10期展開時，下方雙柱會先摘除該列顯示的6個開獎號碼，再補當時遺漏最多4碼，不會拿其他期的摘除名單回套。</span>
     </div>`;
   }
 
-  function fixedBuildOneGroupHTML(groupPack, draws) {
+  function fixedBuildOneGroupHTML(groupPack, draws, parentPack = null) {
     const label = groupPack.label;
     const items = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
     const pairStats = caishenPairBacktestStats(items[0], items[1], draws);
     const bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
     const onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
     const bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
-    const storedInfo = (groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo)) ? groupPack.pair[0].omittedInfo : [];
-    const actualOmitted = (groupPack.pair && groupPack.pair[0]) ? fixedActualOmittedFromGroups(groupPack.pair[0].groups, currentGameMode()).map(n => ({ n, source: 'fixed', miss: null })) : [];
-    const displayInfo = storedInfo.length ? storedInfo : actualOmitted;
-    const omittedLine = displayInfo.length ? `<div class="small-note">本批固定共同摘除號碼（49彩種按天選會隨最新資料更新）：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
+    const currentRuleInfo = getBallMax(currentGameMode()) === 49 ? fixedHighMissExcludeInfo(currentGameMode()) : [];
+    const displayInfo = currentRuleInfo.length ? currentRuleInfo : ((groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo)) ? groupPack.pair[0].omittedInfo : []);
+    const omittedLine = displayInfo.length ? `<div class="small-note">本組目前共同摘除號碼（下一期雙柱使用）：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
         <div class="fixed-pair-title">${label}組固定雙柱</div>
         <div class="fixed-pair-summary">雙過 ${bothPass}%｜單過 ${onePass}%｜雙倒 ${bothFail}%</div>
       </div>
       ${omittedLine}
-      ${fixedBuildRecent10HTML(label, items, draws)}
+      ${fixedBuildRecent10HTML(label, items, draws, parentPack)}
       <div class="fixed-two-grid">
         ${items.map((item, idx) => {
           const globalIndex = Math.max(0, 'ABCDE'.indexOf(String(label || '').toUpperCase())) * 2 + idx;
@@ -10794,9 +10827,9 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>每組規格<br><b>A1/A2 10-14-15</b></div>
         <div>精選時間<br><b>${created}</b></div>
       </div>
-      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂沒有按「重新精選立柱」就不會換號；大樂透/六合彩按「天選雙柱」時會先封存最新一期真實過倒，再依目前最新6碼＋遺漏補4碼自動產生下一期固定雙柱。平常新增開獎號碼時近10期舊結果不會被重新回算或變動；只有按「重新精選立柱」時，近10期才會改用新批雙柱重新判斷。狀態顯示以 A/B 實際碰數為準。</div>
+      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂沒有按「重新精選立柱」就不會換雙柱。大樂透/六合彩的下一期雙柱以目前最新一期6碼 + 遺漏最多補4碼為準；近10期每一列則各自回到該期開獎前，使用上一期6碼 + 當時遺漏最多4碼建立的雙柱對照，不會拿目前最新摘除名單硬套舊期。狀態顯示以 A/B 三柱命中數相乘的實際碰數為準。</div>
       ${fixedCurrentTopMissHTML(mode)}
-      <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws)).join('')}</div>`;
+      <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws, pack)).join('')}</div>`;
     document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
   }
 
@@ -10843,7 +10876,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       lastRecommended = pack.pairs.flatMap(p => p.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`)));
       log(`天選雙柱已讀取：${gameLabel(mode)} 固定 A～E 雙柱。`);
       log(`每個大組 = 兩組 10-14-15；近10期顯示為雙過 / 單過 / 雙倒。`);
-      log(`539/天天樂若要換一批號碼，請按「重新精選立柱」；大樂透/六合彩會在新增最新開獎後按天選時，自動切換下一期摘除名單與雙柱。`);
+      log(`539/天天樂若要換一批號碼，請按「重新精選立柱」；大樂透/六合彩會強制確保雙柱本體實際排除目前最新6碼 + 遺漏補4碼。`);
     } catch (err) {
       console.error(err);
       log('固定雙柱讀取錯誤：' + (err && err.message ? err.message : String(err)));
