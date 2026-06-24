@@ -10424,15 +10424,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       return pack;
     }
 
-    // 大樂透/六合彩：先看目前資料指紋有沒有舊快照。
-    // 這可讓「手動刪除最新一期」後，回到新增前那批固定雙柱，而不是重新亂抽。
-    const snap = fixedNormalizePack(fixedLoadHistorySnapshot(mode, currentDraws), mode);
     const currentOmitKey = fixedCurrentOmittedKey(mode, currentDraws);
-    if (snap && fixedPackOmittedKey(snap, mode) === currentOmitKey) {
-      localStorage.setItem(fixedDualStorageKey(mode), JSON.stringify(snap));
-      fixedSaveHistorySnapshot(snap, mode, currentDraws);
-      return snap;
-    }
 
     if (existing) {
       const existingOmitKey = fixedPackOmittedKey(existing, mode);
@@ -10441,15 +10433,32 @@ ${settleRecord.analysisLines.join('\n')}`;
         return existing;
       }
 
-      // 新增最新開獎號碼後：
-      // 1) 先用「開獎前那批固定雙柱」封存最新一期真實過倒。
-      // 2) 再依目前最新6碼 + 遺漏補4碼，自動產生下一期要用的新固定雙柱。
-      if (currentDraws.length > 1) {
-        fixedSaveHistorySnapshot(existing, mode, currentDraws.slice(1));
+      // 49彩種正確流程（大樂透 / 六合彩完全共用）：
+      // A. 若目前資料是「在原本資料最上方新增一期」：
+      //    先用新增前那批 fixed pack 封存最新一期真實過倒，再產生下一期新雙柱。
+      // B. 若目前資料是「刪除最新一期回到舊資料」：
+      //    優先回讀該資料指紋的歷史快照，不用目前 pack 去亂封存。
+      const previousDraws = currentDraws.slice(1);
+      const previousOmitKey = previousDraws.length ? fixedCurrentOmittedKey(mode, previousDraws) : '';
+      const looksLikeOneNewDrawAdded = currentDraws.length > 1 && existingOmitKey === previousOmitKey;
+      if (looksLikeOneNewDrawAdded) {
+        fixedSaveHistorySnapshot(existing, mode, previousDraws);
         fixedArchiveLatestDrawWithPack(existing, mode, currentDraws);
+        const pack = fixedGenerateFivePairsFromHistory(mode, currentDraws, 'next-after-latest6-highmiss4');
+        fixedSavePack(pack, mode);
+        return pack;
       }
     }
 
+    // 刪除最新一期或切回舊資料時，直接回到該資料狀態曾保存的雙柱。
+    const snap = fixedNormalizePack(fixedLoadHistorySnapshot(mode, currentDraws), mode);
+    if (snap && fixedPackOmittedKey(snap, mode) === currentOmitKey) {
+      localStorage.setItem(fixedDualStorageKey(mode), JSON.stringify(snap));
+      fixedSaveHistorySnapshot(snap, mode, currentDraws);
+      return snap;
+    }
+
+    // 沒有任何可回復快照時，才依目前最新6碼 + 遺漏補4碼建立新批次。
     const pack = fixedGenerateFivePairsFromHistory(mode, currentDraws, 'next-after-latest6-highmiss4');
     fixedSavePack(pack, mode);
     return pack;
@@ -10466,7 +10475,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  const FIXED_RECENT10_RESULT_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_recent10_result_archive_v4_fixedpair';
+  const FIXED_RECENT10_RESULT_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_recent10_result_archive_v5_blt_six_sameflow';
 
   function fixedDrawKey(draw) {
     return (draw || []).map(Number).filter(Number.isFinite).map(n => String(n).padStart(2, '0')).join('-');
@@ -10679,12 +10688,27 @@ ${settleRecord.analysisLines.join('\n')}`;
         pairSource = archived.pairSource;
         sourceNote = archived.sourceNote || sourceNote;
       } else {
-        pairSource = (items || []).slice(0, 2).map(x => ({
+        // 大樂透 / 六合彩與六合彩測試通過的邏輯一致：
+        // 最新一期必須優先使用「新增該期之前」的固定雙柱快照來驗證，
+        // 驗證封存後，畫面下方才顯示下一期新雙柱。
+        let snapshotPair = null;
+        if (idx === 0 && getBallMax(mode) === 49) {
+          const prevSnap = fixedNormalizePack(fixedLoadHistorySnapshot(mode, historyBeforeDraw), mode);
+          const gp = prevSnap && Array.isArray(prevSnap.pairs) ? prevSnap.pairs.find(p => String(p.label || '').toUpperCase() === String(label || '').toUpperCase()) : null;
+          if (gp && Array.isArray(gp.pair) && gp.pair.length >= 2) {
+            snapshotPair = gp.pair.slice(0, 2).map(x => ({
+              groups: cloneGroups((x && x.groups) || []),
+              omitted: (x && x.omitted) || [],
+              omittedInfo: (x && x.omittedInfo) || []
+            }));
+          }
+        }
+        pairSource = snapshotPair || (items || []).slice(0, 2).map(x => ({
           groups: cloneGroups((x && x.groups) || []),
           omitted: (x && x.omitted) || [],
           omittedInfo: (x && x.omittedInfo) || []
         }));
-        sourceNote = '使用當下固定雙柱計算並封存';
+        sourceNote = snapshotPair ? '使用新增本期前固定雙柱驗證並封存' : '使用當下固定雙柱計算並封存';
       }
 
       const histItems = pairSource.slice(0, 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBeforeDraw, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
