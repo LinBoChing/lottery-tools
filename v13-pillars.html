@@ -9215,11 +9215,19 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function build49ExcludedLineHTML(item, other) {
     if (!is49Mode() || !item || !item.groups) return '';
-    const ruleInfo = fixedHighMissExcludeInfo(currentGameMode());
-    if (ruleInfo && ruleInfo.length) {
-      return `<br>共同摘除號碼：<b>${fixedFormatMissList(ruleInfo)}</b>`;
+    // 這裡必須顯示「這一組立柱實際建立時使用的摘除名單」，不可重新抓目前最新規則。
+    // 否則新增開獎或展開近10期時，畫面會顯示 A 名單，但立柱其實是用 B 名單建立，造成看起來像摘除號碼還出現在立柱中。
+    let ruleInfo = Array.isArray(item.omittedInfo) && item.omittedInfo.length ? item.omittedInfo : [];
+    if (!ruleInfo.length && Array.isArray(item.omitted) && item.omitted.length) {
+      const rankMap = new Map(fixedCurrentMissRanking(currentGameMode()).map(v => [Number(v.n), v]));
+      ruleInfo = item.omitted.map(n => ({ n: Number(n), ...(rankMap.get(Number(n)) || {}), source: 'batch' }));
     }
-    return '';
+    if (!ruleInfo.length) {
+      const actual = fixedActualOmittedFromGroups(item.groups || [], currentGameMode());
+      const rankMap = new Map(fixedCurrentMissRanking(currentGameMode()).map(v => [Number(v.n), v]));
+      ruleInfo = actual.map(n => ({ n, ...(rankMap.get(n) || {}), source: 'actual' }));
+    }
+    return ruleInfo.length ? `<br>共同摘除號碼：<b>${fixedFormatMissList(ruleInfo)}</b>` : '';
   }
 
   function caishenPartitionOrderWithAllowed(order, allowedNumbers, variant) {
@@ -10133,7 +10141,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v5_latest6_highmiss4_common_exclude';
+  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v6_latest6_highmiss4_common_exclude_integrity';
   const FIXED_PAIR_LABELS = ['A','B','C','D','E'];
 
   function fixedDualStorageKey(mode = currentGameMode()) {
@@ -10603,6 +10611,20 @@ ${settleRecord.analysisLines.join('\n')}`;
     return groups;
   }
 
+
+  function fixedEnsureGroupsUseOnlyPool(groups, pool, rng) {
+    const allowed = new Set((pool || []).map(Number));
+    const flat = [];
+    (groups || []).forEach(g => (g || []).forEach(n => {
+      n = Number(n);
+      if (allowed.has(n) && !flat.includes(n)) flat.push(n);
+    }));
+    fixedShuffleWithRng(pool || [], rng).forEach(n => { if (!flat.includes(n)) flat.push(n); });
+    const fixed = [flat.slice(0, 10), flat.slice(10, 24), flat.slice(24, 39)];
+    fixed.forEach(g => g.sort((a, b) => a - b));
+    return fixed;
+  }
+
   function fixedGenerateFivePairsFromHistory(mode, historyDraws, seedTag) {
     const max = getBallMax(mode);
     const rng = fixedLocalRng([FIXED_DUAL_STORAGE_PREFIX, mode, seedTag || '', (historyDraws || []).map(d => (d || []).join('-')).join('|')].join('::'));
@@ -10613,23 +10635,48 @@ ${settleRecord.analysisLines.join('\n')}`;
     let omitted = [];
     if (max === 49) {
       omittedInfo = fixedLatestThenHighMissExcludeInfoFromDraws(mode, historyDraws);
+      const unique = [];
+      const seen = new Set();
+      omittedInfo.forEach(x => {
+        const n = Number(x && x.n);
+        if (Number.isFinite(n) && n >= 1 && n <= 49 && !seen.has(n)) {
+          seen.add(n);
+          unique.push({ ...x, n });
+        }
+      });
+      if (unique.length < 10) {
+        fixedMissRankingFromDraws(mode, historyDraws).forEach(x => {
+          const n = Number(x.n);
+          if (unique.length < 10 && !seen.has(n)) {
+            seen.add(n);
+            unique.push({ ...x, n, source: 'miss' });
+          }
+        });
+      }
+      omittedInfo = unique.slice(0, 10);
       omitted = omittedInfo.map(x => Number(x.n));
       const omittedSet = new Set(omitted);
       sharedPool = all.filter(n => !omittedSet.has(n));
-      if (sharedPool.length !== 39) sharedPool = fixedShuffleWithRng(all, rng).slice(0, 39).sort((a, b) => a - b);
+      // 49球正確摘除10支後，剩餘必須剛好39支；若不是，直接用「全號碼扣除摘除名單」補正，不可隨機抽39支。
+      if (sharedPool.length !== 39) sharedPool = all.filter(n => !omittedSet.has(n));
     }
     const pairs = FIXED_PAIR_LABELS.map(label => {
       const pair = [];
       let guard = 0;
       while (pair.length < 2 && guard < 300) {
         guard++;
-        const groups = fixedBuildOnePillarFromPoolDet(sharedPool, rng);
+        let groups = fixedBuildOnePillarFromPoolDet(sharedPool, rng);
+        if (max === 49) groups = fixedEnsureGroupsUseOnlyPool(groups, sharedPool, rng);
         const key = fixedGroupsKey(groups);
         if (used.has(key)) continue;
         used.add(key);
         pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
       }
-      while (pair.length < 2) pair.push({ groups: fixedBuildOnePillarFromPoolDet(sharedPool, rng), label: `${label}${pair.length + 1}`, omitted, omittedInfo });
+      while (pair.length < 2) {
+        let groups = fixedBuildOnePillarFromPoolDet(sharedPool, rng);
+        if (max === 49) groups = fixedEnsureGroupsUseOnlyPool(groups, sharedPool, rng);
+        pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
+      }
       return { label, pair, createdAt: 'walk-forward', mode };
     });
     return { version: 3, mode, createdAt: 'walk-forward', pairs };
@@ -10798,9 +10845,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     const bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
     const onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
     const bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
-    const currentRuleInfo = getBallMax(currentGameMode()) === 49 ? fixedHighMissExcludeInfo(currentGameMode()) : [];
-    const displayInfo = currentRuleInfo.length ? currentRuleInfo : ((groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo)) ? groupPack.pair[0].omittedInfo : []);
-    const omittedLine = displayInfo.length ? `<div class="small-note">本組目前共同摘除號碼（下一期雙柱使用）：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
+    // 大組上方也顯示該組實際使用的摘除名單，不能拿目前最新規則硬套。
+    const displayInfo = getBallMax(currentGameMode()) === 49
+      ? ((groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo) && groupPack.pair[0].omittedInfo.length) ? groupPack.pair[0].omittedInfo : [])
+      : [];
+    const omittedLine = displayInfo.length ? `<div class="small-note">本組實際共同摘除號碼：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
         <div class="fixed-pair-title">${label}組固定雙柱</div>
