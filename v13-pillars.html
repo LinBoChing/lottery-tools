@@ -10141,7 +10141,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v6_latest6_highmiss4_common_exclude_integrity';
+  const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v8_top_omit_single_source';
   const FIXED_PAIR_LABELS = ['A','B','C','D','E'];
 
   function fixedDualStorageKey(mode = currentGameMode()) {
@@ -10338,22 +10338,27 @@ ${settleRecord.analysisLines.join('\n')}`;
     const basicOk = raw.pairs.every(p => p && Array.isArray(p.pair) && p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15));
     if (!basicOk) return null;
 
-    // 49彩種浮動規則：既有 pack 可能是「前一期資料建立、用來對最新開獎對照」的雙柱。
-    // 不可因目前最新6碼改變，就在 normalize 階段直接作廢，否則會來不及封存。
-    // 这里只補齊 omitted / omittedInfo，真正是否要更新為下一期雙柱由 fixedGetOrCreatePack 判斷。
+    // 49彩種完整性防呆：儲存資料裡的 omitted / omittedInfo 必須跟三柱實際缺少的10支完全一致。
+    // 若不一致，代表讀到舊版錯誤快照：直接作廢重生，避免上方摘除正確、下方實際摘除卻不同步。
     if (getBallMax(mode) === 49) {
-      raw.pairs.forEach(p => {
-        (p.pair || []).forEach(x => {
-          if (!Array.isArray(x.omitted) || x.omitted.length !== 10) {
-            x.omitted = fixedActualOmittedFromGroups(x.groups || [], mode);
-          }
-          if (!Array.isArray(x.omittedInfo) || x.omittedInfo.length !== 10) {
-            const omitSet = new Set((x.omitted || []).map(Number));
-            const rankMap = new Map(fixedCurrentMissRanking(mode).map(v => [Number(v.n), v]));
-            x.omittedInfo = fixedRangeForMode(mode).filter(n => omitSet.has(n)).map(n => ({ n, ...(rankMap.get(n) || {}), source: 'batch' }));
-          }
-        });
-      });
+      const packExpectedKey = fixedCurrentOmittedKey(mode);
+      for (const p of raw.pairs) {
+        const pairList = (p && Array.isArray(p.pair)) ? p.pair : [];
+        for (const x of pairList) {
+          const actual = fixedActualOmittedFromGroups(x.groups || [], mode);
+          if (!Array.isArray(actual) || actual.length !== 10) return null;
+          const actualKey = fixedOmittedKeyFromInfo(actual);
+          const storedNums = Array.isArray(x.omitted) ? x.omitted.map(Number).filter(Number.isFinite) : [];
+          const storedInfoNums = Array.isArray(x.omittedInfo) ? x.omittedInfo.map(v => Number(v && v.n != null ? v.n : v)).filter(Number.isFinite) : [];
+          const storedKey = storedNums.length === 10 ? fixedOmittedKeyFromInfo(storedNums) : '';
+          const storedInfoKey = storedInfoNums.length === 10 ? fixedOmittedKeyFromInfo(storedInfoNums) : '';
+          if ((storedKey && storedKey !== actualKey) || (storedInfoKey && storedInfoKey !== actualKey)) return null;
+          if (packExpectedKey && actualKey !== packExpectedKey) return null;
+          const rankMap = new Map(fixedCurrentMissRanking(mode).map(v => [Number(v.n), v]));
+          x.omitted = actual.slice();
+          x.omittedInfo = actual.map(n => ({ n, ...(rankMap.get(Number(n)) || {}), source: packExpectedKey ? ((fixedLatestThenHighMissExcludeInfo(mode).slice(0,6).some(v => Number(v.n) === Number(n))) ? 'latest' : 'miss') : 'batch' }));
+        }
+      }
     }
     return raw;
   }
@@ -10452,7 +10457,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     // 大樂透 / 香港六合彩：每日摘除隨最新資料浮動。
     // 新增開獎後：舊 pack = 開獎前已建立、用來判斷最新期；先封存到「新增前資料狀態」；
     // 再依目前最新6碼 + 遺漏補4碼建立下一期要用的新 pack。
-    const currentOmittedKey = fixedCurrentOmittedKey(mode, currentDraws);
+    // 49彩種目前畫面 A～E 雙柱，必須跟上方「目前49彩種共同摘除號碼」使用同一份資料來源。
+    // 上方摘除名單來自 fixedFullDrawsForMiss(mode)；不能用 getBacktestDraws() 的參考期數截斷資料，
+    // 否則會出現上方正確、下方本組實際摘除卻不同的狀況。
+    const currentOmittedKey = fixedCurrentOmittedKey(mode); // 不傳 draws：固定使用 fixedFullDrawsForMiss(mode)
     if (existing) {
       const existingKey = fixedPackOmittedKey(existing, mode);
       if (existingKey === currentOmittedKey) {
@@ -10463,7 +10471,8 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (previousDraws.length) fixedSaveHistorySnapshot(existing, mode, previousDraws);
     }
 
-    const pack = fixedGenerateFivePairsFromHistory(mode, currentDraws, 'current-49-floating');
+    const topOmitBasisDraws = fixedFullDrawsForMiss(mode);
+    const pack = fixedGenerateFivePairsFromHistory(mode, topOmitBasisDraws, 'current-49-top-omit');
     fixedSavePack(pack, mode);
     return pack;
   }
@@ -10845,10 +10854,14 @@ ${settleRecord.analysisLines.join('\n')}`;
     const bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
     const onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
     const bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
-    // 大組上方也顯示該組實際使用的摘除名單，不能拿目前最新規則硬套。
-    const displayInfo = getBallMax(currentGameMode()) === 49
-      ? ((groupPack.pair && groupPack.pair[0] && Array.isArray(groupPack.pair[0].omittedInfo) && groupPack.pair[0].omittedInfo.length) ? groupPack.pair[0].omittedInfo : [])
-      : [];
+    // 大組上方只顯示「三柱實際沒有出現的10支」。來源標籤再依目前最新摘除規則補上，避免顯示名單與立柱本體不同步。
+    let displayInfo = [];
+    if (getBallMax(currentGameMode()) === 49 && groupPack.pair && groupPack.pair[0]) {
+      const actualOmitted = fixedActualOmittedFromGroups(groupPack.pair[0].groups || [], currentGameMode());
+      const currentInfo = fixedHighMissExcludeInfo(currentGameMode());
+      const infoMap = new Map(currentInfo.map(v => [Number(v.n), v]));
+      displayInfo = actualOmitted.map(n => ({ n, ...(infoMap.get(Number(n)) || {}), source: infoMap.get(Number(n)) ? infoMap.get(Number(n)).source : 'batch' }));
+    }
     const omittedLine = displayInfo.length ? `<div class="small-note">本組實際共同摘除號碼：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
@@ -10899,7 +10912,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     // 摘除規則仍維持：最新一期6碼 + 遺漏最多補4碼，A1/A2 共用同一組摘除。
     const reselectNonce = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const pack = getBallMax(mode) === 49
-      ? fixedGenerateFivePairsFromHistory(mode, getBacktestDraws(), `manual-reselect-${reselectNonce}`)
+      // 49彩種重選也必須跟上方摘除名單同源：用完整資料庫/目前貼上欄位，不用參考期數截斷後的 getBacktestDraws()。
+      ? fixedGenerateFivePairsFromHistory(mode, fixedFullDrawsForMiss(mode), `manual-reselect-top-omit-${reselectNonce}`)
       : fixedGenerateFivePairs(mode);
     pack.createdAt = new Date().toISOString();
     pack.reselectAt = pack.createdAt;
@@ -10913,7 +10927,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     log(`已重新精選 ${gameLabel(mode)} 固定立柱：A～E 各 2 組 10-14-15。其他彩種不受影響。`);
     log(`已清除本彩種上一批近10期封存結果 ${clearedRecent10} 筆；下方過倒已改用新批雙柱重新判斷。`);
     if (getBallMax(mode) === 49) {
-      log('本次大樂透/六合彩共同摘除依最新一期6碼 + 遺漏最多補4碼：' + fixedFormatMissList(fixedHighMissExcludeInfo(mode)));
+      log('本次大樂透/六合彩共同摘除（與上方顯示同一份名單）依最新一期6碼 + 遺漏最多補4碼：' + fixedFormatMissList(fixedHighMissExcludeInfo(mode)));
     }
   }
 
