@@ -10706,9 +10706,16 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     // 第 idx 列展開時，畫面列出的開獎號碼就是「建立下方雙柱前已知的上一期號碼」。
     // 所以下方 A1/A2 必須共同摘除：本列顯示的6個開獎號碼 + 以本列為最新資料時計算的遺漏最多4碼。
-    // 例：第3期列上方顯示 03 26 49 29 37 20，下方雙柱就必須排除這6碼，再補當時漏最多4碼。
+    // 手動按「重新精選立柱」時，保留這個摘除規則，但加入本批 reselectNonce 重新洗柱，
+    // 避免 49 彩種近10期一直讀到舊快照，看起來像完全沒有換號碼。
     const historyDraws = (allList || []).slice(idx);
     const expectedKey = fixedCurrentOmittedKey(mode, historyDraws);
+    const manualNonce = currentPack && currentPack.reselectNonce ? String(currentPack.reselectNonce) : '';
+
+    if (manualNonce) {
+      return fixedGenerateFivePairsFromHistory(mode, historyDraws, `row-${idx}-manual-reselect-${manualNonce}`);
+    }
+
     const snap = fixedLoadHistorySnapshot(mode, historyDraws);
     if (snap && (!expectedKey || fixedPackFirstOmittedKey(snap, mode) === expectedKey)) return snap;
 
@@ -10838,7 +10845,17 @@ ${settleRecord.analysisLines.join('\n')}`;
     const ok = confirm(`確定要重新精選「${gameLabel(mode)}」固定立柱嗎？\n\n只會重生目前彩種的 A～E 雙柱，不會影響其他彩種。\n下方近10期過倒也會改用新批雙柱重新判斷。`);
     if (!ok) return;
     const clearedRecent10 = fixedClearRecent10ResultsForMode(mode);
-    const pack = fixedGenerateFivePairs(mode);
+    // 重新精選必須強制重生目前彩種的 A～E 雙柱。
+    // 49彩種用獨立 nonce 當種子重建，確保每按一次都會產生新雙柱；
+    // 摘除規則仍維持：最新一期6碼 + 遺漏最多補4碼，A1/A2 共用同一組摘除。
+    const reselectNonce = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const pack = getBallMax(mode) === 49
+      ? fixedGenerateFivePairsFromHistory(mode, getBacktestDraws(), `manual-reselect-${reselectNonce}`)
+      : fixedGenerateFivePairs(mode);
+    pack.createdAt = new Date().toISOString();
+    pack.reselectAt = pack.createdAt;
+    pack.reselectNonce = reselectNonce;
+    try { localStorage.removeItem(fixedDualStorageKey(mode)); } catch (e) {}
     fixedSavePack(pack, mode);
     const draws = getBacktestDraws();
     lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
