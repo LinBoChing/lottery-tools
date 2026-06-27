@@ -1251,7 +1251,15 @@
 .fixed-sub-card{background:#0b1220;border:1px solid var(--border);border-radius:14px;padding:10px;}
 .fixed-sub-title{font-weight:900;color:#7dd3fc;margin-bottom:8px;}
 .fixed-warning{padding:12px;border-radius:14px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.45);color:#fecaca;font-weight:800;line-height:1.7;}
-@media (max-width:768px){.fixed-two-grid{grid-template-columns:1fr;}}
+.fixed-quick5-box{grid-column:1 / -1;margin-top:2px;border:1px solid rgba(34,197,94,.42);border-radius:14px;background:rgba(2,6,23,.72);overflow:hidden;}
+.fixed-quick5-title{padding:9px 11px;font-weight:900;color:#86efac;border-bottom:1px solid var(--border);background:rgba(34,197,94,.10);font-size:14px;}
+.fixed-quick5-table{width:100%;border-collapse:collapse;font-size:12px;background:#020617;}
+.fixed-quick5-table th,.fixed-quick5-table td{border-bottom:1px solid rgba(51,65,85,.75);padding:7px 5px;text-align:center;white-space:nowrap;}
+.fixed-quick5-table th{color:#94a3b8;background:#0b1220;font-weight:900;}
+.fixed-quick5-table td:first-child{color:#fcd34d;font-weight:1000;}
+.fixed-quick5-chip{display:inline-block;min-width:42px;padding:3px 6px;border-radius:999px;font-weight:900;}
+.fixed-quick5-empty{padding:10px 11px;color:#94a3b8;font-size:13px;line-height:1.6;}
+@media (max-width:768px){.fixed-two-grid{grid-template-columns:1fr;}.fixed-quick5-table{font-size:11px;}.fixed-quick5-table th,.fixed-quick5-table td{padding:6px 3px;}.fixed-quick5-chip{min-width:34px;padding:3px 5px;}}
 
 
 /* 已移除：財神立柱記憶資料庫與右側記憶庫快捷按鈕 */
@@ -1430,7 +1438,10 @@
             <summary>固定立柱維護工具（點開後使用，避免誤按）</summary>
             <div class="learn-tools-body">
               <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新精選立柱</button>
-              
+              <div id="fixedQuick5Summary" class="fixed-quick5-box">
+                <div class="fixed-quick5-title">A～E 最近5期快速過倒總覽</div>
+                <div class="fixed-quick5-empty">按「天選雙柱」或「重新精選立柱」後，這裡會快速顯示 A～E 組最近 1～5 期結果。</div>
+              </div>
             </div>
           </details>
         </div>
@@ -1571,6 +1582,7 @@
   const recommendResult = document.getElementById('recommendResult');
   const dailyAgentBtn = document.getElementById('dailyAgentBtn');
   const dailyAgentResult = document.getElementById('dailyAgentResult');
+  const fixedQuick5Summary = document.getElementById('fixedQuick5Summary');
   const scoreBoardBody = document.getElementById('scoreBoardBody');
   const candidateScoreBoardBody = document.getElementById('candidateScoreBoardBody');
   const antiAnalysisBody = document.getElementById('antiAnalysisBody');
@@ -11012,6 +11024,70 @@ ${settleRecord.analysisLines.join('\n')}`;
     </div>`;
   }
 
+
+  function fixedQuick5CellClass(status) {
+    return status === 'bothPass' ? 'recent10-status-bothpass' : (status === 'onePass' ? 'recent10-status-onepass' : 'recent10-status-bothfail');
+  }
+
+  function fixedQuick5StatusText(status) {
+    if (status === 'bothPass') return '雙過';
+    if (status === 'onePass') return '單過';
+    if (status === 'bothFail') return '雙倒';
+    return '未判斷';
+  }
+
+  function fixedQuick5ResultForRow(label, pack, allList, idx, mode) {
+    const is49 = getBallMax(mode) === 49;
+    const targetDraw = allList[idx];
+    if (!targetDraw || !targetDraw.length) return null;
+    const currentPairSource = fixedPackPairSourceForLabel(pack, label);
+    let pairSource = null;
+    if (is49) {
+      const archived = fixedLoadRecent10Result(mode, label, targetDraw);
+      if (archived && Array.isArray(archived.pairSource) && archived.pairSource.length >= 2) {
+        pairSource = archived.pairSource.slice(0, 2).map(x => ({
+          groups: cloneGroups((x && x.groups) || []),
+          omitted: (x && x.omitted) || [],
+          omittedInfo: (x && x.omittedInfo) || []
+        }));
+      } else {
+        pairSource = currentPairSource;
+      }
+    } else {
+      const rowPack = fixedWalkForwardPackForRow(mode, allList, idx, pack);
+      pairSource = fixedPackPairSourceForLabel(rowPack, label) || currentPairSource;
+    }
+    if (!pairSource || pairSource.length < 2) return null;
+    return fixedEvaluatePairDirect(pairSource, targetDraw);
+  }
+
+  function fixedBuildQuick5SummaryHTML(pack, draws) {
+    const mode = currentGameMode();
+    const allList = (draws && draws.length ? draws : getBacktestDraws());
+    const rowCount = Math.min(5, allList.length);
+    if (!pack || !Array.isArray(pack.pairs) || !rowCount) {
+      return '<div class="fixed-quick5-title">A～E 最近5期快速過倒總覽</div><div class="fixed-quick5-empty">目前資料不足，請先新增或匯入開獎資料。</div>';
+    }
+    const head = Array.from({ length: rowCount }).map((_, idx) => `<th>${idx === 0 ? '最新' : '第' + (idx + 1) + '期'}</th>`).join('');
+    const rows = (pack.pairs || []).map(groupPack => {
+      const label = String(groupPack && groupPack.label || '').toUpperCase();
+      const cells = Array.from({ length: rowCount }).map((_, idx) => {
+        const result = fixedQuick5ResultForRow(label, pack, allList, idx, mode);
+        const status = result ? result.status : 'unknown';
+        const combo = result && result.comboLabel ? result.comboLabel : '';
+        const title = combo ? ` title="${combo}"` : '';
+        return `<td><span class="fixed-quick5-chip ${fixedQuick5CellClass(status)}"${title}>${fixedQuick5StatusText(status)}</span></td>`;
+      }).join('');
+      return `<tr><td>${label || '-'}</td>${cells}</tr>`;
+    }).join('');
+    return `<div class="fixed-quick5-title">A～E 最近5期快速過倒總覽</div><table class="fixed-quick5-table"><thead><tr><th>組別</th>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function fixedRenderQuick5Summary(pack, draws) {
+    if (!fixedQuick5Summary) return;
+    fixedQuick5Summary.innerHTML = fixedBuildQuick5SummaryHTML(pack, draws);
+  }
+
   function fixedBuildOneGroupHTML(groupPack, draws, parentPack = null) {
     const label = groupPack.label;
     const items = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
@@ -11056,6 +11132,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       ? pack.pairs.flatMap(p => (p.pair || []).map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] })))
       : [];
     const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW', { hour12: false }) : '未知';
+    fixedRenderQuick5Summary(pack, draws);
     dailyAgentResult.innerHTML = `
       <div class="daily-agent-kpi">
         <div>目前彩種<br><b>${gameLabel(mode)}</b></div>
@@ -11071,8 +11148,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   async function runReselectFixedPillars() {
     const mode = currentGameMode();
-    const ok = confirm(`確定要重新精選「${gameLabel(mode)}」固定立柱嗎？\n\n只會重生目前彩種的 A～E 雙柱，不會影響其他彩種。\n下方近10期過倒也會改用新批雙柱重新判斷。`);
-    if (!ok) return;
+    // 按下後直接重新精選，不再跳出二次確認；只影響目前彩種。
     // 重新精選只影響下一期開始使用的新批 A～E；歷史已封存過倒不清除，避免舊期對照被回頭改寫。
     const clearedRecent10 = 0;
     // 重新精選必須強制重生目前彩種的 A～E 雙柱。
