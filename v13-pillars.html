@@ -1165,6 +1165,37 @@
     .recent10-row.open .recent10-detail{ display:block; }
     .recent10-detail-title{ color:#7dd3fc; font-weight:900; margin-bottom:4px; }
     .recent10-detail-line b{ color:#f8fafc; }
+    .recent10-num-chip{
+      display:inline-block;
+      min-width:28px;
+      text-align:center;
+      margin:2px 3px 2px 0;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid rgba(51,65,85,.85);
+      color:#cbd5e1;
+      background:rgba(15,23,42,.72);
+      font-weight:800;
+    }
+    .recent10-num-chip.hit{
+      background:linear-gradient(135deg, rgba(34,197,94,.36), rgba(56,189,248,.24));
+      border-color:rgba(34,197,94,.85);
+      color:#f0fdf4;
+      font-weight:1000;
+      box-shadow:0 0 0 1px rgba(187,247,208,.18) inset;
+    }
+    .recent10-draw-chip{
+      display:inline-block;
+      min-width:28px;
+      text-align:center;
+      margin:2px 3px 2px 0;
+      padding:2px 6px;
+      border-radius:8px;
+      background:rgba(245,158,11,.16);
+      border:1px solid rgba(245,158,11,.42);
+      color:#fde68a;
+      font-weight:900;
+    }
 
     .lucky5-box{
       margin-top:12px;
@@ -7666,23 +7697,39 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  function caishenFormatGroupsForDetail(groups) {
+  function recent10FormatDrawChips(draw) {
+    return (draw || []).map(n => `<span class="recent10-draw-chip">${pad2(n)}</span>`).join(' ') || '無資料';
+  }
+
+  function recent10FormatPillarNums(nums, draw) {
+    const drawSet = new Set((draw || []).map(n => Number(n)));
+    return (nums || []).map(n => {
+      const hit = drawSet.has(Number(n));
+      return `<span class="recent10-num-chip${hit ? ' hit' : ''}">${pad2(n)}</span>`;
+    }).join(' ') || '無資料';
+  }
+
+  function caishenFormatGroupsForDetail(groups, draw) {
     return (groups || []).slice(0, 3).map((g, idx) => {
-      const nums = (g || []).map(pad2).join(' ');
-      return `<div class="recent10-detail-line"><b>第${idx + 1}柱：</b>${nums || '無資料'}</div>`;
+      const nums = recent10FormatPillarNums(g || [], draw);
+      return `<div class="recent10-detail-line"><b>第${idx + 1}柱：</b>${nums}</div>`;
     }).join('');
   }
 
-  function caishenBuildPairDetailHTML(pairGroups, labels, note) {
+  function caishenBuildPairDetailHTML(pairGroups, labels, note, drawForHighlight) {
     if (!Array.isArray(pairGroups) || pairGroups.length < 2) return '';
     const labelA = (labels && labels[0]) || '前一天第一組';
     const labelB = (labels && labels[1]) || '前一天第二組';
+    const drawLine = drawForHighlight && drawForHighlight.length
+      ? `<div class="recent10-detail-line" style="margin-bottom:6px;"><b>對照開獎：</b>${recent10FormatDrawChips(drawForHighlight)}</div>`
+      : '';
     return `<div class="recent10-detail">
       <div class="recent10-detail-title">點開驗證：${note || '該期對照使用的兩組立柱'}</div>
+      ${drawLine}
       <div class="recent10-detail-line"><b>${labelA}</b></div>
-      ${caishenFormatGroupsForDetail(pairGroups[0])}
+      ${caishenFormatGroupsForDetail(pairGroups[0], drawForHighlight)}
       <div class="recent10-detail-line" style="margin-top:6px;"><b>${labelB}</b></div>
-      ${caishenFormatGroupsForDetail(pairGroups[1])}
+      ${caishenFormatGroupsForDetail(pairGroups[1], drawForHighlight)}
     </div>`;
   }
 
@@ -7703,7 +7750,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         detailHTML = caishenBuildPairDetailHTML(pairGroups, [
           (items[0] && (items[0].sourceLabel || items[0].label)) || '目前第一組',
           (items[1] && (items[1].sourceLabel || items[1].label)) || '目前第二組'
-        ], '此期使用畫面下方目前雙柱做回測');
+        ], '此期使用畫面下方目前雙柱做回測', draw);
       }
       const status = caishenOutcomeStatusText(statusKey);
       const cls = statusKey === 'bothPass' ? 'recent10-status-bothpass' : (statusKey === 'bothFail' ? 'recent10-status-bothfail' : (statusKey === 'onePass' ? 'recent10-status-onepass' : 'recent10-status-bothfail'));
@@ -10980,7 +11027,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const omitLineForRow = omitInfoForRow.length ? `｜開獎前摘除=${fixedFormatMissList(omitInfoForRow)}` : '';
       const noteText = `${notePrefix}｜A=${(result.hitsA || []).join('-')}→${result.scoreA}；B=${(result.hitsB || []).join('-')}→${result.scoreB}${omitLineForRow}`;
       const histItems = pairSource.slice(0, 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBasis, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
-      const detailHTML = caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}`);
+      const detailHTML = caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}`, targetDraw);
       return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期雙柱對照">
         <div>${issue}</div>
         <div class="${fixedStatusClass(result.status)}">${statusText}</div>
