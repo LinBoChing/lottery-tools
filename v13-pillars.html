@@ -1288,7 +1288,9 @@
 .fixed-quick5-table th,.fixed-quick5-table td{border-bottom:1px solid rgba(51,65,85,.75);padding:7px 5px;text-align:center;white-space:nowrap;}
 .fixed-quick5-table th{color:#94a3b8;background:#0b1220;font-weight:900;}
 .fixed-quick5-table td:first-child{color:#fcd34d;font-weight:1000;}
-.fixed-quick5-chip{display:inline-block;min-width:42px;padding:3px 6px;border-radius:999px;font-weight:900;}
+.fixed-quick5-chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:42px;padding:3px 6px;border-radius:999px;font-weight:900;line-height:1.15;}
+    .fixed-quick5-icon{font-size:11px;line-height:1;}
+    .fixed-quick5-combo{font-size:12px;line-height:1.1;}
 .fixed-quick5-empty{padding:10px 11px;color:#94a3b8;font-size:13px;line-height:1.6;}
 @media (max-width:768px){.fixed-two-grid{grid-template-columns:1fr;}.fixed-quick5-table{font-size:11px;}.fixed-quick5-table th,.fixed-quick5-table td{padding:6px 3px;}.fixed-quick5-chip{min-width:34px;padding:3px 5px;}}
 
@@ -11083,6 +11085,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     return '未判斷';
   }
 
+  function fixedQuick5StatusIcon(status) {
+    if (status === 'bothPass') return '🟢';
+    if (status === 'onePass') return '🟡';
+    if (status === 'bothFail') return '🔴';
+    return '⚪';
+  }
+
   function fixedQuick5ResultForRow(label, pack, allList, idx, mode) {
     const is49 = getBallMax(mode) === 49;
     const targetDraw = allList[idx];
@@ -11122,8 +11131,11 @@ ${settleRecord.analysisLines.join('\n')}`;
         const result = fixedQuick5ResultForRow(label, pack, allList, idx, mode);
         const status = result ? result.status : 'unknown';
         const combo = result && result.comboLabel ? result.comboLabel : '';
-        const title = combo ? ` title="${combo}"` : '';
-        return `<td><span class="fixed-quick5-chip ${fixedQuick5CellClass(status)}"${title}>${fixedQuick5StatusText(status)}</span></td>`;
+        const title = combo ? ` title="${fixedQuick5StatusText(status)} ${combo}"` : '';
+        const display = combo
+          ? `<span class="fixed-quick5-icon">${fixedQuick5StatusIcon(status)}</span><span class="fixed-quick5-combo">${combo}</span>`
+          : fixedQuick5StatusText(status);
+        return `<td><span class="fixed-quick5-chip ${fixedQuick5CellClass(status)}"${title}>${display}</span></td>`;
       }).join('');
       return `<tr><td>${label || '-'}</td>${cells}</tr>`;
     }).join('');
