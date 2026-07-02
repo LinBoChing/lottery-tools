@@ -10378,7 +10378,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     return pool.length === 39 ? pool : fixedShuffleNumbers(mode).slice(0, 39).sort((a, b) => a - b);
   }
 
-  function fixedBuildOnePair(label, mode = currentGameMode(), used = new Set()) {
+  function fixedBuildOnePair(label, mode = currentGameMode(), used = new Set(), historyDraws = null) {
     const max = getBallMax(mode);
     const pair = [];
     let sharedPool = null;
@@ -10393,14 +10393,18 @@ ${settleRecord.analysisLines.join('\n')}`;
     let guard = 0;
     while (pair.length < 2 && guard < 300) {
       guard++;
-      const groups = sharedPool ? fixedBuildOnePillarFromPool(sharedPool) : fixedBuildOnePillar(mode);
+      const groups = label === 'A'
+        ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool || fixedRangeForMode(mode), fixedLocalRng([mode, label, pair.length, guard, fixedDrawsFingerprint(historyDraws || getBacktestDraws())].join('::')), historyDraws || getBacktestDraws(), mode)
+        : (sharedPool ? fixedBuildOnePillarFromPool(sharedPool) : fixedBuildOnePillar(mode));
       const key = fixedGroupsKey(groups);
       if (used.has(key)) continue;
       used.add(key);
       pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
     }
     while (pair.length < 2) {
-      const groups = sharedPool ? fixedBuildOnePillarFromPool(sharedPool) : fixedBuildOnePillar(mode);
+      const groups = label === 'A'
+        ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool || fixedRangeForMode(mode), fixedLocalRng([mode, label, pair.length, 'fallback', fixedDrawsFingerprint(historyDraws || getBacktestDraws())].join('::')), historyDraws || getBacktestDraws(), mode)
+        : (sharedPool ? fixedBuildOnePillarFromPool(sharedPool) : fixedBuildOnePillar(mode));
       pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
     }
     return pair;
@@ -10410,10 +10414,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     return (groups || []).map(g => (g || []).join(',')).join('|');
   }
 
-  function fixedGenerateFivePairs(mode = currentGameMode()) {
+  function fixedGenerateFivePairs(mode = currentGameMode(), historyDraws = null) {
     const used = new Set();
+    const basisDraws = historyDraws || getBacktestDraws();
     const pairs = FIXED_PAIR_LABELS.map(label => {
-      const pair = fixedBuildOnePair(label, mode, used);
+      const pair = fixedBuildOnePair(label, mode, used, basisDraws);
       return { label, pair, createdAt: new Date().toISOString(), mode };
     });
     return { version: 2, mode, createdAt: new Date().toISOString(), pairs };
@@ -10629,7 +10634,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         fixedSaveHistorySnapshot(existing, mode, currentDraws);
         return existing;
       }
-      const pack = fixedGenerateFivePairs(mode);
+      const pack = fixedGenerateFivePairs(mode, currentDraws);
       fixedSavePack(pack, mode);
       return pack;
     }
@@ -10812,6 +10817,32 @@ ${settleRecord.analysisLines.join('\n')}`;
     return groups;
   }
 
+  function fixedLatest5UnionSet(draws, max) {
+    const s = new Set();
+    (draws || []).slice(0, 5).forEach(draw => {
+      (draw || []).forEach(n => {
+        n = Number(n);
+        if (Number.isFinite(n) && n >= 1 && n <= max) s.add(n);
+      });
+    });
+    return s;
+  }
+
+  function fixedBuildAGroupFirstZeroPillarFromPoolDet(pool, rng, historyDraws, mode) {
+    const max = getBallMax(mode);
+    const latest5Set = fixedLatest5UnionSet(historyDraws, max);
+    const basePool = (pool || []).map(Number).filter(n => Number.isFinite(n) && n >= 1 && n <= max);
+    const safeFirst = fixedShuffleWithRng(basePool.filter(n => !latest5Set.has(n)), rng);
+    if (safeFirst.length < 10) return fixedBuildOnePillarFromPoolDet(basePool, rng);
+
+    const first = safeFirst.slice(0, 10);
+    const firstSet = new Set(first);
+    const remain = fixedShuffleWithRng(basePool.filter(n => !firstSet.has(n)), rng);
+    const groups = [first, remain.slice(0, 14), remain.slice(14, 29)];
+    groups.forEach(g => g.sort((a, b) => a - b));
+    return groups;
+  }
+
 
   function fixedEnsureGroupsUseOnlyPool(groups, pool, rng) {
     const allowed = new Set((pool || []).map(Number));
@@ -10866,7 +10897,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       let guard = 0;
       while (pair.length < 2 && guard < 300) {
         guard++;
-        let groups = fixedBuildOnePillarFromPoolDet(sharedPool, rng);
+        let groups = label === 'A'
+          ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool, rng, historyDraws, mode)
+          : fixedBuildOnePillarFromPoolDet(sharedPool, rng);
         if (max === 49) groups = fixedEnsureGroupsUseOnlyPool(groups, sharedPool, rng);
         const key = fixedGroupsKey(groups);
         if (used.has(key)) continue;
@@ -10874,7 +10907,9 @@ ${settleRecord.analysisLines.join('\n')}`;
         pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
       }
       while (pair.length < 2) {
-        let groups = fixedBuildOnePillarFromPoolDet(sharedPool, rng);
+        let groups = label === 'A'
+          ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool, rng, historyDraws, mode)
+          : fixedBuildOnePillarFromPoolDet(sharedPool, rng);
         if (max === 49) groups = fixedEnsureGroupsUseOnlyPool(groups, sharedPool, rng);
         pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
       }
@@ -11199,7 +11234,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>每組規格<br><b>A1/A2 10-14-15</b></div>
         <div>精選時間<br><b>${created}</b></div>
       </div>
-      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂沒有按「重新精選立柱」就不會換雙柱。大樂透/六合彩只在建立或重新精選時套用近30期加權過熱前10碼；之後 A～E 固定到下次重選。近10期每一列優先讀新增開獎前的畫面雙柱快照。狀態顯示以 A/B 三柱命中數相乘的實際碰數為準。</div>
+      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂/大樂透/六合彩沒有按「重新精選立柱」就不會換雙柱。A組會套用最新1～5期雙倒條件：A1/A2第一柱避開最新5期開獎號碼；大樂透/六合彩另在建立或重新精選時套用近30期加權過熱前10碼。之後 A～E 固定到下次重選。近10期每一列優先讀新增開獎前的畫面雙柱快照。狀態顯示以 A/B 三柱命中數相乘的實際碰數為準。</div>
       ${fixedCurrentTopMissHTML(mode)}
       <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws, pack)).join('')}</div>`;
     document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
@@ -11217,7 +11252,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const pack = getBallMax(mode) === 49
       // 49彩種重選也必須跟上方摘除名單同源：用完整資料庫/目前貼上欄位，不用參考期數截斷後的 getBacktestDraws()。
       ? fixedGenerateFivePairsFromHistory(mode, fixedFullDrawsForMiss(mode), `manual-reselect-top-omit-${reselectNonce}`)
-      : fixedGenerateFivePairs(mode);
+      : fixedGenerateFivePairs(mode, getBacktestDraws());
     pack.createdAt = new Date().toISOString();
     pack.reselectAt = pack.createdAt;
     pack.reselectNonce = reselectNonce;
