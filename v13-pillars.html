@@ -10394,7 +10394,9 @@ ${settleRecord.analysisLines.join('\n')}`;
     while (pair.length < 2 && guard < 300) {
       guard++;
       const groups = label === 'A'
-        ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool || fixedRangeForMode(mode), fixedLocalRng([mode, label, pair.length, guard, fixedDrawsFingerprint(historyDraws || getBacktestDraws())].join('::')), historyDraws || getBacktestDraws(), mode)
+        // A組維持「最新1~5期雙倒 / 第一柱連5期0支」規則，但不要用固定種子鎖死號碼；
+        // 傳入 null 讓每次重新精選都重新洗出一批符合條件的 A1/A2。
+        ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool || fixedRangeForMode(mode), null, historyDraws || getBacktestDraws(), mode)
         : (sharedPool ? fixedBuildOnePillarFromPool(sharedPool) : fixedBuildOnePillar(mode));
       const key = fixedGroupsKey(groups);
       if (used.has(key)) continue;
@@ -10403,7 +10405,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     while (pair.length < 2) {
       const groups = label === 'A'
-        ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool || fixedRangeForMode(mode), fixedLocalRng([mode, label, pair.length, 'fallback', fixedDrawsFingerprint(historyDraws || getBacktestDraws())].join('::')), historyDraws || getBacktestDraws(), mode)
+        ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool || fixedRangeForMode(mode), null, historyDraws || getBacktestDraws(), mode)
         : (sharedPool ? fixedBuildOnePillarFromPool(sharedPool) : fixedBuildOnePillar(mode));
       pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
     }
@@ -11246,8 +11248,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     // 重新精選只影響下一期開始使用的新批 A～E；歷史已封存過倒不清除，避免舊期對照被回頭改寫。
     const clearedRecent10 = 0;
     // 重新精選必須強制重生目前彩種的 A～E 雙柱。
-    // 49彩種用獨立 nonce 當種子重建，確保每按一次都會產生新雙柱；
-    // 摘除規則維持：近30期加權過熱前10碼，A1/A2 共用同一組摘除。
+    // 所有彩種每按一次都會產生新雙柱；A組規則不變，但 A1/A2 不再被固定種子鎖成死號碼。
+    // 49彩種另維持：近30期加權過熱前10碼，A1/A2 共用同一組摘除。
     const reselectNonce = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const pack = getBallMax(mode) === 49
       // 49彩種重選也必須跟上方摘除名單同源：用完整資料庫/目前貼上欄位，不用參考期數截斷後的 getBacktestDraws()。
