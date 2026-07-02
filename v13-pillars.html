@@ -10847,6 +10847,34 @@ ${settleRecord.analysisLines.join('\n')}`;
     return chosen.slice(0, 5);
   }
 
+  function fixedBuildFiveStarSeedOptionsForPillar(candidates, usedNums, rng) {
+    const options = [];
+    (candidates || []).forEach(drawNums => {
+      const clean = (drawNums || []).map(Number).filter(n => Number.isFinite(n) && !usedNums.has(n));
+      if (clean.length < 5) return;
+      // 39球通常剛好5碼；49球可能是6碼，隨機取其中5碼，代表「該柱內至少包5碼」。
+      for (let i = 0; i < 8; i++) {
+        const seed = fixedShuffleWithRng(clean, rng).slice(0, 5);
+        const key = seed.slice().sort((a, b) => a - b).join('-');
+        if (seed.length === 5 && !options.some(x => x.key === key)) options.push({ seed, key });
+      }
+    });
+    return fixedShuffleWithRng(options, rng);
+  }
+
+  function fixedBuildBalancedSecondThirdFiveStarSeeds(candidates, usedNums, rng) {
+    const secondOptions = fixedBuildFiveStarSeedOptionsForPillar(candidates, usedNums, rng);
+    for (const secondOpt of secondOptions) {
+      const usedAfterSecond = new Set(usedNums);
+      secondOpt.seed.forEach(n => usedAfterSecond.add(n));
+      const thirdOptions = fixedBuildFiveStarSeedOptionsForPillar(candidates, usedAfterSecond, rng);
+      if (!thirdOptions.length) continue;
+      const thirdOpt = thirdOptions[0];
+      return { secondSeed: secondOpt.seed.slice(), thirdSeed: thirdOpt.seed.slice() };
+    }
+    return null;
+  }
+
   function fixedBuildAGroupFirstZeroPillarFromPoolDet(pool, rng, historyDraws, mode) {
     const max = getBallMax(mode);
     const latest5Set = fixedLatest5UnionSet(historyDraws, max);
@@ -10854,16 +10882,17 @@ ${settleRecord.analysisLines.join('\n')}`;
     const safeFirstBase = basePool.filter(n => !latest5Set.has(n));
     if (safeFirstBase.length < 10) return fixedBuildOnePillarFromPoolDet(basePool, rng);
 
-    // A組新規則：
+    // A組規則：
     // 1. 第一柱避開最新1~5期，確保第一柱連5期0支。
-    // 2. 排除最新一期後，只看近第2~4期；A1/A2 各自只需要至少一次「五星在第二柱或第三柱內」。
+    // 2. 排除最新一期後，只看近第2~4期；A1/A2 各自都要同時滿足：
+    //    第二柱至少一次五星、第三柱至少一次五星。兩個條件各一次即可，不要求同一期。
     //    39球彩種 = 該期5碼全包；49球彩種 = 該期前6碼中至少包5碼。
     const recent3Candidates = (historyDraws || [])
       .slice(1, 4)
       .map(draw => fixedDrawNumsForFiveStarCheck(draw, mode).filter(n => basePool.includes(n)))
       .filter(nums => nums.length >= 5);
 
-    for (let attempt = 0; attempt < 240; attempt++) {
+    for (let attempt = 0; attempt < 320; attempt++) {
       const first = fixedShuffleWithRng(safeFirstBase, rng).slice(0, 10);
       const firstSet = new Set(first);
       const used = new Set(first);
@@ -10872,16 +10901,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         .map(nums => nums.filter(n => !firstSet.has(n)))
         .filter(nums => nums.length >= 5);
 
-      const fiveStarSeed = fixedPickFiveStarSeedFromRecent4(candidatesAfterFirst, used, rng);
-      if (fiveStarSeed.length < 5) continue;
-      fiveStarSeed.forEach(n => used.add(n));
+      const seedPair = fixedBuildBalancedSecondThirdFiveStarSeeds(candidatesAfterFirst, used, rng);
+      if (!seedPair || seedPair.secondSeed.length < 5 || seedPair.thirdSeed.length < 5) continue;
+      seedPair.secondSeed.forEach(n => used.add(n));
+      seedPair.thirdSeed.forEach(n => used.add(n));
 
       const filler = fixedShuffleWithRng(basePool.filter(n => !used.has(n)), rng);
-      const second = [];
-      const third = [];
-      const seedToSecond = rng() < 0.5;
-      if (seedToSecond) second.push(...fiveStarSeed);
-      else third.push(...fiveStarSeed);
+      const second = seedPair.secondSeed.slice();
+      const third = seedPair.thirdSeed.slice();
 
       let cursor = 0;
       while (second.length < 14 && cursor < filler.length) second.push(filler[cursor++]);
@@ -11293,7 +11320,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>每組規格<br><b>A1/A2 10-14-15</b></div>
         <div>精選時間<br><b>${created}</b></div>
       </div>
-      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂/大樂透/六合彩沒有按「重新精選立柱」就不會換雙柱。A組會套用最新1～5期雙倒條件：A1/A2第一柱避開最新5期開獎號碼；且排除最新一期後，近第2～4期內 A1/A2 各自至少要有一次五星落在第二柱或第三柱內；大樂透/六合彩另在建立或重新精選時套用近30期加權過熱前10碼。之後 A～E 固定到下次重選。近10期每一列優先讀新增開獎前的畫面雙柱快照。狀態顯示以 A/B 三柱命中數相乘的實際碰數為準。</div>
+      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂/大樂透/六合彩沒有按「重新精選立柱」就不會換雙柱。A組會套用最新1～5期雙倒條件：A1/A2第一柱避開最新5期開獎號碼；且排除最新一期後，近第2～4期內 A1/A2 各自都要滿足第二柱五星一次、第三柱五星一次；大樂透/六合彩另在建立或重新精選時套用近30期加權過熱前10碼。之後 A～E 固定到下次重選。近10期每一列優先讀新增開獎前的畫面雙柱快照。狀態顯示以 A/B 三柱命中數相乘的實際碰數為準。</div>
       ${fixedCurrentTopMissHTML(mode)}
       <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws, pack)).join('')}</div>`;
     document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
