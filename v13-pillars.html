@@ -10390,6 +10390,17 @@ ${settleRecord.analysisLines.join('\n')}`;
       sharedPool = fixedHighMissSharedPool(mode).sort((a, b) => a - b);
       omitted = omittedInfo.map(x => x.n);
     }
+
+    if (label === 'B' || label === 'C') {
+      const rng = fixedLocalRng([FIXED_DUAL_STORAGE_PREFIX, mode, label, 'target10', Date.now(), Math.random()].join('::'));
+      const targetPair = fixedBuildTargetPatternPair(label, sharedPool || fixedRangeForMode(mode), rng, historyDraws || getBacktestDraws(), mode, omitted, omittedInfo);
+      if (targetPair && fixedTargetPairPerfect(targetPair, label, historyDraws || getBacktestDraws(), mode)) {
+        targetPair.forEach(x => used.add(fixedGroupsKey(x.groups)));
+        return targetPair;
+      }
+      if (targetPair) return targetPair;
+    }
+
     let guard = 0;
     while (pair.length < 2 && guard < 300) {
       guard++;
@@ -10916,6 +10927,122 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
+  function fixedTargetScoresForPairLabel(label) {
+    const key = String(label || '').toUpperCase();
+    if (key === 'B') {
+      return {
+        first:  [0, 0, 0, 0, 4, 3, 3, 4, 0, 4],
+        second: [4, 3, 0, 4, 3, 4, 0, 3, 4, 3]
+      };
+    }
+    if (key === 'C') {
+      return {
+        first:  [4, 0, 3, 4, 3, 4, 0, 3, 4, 3],
+        second: [0, 0, 0, 0, 4, 3, 3, 4, 0, 4]
+      };
+    }
+    return null;
+  }
+
+  function fixedPillarCountsOnDraw(groups, draw, mode) {
+    const drawSet = new Set(fixedDrawNumsForFiveStarCheck(draw, mode));
+    return (groups || []).map(g => (g || []).reduce((sum, n) => sum + (drawSet.has(Number(n)) ? 1 : 0), 0));
+  }
+
+  function fixedTargetPillarPenalty(groups, historyDraws, mode, targetScores) {
+    const draws = (historyDraws || []).slice(0, 10);
+    if (!Array.isArray(targetScores) || targetScores.length < 10 || draws.length < 10) return 999999;
+    let penalty = 0;
+    for (let i = 0; i < 10; i++) {
+      const counts = fixedPillarCountsOnDraw(groups, draws[i], mode);
+      const score = caishenHitComboScore(groups, draws[i]);
+      const want = Number(targetScores[i] || 0);
+      const h1 = counts[0] || 0;
+      if (want === 0) {
+        if (score !== 0) penalty += 260 + Math.abs(score) * 14;
+        // 使用者指定：B/C 前四期的 0，都必須是第一柱 0 支造成的倒。
+        if (i < 4 && h1 !== 0) penalty += 900 + h1 * 160;
+      } else {
+        if (score !== want) penalty += 220 + Math.abs(score - want) * 42 + (score === 0 ? 120 : 0);
+        // 3碰/4碰不得靠第一柱 0，必須是真正三柱過關。
+        if (h1 <= 0 || (counts[1] || 0) <= 0 || (counts[2] || 0) <= 0) penalty += 360;
+      }
+    }
+    return penalty;
+  }
+
+  function fixedGroupsFromFlat(flat) {
+    const groups = [flat.slice(0, 10), flat.slice(10, 24), flat.slice(24, 39)];
+    groups.forEach(g => g.sort((a, b) => a - b));
+    return groups;
+  }
+
+  function fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, targetScores) {
+    const basePool = (pool || fixedRangeForMode(mode)).map(Number).filter(Number.isFinite).slice(0, 39);
+    if (basePool.length < 39 || (historyDraws || []).length < 10) return fixedBuildOnePillarFromPoolDet(basePool, rng);
+
+    let bestFlat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
+    let bestGroups = fixedGroupsFromFlat(bestFlat);
+    let bestPenalty = fixedTargetPillarPenalty(bestGroups, historyDraws, mode, targetScores);
+    if (bestPenalty === 0) return bestGroups;
+
+    const runs = 34;
+    const steps = 1800;
+    for (let run = 0; run < runs; run++) {
+      let flat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
+      let groups = fixedGroupsFromFlat(flat);
+      let score = fixedTargetPillarPenalty(groups, historyDraws, mode, targetScores);
+      let temperature = 18;
+      for (let step = 0; step < steps; step++) {
+        if (score === 0) {
+          groups.forEach(g => g.sort((a, b) => a - b));
+          return groups;
+        }
+        const a = Math.floor(rng() * 39);
+        let b = Math.floor(rng() * 39);
+        if (a === b) b = (b + 1) % 39;
+        [flat[a], flat[b]] = [flat[b], flat[a]];
+        const ng = fixedGroupsFromFlat(flat);
+        const ns = fixedTargetPillarPenalty(ng, historyDraws, mode, targetScores);
+        const accept = ns <= score || Math.exp((score - ns) / Math.max(1, temperature)) > rng();
+        if (accept) {
+          groups = ng;
+          score = ns;
+          if (score < bestPenalty) {
+            bestPenalty = score;
+            bestFlat = flat.slice();
+            bestGroups = groups.map(g => g.slice());
+          }
+        } else {
+          [flat[a], flat[b]] = [flat[b], flat[a]];
+        }
+        temperature *= 0.9965;
+        if (temperature < 1.4) temperature = 1.4;
+      }
+    }
+    bestGroups.forEach(g => g.sort((a, b) => a - b));
+    return bestGroups;
+  }
+
+  function fixedTargetPairPerfect(pair, label, historyDraws, mode) {
+    const t = fixedTargetScoresForPairLabel(label);
+    if (!t || !Array.isArray(pair) || pair.length < 2) return false;
+    return fixedTargetPillarPenalty(pair[0].groups, historyDraws, mode, t.first) === 0 &&
+           fixedTargetPillarPenalty(pair[1].groups, historyDraws, mode, t.second) === 0;
+  }
+
+  function fixedBuildTargetPatternPair(label, pool, rng, historyDraws, mode, omitted = [], omittedInfo = []) {
+    const t = fixedTargetScoresForPairLabel(label);
+    if (!t) return null;
+    const firstGroups = fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, t.first);
+    const secondGroups = fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, t.second);
+    return [
+      { groups: firstGroups, label: `${label}1`, omitted, omittedInfo },
+      { groups: secondGroups, label: `${label}2`, omitted, omittedInfo }
+    ];
+  }
+
+
   function fixedEnsureGroupsUseOnlyPool(groups, pool, rng) {
     const allowed = new Set((pool || []).map(Number));
     const flat = [];
@@ -10967,6 +11094,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     const pairs = FIXED_PAIR_LABELS.map(label => {
       const pair = [];
       let guard = 0;
+      if (label === 'B' || label === 'C') {
+        const targetPair = fixedBuildTargetPatternPair(label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo);
+        if (targetPair && targetPair.length === 2) {
+          targetPair.forEach(x => used.add(fixedGroupsKey(x.groups)));
+          return { label, pair: targetPair, createdAt: 'walk-forward-target10', mode };
+        }
+      }
       while (pair.length < 2 && guard < 300) {
         guard++;
         let groups = label === 'A'
