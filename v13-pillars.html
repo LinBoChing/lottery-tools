@@ -11615,6 +11615,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     fixedQuick5Summary.innerHTML = fixedBuildQuick5SummaryHTML(pack, draws);
   }
 
+  function fixedFlatCopyIndex(label, idx) {
+    const key = String(label || '').toUpperCase();
+    if (key === 'D') return 6 + Number(idx || 0);
+    if (key === 'E') return 7 + Number(idx || 0);
+    return Math.max(0, 'ABCDE'.indexOf(key)) * 2 + Number(idx || 0);
+  }
+
   function fixedBuildOneGroupHTML(groupPack, draws, parentPack = null) {
     const label = groupPack.label;
     const isFourGroup = groupPack.type === 'fourDown' || fixedIsFourPillarLabel(label);
@@ -11650,7 +11657,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       ${fixedBuildRecent10HTML(label, items, draws, parentPack)}
       <div class="fixed-two-grid">
         ${isFourGroup ? items.map((item, idx) => {
-          const globalIndex = Math.max(0, 'ABCDE'.indexOf(String(label || '').toUpperCase())) * 2 + idx;
+          const globalIndex = fixedFlatCopyIndex(label, idx);
           return `<div class="fixed-sub-card">
             <div class="clean-two-card defense">
               <div class="clean-two-card-title"><span>${label}組四柱倒牌</span><span class="badge badge-random">9-10-10-10</span></div>
@@ -11662,7 +11669,7 @@ ${settleRecord.analysisLines.join('\n')}`;
             </div>
           </div>`;
         }).join('') : items.map((item, idx) => {
-          const globalIndex = Math.max(0, 'ABCDE'.indexOf(String(label || '').toUpperCase())) * 2 + idx;
+          const globalIndex = fixedFlatCopyIndex(label, idx);
           const cardHTML = buildDailyTwoCardHTML(item, idx, items)
             .replace(`data-copy-type="daily" data-copy-index="${idx}"`, `data-copy-type="fixedDaily" data-copy-index="${globalIndex}"`)
             .replace('複製這一組</button>', `複製${label}${idx + 1}</button>`);
