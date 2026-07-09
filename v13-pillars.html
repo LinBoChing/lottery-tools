@@ -11869,7 +11869,11 @@ ${settleRecord.analysisLines.join('\n')}`;
       alert('找不到可複製的這一組。請先重新產生結果後再試一次。');
       return;
     }
-    const text = exportText(items[index].groups);
+    const groups = items[index].groups || [];
+    // D / E 為 9-10-10-10 四柱組：複製時保留完整四柱；A～C 維持原本三柱格式。
+    const text = groups.length >= 4
+      ? groups.map(g => (g || []).map(pad2).join(',')).join('+')
+      : exportText(groups);
     await copyTextSmart(text, `第 ${index + 1} 組已複製`);
   }
 
