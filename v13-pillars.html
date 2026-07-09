@@ -1304,7 +1304,7 @@
   <div class="wrap">
     <div class="title">吸金穩贏 APP｜固定雙柱精選版</div>
     <div class="sub">
-      主畫面改成固定五組雙柱：A～E 各有 A1/A2 兩組 10-14-15。<br>
+      主畫面固定五組：A～C 維持雙柱 10-14-15；D、E 改為四柱 9-10-10-10 倒牌組。<br>
       <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；本版只簡化畫面與出戰邏輯，不破壞原資料。
     </div>
 
@@ -1472,8 +1472,8 @@
             <div class="learn-tools-body">
               <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新精選立柱</button>
               <div id="fixedQuick5Summary" class="fixed-quick5-box">
-                <div class="fixed-quick5-title">A～E 最近5期快速過倒總覽</div>
-                <div class="fixed-quick5-empty">按「天選雙柱」或「重新精選立柱」後，這裡會快速顯示 A～E 組最近 1～5 期結果。</div>
+                <div class="fixed-quick5-title">A～C最近5期 / D～E最近10期快速過倒總覽</div>
+                <div class="fixed-quick5-empty">按「天選雙柱」或「重新精選立柱」後，這裡會快速顯示 A～C 最近 1～5 期，D～E 最近 1～10 期結果。</div>
               </div>
             </div>
           </details>
@@ -1508,11 +1508,11 @@
           </div>
           <div class="stat">
             <div class="label">立柱規格</div>
-            <div class="value">10 / 14 / 15</div>
+            <div class="value">A-C：10/14/15<br>D-E：9/10/10/10</div>
           </div>
           <div class="stat">
             <div class="label">過關定義</div>
-            <div class="value">三柱皆中</div>
+            <div class="value">三柱/四柱皆中</div>
           </div>
         </div>
         <div class="section-head-inline">
@@ -7718,6 +7718,14 @@ ${settleRecord.analysisLines.join('\n')}`;
     }).join('');
   }
 
+
+  function caishenFormatGroupsForDetail4(groups, draw) {
+    return (groups || []).slice(0, 4).map((g, idx) => {
+      const nums = recent10FormatPillarNums(g || [], draw);
+      return `<div class="recent10-detail-line"><b>第${idx + 1}柱：</b>${nums}</div>`;
+    }).join('');
+  }
+
   function caishenBuildPairDetailHTML(pairGroups, labels, note, drawForHighlight) {
     if (!Array.isArray(pairGroups) || pairGroups.length < 2) return '';
     const labelA = (labels && labels[0]) || '前一天第一組';
@@ -10428,18 +10436,22 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fixedGenerateFivePairs(mode = currentGameMode(), historyDraws = null) {
-    const used = new Set();
     const basisDraws = historyDraws || getBacktestDraws();
-    const pairs = FIXED_PAIR_LABELS.map(label => {
-      const pair = fixedBuildOnePair(label, mode, used, basisDraws);
-      return { label, pair, createdAt: new Date().toISOString(), mode };
-    });
-    return { version: 2, mode, createdAt: new Date().toISOString(), pairs };
+    const pack = fixedGenerateFivePairsFromHistory(mode, basisDraws, `auto-create-${mode}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    pack.createdAt = new Date().toISOString();
+    return pack;
   }
 
   function fixedNormalizePack(raw, mode = currentGameMode()) {
     if (!raw || raw.mode !== mode || !Array.isArray(raw.pairs) || raw.pairs.length !== 5) return null;
-    const basicOk = raw.pairs.every(p => p && Array.isArray(p.pair) && p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15));
+    const basicOk = raw.pairs.every(p => {
+      const label = String(p && p.label || '').toUpperCase();
+      if (!p || !Array.isArray(p.pair)) return false;
+      if (fixedIsFourPillarLabel(label)) {
+        return p.pair.length === 1 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 4 && x.groups[0].length === 9 && x.groups[1].length === 10 && x.groups[2].length === 10 && x.groups[3].length === 10);
+      }
+      return p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15);
+    });
     if (!basicOk) return null;
 
     // 49彩種完整性防呆：儲存資料裡的 omitted / omittedInfo 必須跟三柱實際缺少的10支完全一致。
@@ -10525,11 +10537,12 @@ ${settleRecord.analysisLines.join('\n')}`;
     const allowed = all.filter(n => !omittedSet.has(n));
     const allowedSet = new Set(allowed);
     const fixed = (groups || []).map(g => (g || []).map(Number).filter(Number.isFinite));
-    const sizes = [10, 14, 15];
+    const isFour = fixed.length >= 4;
+    const sizes = isFour ? [9, 10, 10, 10] : [10, 14, 15];
     const beforeKey = fixedGroupsKey(fixed);
 
     const used = new Set();
-    for (let gi = 0; gi < 3; gi++) {
+    for (let gi = 0; gi < sizes.length; gi++) {
       const clean = [];
       (fixed[gi] || []).forEach(n => {
         if (allowedSet.has(n) && !used.has(n)) {
@@ -10557,7 +10570,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     });
 
     let cursor = 0;
-    for (let gi = 0; gi < 3; gi++) {
+    for (let gi = 0; gi < sizes.length; gi++) {
+      if (!Array.isArray(fixed[gi])) fixed[gi] = [];
       while (fixed[gi].length < sizes[gi] && cursor < candidates.length) {
         const n = candidates[cursor++];
         if (!used.has(n)) {
@@ -10569,8 +10583,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
 
     // 萬一舊資料殘缺，最後用完整允許池補成 10/14/15，避免畫面斷裂。
-    if (fixed.some((g, i) => g.length !== sizes[i])) {
-      return { groups: fixedEnsureGroupsUseOnlyPool(fixed, allowed, fixedLocalRng('repair-fallback-' + beforeKey)), changed: true };
+    if (fixed.slice(0, sizes.length).some((g, i) => g.length !== sizes[i])) {
+      return { groups: isFour ? fixedEnsureFourGroupsUseOnlyPool(fixed, allowed, fixedLocalRng('repair-fallback-' + beforeKey)) : fixedEnsureGroupsUseOnlyPool(fixed, allowed, fixedLocalRng('repair-fallback-' + beforeKey)), changed: true };
     }
     return { groups: fixed, changed: fixedGroupsKey(fixed) !== beforeKey };
   }
@@ -10624,15 +10638,16 @@ ${settleRecord.analysisLines.join('\n')}`;
       pack.pairs.forEach(groupPack => {
         const label = String(groupPack.label || '').toUpperCase();
         if (!label || fixedLoadRecent10Result(mode, label, latestDraw)) return;
-        const pairSource = (groupPack.pair || []).slice(0, 2).map(x => ({
+        const takeCount = fixedIsFourPillarLabel(label) ? 1 : 2;
+        const pairSource = (groupPack.pair || []).slice(0, takeCount).map(x => ({
           groups: cloneGroups((x && x.groups) || []),
           omitted: (x && x.omitted) || [],
-          omittedInfo: (x && x.omittedInfo) || []
+          omittedInfo: (x && x.omittedInfo) || [],
+          type: (x && x.type) || (groupPack.type || '')
         }));
-        if (pairSource.length < 2) return;
-        const histItems = pairSource.map((x, pIdx) => fixedItemFromGroups(x.groups, historyBeforeLatest, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
-        const result = fixedNormalizeRecent10Result(caishenEvaluatePairOnDraw(histItems, latestDraw));
-        fixedSaveRecent10Result(mode, label, latestDraw, pairSource, result, '開獎前固定雙柱封存');
+        if (pairSource.length < 1) return;
+        const result = fixedNormalizeRecent10Result(fixedEvaluatePairDirect(pairSource, latestDraw));
+        fixedSaveRecent10Result(mode, label, latestDraw, pairSource, result, '開獎前固定立柱封存');
       });
     } catch (e) {}
   }
@@ -10719,14 +10734,14 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedSaveRecent10Result(mode, label, draw, pairSource, result, sourceNote) {
     try {
-      if (!draw || !draw.length || !pairSource || pairSource.length < 2 || !result) return;
+      if (!draw || !draw.length || !pairSource || pairSource.length < 1 || !result) return;
       const rec = {
         version: 1,
         mode,
         label: String(label || '').toUpperCase(),
         drawKey: fixedDrawKey(draw),
         draw: (draw || []).map(Number).filter(Number.isFinite),
-        pairSource: pairSource.slice(0, 2).map(x => ({ groups: cloneGroups(x.groups || []), omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] })),
+        pairSource: pairSource.slice(0, result && result.isFour ? 1 : 2).map(x => ({ groups: cloneGroups(x.groups || []), omitted: x.omitted || [], omittedInfo: x.omittedInfo || [], type: x.type || "" })),
         result: {
           status: result.status,
           scoreA: result.scoreA,
@@ -10759,12 +10774,14 @@ ${settleRecord.analysisLines.join('\n')}`;
       pack.pairs.forEach(groupPack => {
         const label = String(groupPack && groupPack.label || '').toUpperCase();
         if (!label) return;
-        const pairSource = (groupPack.pair || []).slice(0, 2).map(x => ({
+        const takeCount = fixedIsFourPillarLabel(label) ? 1 : 2;
+        const pairSource = (groupPack.pair || []).slice(0, takeCount).map(x => ({
           groups: cloneGroups((x && x.groups) || []),
           omitted: (x && x.omitted) || [],
-          omittedInfo: (x && x.omittedInfo) || []
+          omittedInfo: (x && x.omittedInfo) || [],
+          type: (x && x.type) || (groupPack.type || '')
         }));
-        if (pairSource.length < 2) return;
+        if (pairSource.length < 1) return;
         const result = fixedEvaluatePairDirect(pairSource, draw);
         // 這裡故意覆寫同 drawKey 的舊紀錄：避免先前錯誤版本留下的快照繼續干擾。
         fixedSaveRecent10Result(mode, label, draw, pairSource, result, '新增前畫面固定雙柱快照');
@@ -11056,6 +11073,144 @@ ${settleRecord.analysisLines.join('\n')}`;
     return fixed;
   }
 
+
+  function fixedIsFourPillarLabel(label) {
+    const key = String(label || '').toUpperCase();
+    return key === 'D' || key === 'E';
+  }
+
+  function fixedFourPillarGroupsFromFlat(flat) {
+    const groups = [flat.slice(0, 9), flat.slice(9, 19), flat.slice(19, 29), flat.slice(29, 39)];
+    groups.forEach(g => g.sort((a, b) => a - b));
+    return groups;
+  }
+
+  function fixedFourPillarPass(groups, draw, mode) {
+    const drawSet = new Set(fixedDrawNumsForFiveStarCheck(draw, mode));
+    const counts = (groups || []).slice(0, 4).map(g => (g || []).reduce((sum, n) => sum + (drawSet.has(Number(n)) ? 1 : 0), 0));
+    while (counts.length < 4) counts.push(0);
+    const pass = counts.every(v => v > 0);
+    return { pass, counts, score: pass ? counts.reduce((a, b) => a * Math.max(1, b), 1) : 0 };
+  }
+
+  function fixedFourPillarRecent10Fail(groups, historyDraws, mode) {
+    const list = (historyDraws || []).slice(0, 10);
+    if (list.length < 10 || !groups || groups.length < 4) return false;
+    return list.every(draw => !fixedFourPillarPass(groups, draw, mode).pass);
+  }
+
+  function fixedFourPillarPenalty(groups, historyDraws, mode) {
+    const list = (historyDraws || []).slice(0, 10);
+    if (list.length < 10 || !groups || groups.length < 4) return 999999;
+
+    // D/E 四柱倒牌新版：
+    // 1. 最近10期仍必須全部未過關。
+    // 2. 每一期優先做成「只倒一柱」：例 1-0-2-1、2-1-0-1。
+    // 3. 十期內那個 0 中柱要分散在至少三個不同柱位，避免全部集中在同兩柱，看起來太極端。
+    let penalty = 0;
+    const zeroSlots = [0, 0, 0, 0];
+    let singleZeroRows = 0;
+
+    for (const draw of list) {
+      const r = fixedFourPillarPass(groups, draw, mode);
+      const counts = (r.counts || []).slice(0, 4).map(v => Number(v || 0));
+      const zeroIdx = counts.map((v, idx) => v <= 0 ? idx : -1).filter(idx => idx >= 0);
+      const zeroCount = zeroIdx.length;
+      const positive = counts.filter(v => v > 0).length;
+
+      // 任何一期四柱全中就是不合格，重罰。
+      if (r.pass || zeroCount === 0) penalty += 9000 + r.score * 80;
+
+      // 目標是 3 柱中、1 柱未中；多倒柱或全部倒都要扣分。
+      if (zeroCount === 1) {
+        singleZeroRows++;
+        zeroSlots[zeroIdx[0]]++;
+      } else {
+        penalty += Math.abs(zeroCount - 1) * 420 + Math.max(0, 3 - positive) * 90;
+        zeroIdx.forEach(idx => { zeroSlots[idx]++; });
+      }
+
+      // 中獎柱也不要太誇張；只要有中即可，過熱不加分。
+      counts.forEach(v => { if (v >= 3) penalty += (v - 2) * 8; });
+    }
+
+    penalty += (10 - singleZeroRows) * 260;
+
+    const activeSlots = zeroSlots.filter(v => v > 0);
+    const activeCount = activeSlots.length;
+    if (activeCount < 3) penalty += (3 - activeCount) * 1600;
+
+    if (activeCount >= 3) {
+      const maxSlot = Math.max(...activeSlots);
+      const minSlot = Math.min(...activeSlots);
+      // 十期分配理想大約 4-3-3 或 3-3-2-2；落差太大就扣分。
+      penalty += Math.max(0, maxSlot - minSlot - 2) * 520;
+      zeroSlots.forEach(v => {
+        if (v > 5) penalty += (v - 5) * 650;
+      });
+    }
+
+    return penalty;
+  }
+
+  function fixedBuildFourPillarDownFromPool(pool, rng, historyDraws, mode) {
+    const basePool = (pool || fixedRangeForMode(mode)).map(Number).filter(Number.isFinite).slice(0, 39);
+    if (basePool.length < 39) return fixedFourPillarGroupsFromFlat(fixedShuffleWithRng(basePool, rng).slice(0, 39));
+    let bestFlat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
+    let bestGroups = fixedFourPillarGroupsFromFlat(bestFlat);
+    let bestPenalty = fixedFourPillarPenalty(bestGroups, historyDraws, mode);
+    if (bestPenalty === 0) return bestGroups;
+    const attempts = (historyDraws || []).length >= 10 ? 16000 : 1200;
+    for (let i = 0; i < attempts; i++) {
+      const flat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
+      const groups = fixedFourPillarGroupsFromFlat(flat);
+      const penalty = fixedFourPillarPenalty(groups, historyDraws, mode);
+      if (penalty < bestPenalty) {
+        bestPenalty = penalty;
+        bestFlat = flat.slice();
+        bestGroups = groups.map(g => g.slice());
+        if (bestPenalty === 0) break;
+      }
+      if (i % 320 === 0 && bestPenalty > 0) {
+        const tuned = bestFlat.slice();
+        for (let step = 0; step < 80; step++) {
+          const a = Math.floor(rng() * 39);
+          let b = Math.floor(rng() * 39);
+          if (a === b) b = (b + 1) % 39;
+          [tuned[a], tuned[b]] = [tuned[b], tuned[a]];
+          const tg = fixedFourPillarGroupsFromFlat(tuned);
+          const tp = fixedFourPillarPenalty(tg, historyDraws, mode);
+          if (tp <= bestPenalty || rng() < 0.035) {
+            if (tp < bestPenalty) {
+              bestPenalty = tp;
+              bestFlat = tuned.slice();
+              bestGroups = tg.map(g => g.slice());
+              if (bestPenalty === 0) break;
+            }
+          } else {
+            [tuned[a], tuned[b]] = [tuned[b], tuned[a]];
+          }
+        }
+      }
+      if (bestPenalty === 0) break;
+    }
+    bestGroups.forEach(g => g.sort((a, b) => a - b));
+    return bestGroups;
+  }
+
+
+  function fixedEnsureFourGroupsUseOnlyPool(groups, pool, rng) {
+    const allowed = new Set((pool || []).map(Number));
+    const flat = [];
+    (groups || []).forEach(g => (g || []).forEach(n => {
+      n = Number(n);
+      if (allowed.has(n) && !flat.includes(n)) flat.push(n);
+    }));
+    fixedShuffleWithRng(pool || [], rng).forEach(n => { if (!flat.includes(n)) flat.push(n); });
+    const fixed = fixedFourPillarGroupsFromFlat(flat.slice(0, 39));
+    return fixed;
+  }
+
   function fixedGenerateFivePairsFromHistory(mode, historyDraws, seedTag) {
     const max = getBallMax(mode);
     const rng = fixedLocalRng([FIXED_DUAL_STORAGE_PREFIX, mode, seedTag || '', (historyDraws || []).map(d => (d || []).join('-')).join('|')].join('::'));
@@ -11094,6 +11249,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     const pairs = FIXED_PAIR_LABELS.map(label => {
       const pair = [];
       let guard = 0;
+      if (fixedIsFourPillarLabel(label)) {
+        let groups = fixedBuildFourPillarDownFromPool(sharedPool, rng, historyDraws, mode);
+        if (max === 49) groups = fixedEnsureFourGroupsUseOnlyPool(groups, sharedPool, rng);
+        return { label, type: 'fourDown', pair: [{ groups, label: `${label}1`, omitted, omittedInfo, type: 'fourDown' }], createdAt: 'four-pillar-down10', mode };
+      }
       if (label === 'B' || label === 'C') {
         const targetPair = fixedBuildTargetPatternPair(label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo);
         if (targetPair && targetPair.length === 2) {
@@ -11142,6 +11302,19 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
     }
 
+    if (result.isFour) {
+      const status = scoreA > 0 ? 'bothPass' : 'bothFail';
+      return {
+        ...result,
+        scoreA,
+        scoreB: 0,
+        aPass: scoreA > 0,
+        bPass: false,
+        status,
+        comboLabel: scoreA > 0 ? String(scoreA) : '0',
+        isFour: true
+      };
+    }
     const status = scoreA > 0 && scoreB > 0 ? 'bothPass' : ((scoreA > 0 || scoreB > 0) ? 'onePass' : 'bothFail');
     return {
       ...result,
@@ -11157,13 +11330,33 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedHitScoreForGroupsDirect(groups, draw) {
     const drawSet = new Set((draw || []).map(Number).filter(Number.isFinite));
     const hits = (groups || []).map(g => (g || []).map(Number).filter(n => drawSet.has(n)).length);
+    if (hits.length >= 4) {
+      const pass4 = hits.slice(0, 4).every(v => v > 0);
+      return { hits, score: pass4 ? hits.slice(0, 4).reduce((a, b) => a * Math.max(1, b), 1) : 0, isFour: true };
+    }
     const score = hits.length >= 3 ? (hits[0] || 0) * (hits[1] || 0) * (hits[2] || 0) : 0;
-    return { hits, score };
+    return { hits, score, isFour: false };
   }
 
   function fixedEvaluatePairDirect(pairSource, draw) {
-    const a = fixedHitScoreForGroupsDirect(pairSource && pairSource[0] ? pairSource[0].groups : [], draw);
-    const b = fixedHitScoreForGroupsDirect(pairSource && pairSource[1] ? pairSource[1].groups : [], draw);
+    const source = Array.isArray(pairSource) ? pairSource : [];
+    const a = fixedHitScoreForGroupsDirect(source && source[0] ? source[0].groups : [], draw);
+    if (source.length === 1 || a.isFour) {
+      const scoreA = a.score || 0;
+      const status = scoreA > 0 ? 'bothPass' : 'bothFail';
+      return {
+        scoreA,
+        scoreB: 0,
+        aPass: scoreA > 0,
+        bPass: false,
+        status,
+        comboLabel: a.isFour ? (scoreA > 0 ? String(scoreA) : '0') : caishenHitComboLabel(scoreA, 0),
+        hitsA: a.hits,
+        hitsB: [],
+        isFour: a.isFour
+      };
+    }
+    const b = fixedHitScoreForGroupsDirect(source && source[1] ? source[1].groups : [], draw);
     const scoreA = a.score || 0;
     const scoreB = b.score || 0;
     const status = scoreA > 0 && scoreB > 0 ? 'bothPass' : ((scoreA > 0 || scoreB > 0) ? 'onePass' : 'bothFail');
@@ -11175,18 +11368,21 @@ ${settleRecord.analysisLines.join('\n')}`;
       status,
       comboLabel: caishenHitComboLabel(scoreA, scoreB),
       hitsA: a.hits,
-      hitsB: b.hits
+      hitsB: b.hits,
+      isFour: false
     };
   }
 
   function fixedPackPairSourceForLabel(pack, label) {
     const labelText = String(label || '').toUpperCase();
     const groupPack = pack && Array.isArray(pack.pairs) ? pack.pairs.find(p => String(p.label || '').toUpperCase() === labelText) : null;
-    if (!groupPack || !Array.isArray(groupPack.pair) || groupPack.pair.length < 2) return null;
-    return groupPack.pair.slice(0, 2).map(x => ({
+    if (!groupPack || !Array.isArray(groupPack.pair) || groupPack.pair.length < 1) return null;
+    const takeCount = groupPack.type === 'fourDown' || fixedIsFourPillarLabel(labelText) ? 1 : 2;
+    return groupPack.pair.slice(0, takeCount).map(x => ({
       groups: cloneGroups((x && x.groups) || []),
       omitted: (x && x.omitted) || [],
-      omittedInfo: (x && x.omittedInfo) || []
+      omittedInfo: (x && x.omittedInfo) || [],
+      type: (x && x.type) || (groupPack.type || '')
     }));
   }
 
@@ -11237,7 +11433,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       // 49彩種每列優先使用『該期開獎前已封存的雙柱快照』。
       // 只有舊資料沒有快照時，才用保守備援顯示，避免新資料回頭改變歷史過倒。
       const currentPairSource = currentPack ? fixedPackPairSourceForLabel(currentPack, label) : null;
-      if (archived && Array.isArray(archived.pairSource) && archived.pairSource.length >= 2) {
+      if (archived && Array.isArray(archived.pairSource) && archived.pairSource.length >= 1) {
         pairSource = archived.pairSource.slice(0, 2).map(x => ({
           groups: cloneGroups((x && x.groups) || []),
           omitted: (x && x.omitted) || [],
@@ -11245,14 +11441,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         }));
         result = fixedEvaluatePairDirect(pairSource, targetDraw);
         notePrefix = archived.sourceNote || '使用新增前固定雙柱快照對照';
-      } else if (is49 && idx === 0 && currentPairSource && currentPairSource.length >= 2) {
+      } else if (is49 && idx === 0 && currentPairSource && currentPairSource.length >= 1) {
         pairSource = currentPairSource;
         result = fixedEvaluatePairDirect(pairSource, targetDraw);
         notePrefix = '未找到該期開獎前快照，暫用目前同組A1/A2備援對照';
       } else {
         if (is49) {
           // 沒有該期快照時，不再偷偷重生另一批歷史雙柱；避免展開驗證出現與畫面/記憶不同的柱。
-          pairSource = (currentPairSource && currentPairSource.length >= 2) ? currentPairSource : defaultPairSource;
+          pairSource = (currentPairSource && currentPairSource.length >= 1) ? currentPairSource : defaultPairSource;
           result = fixedEvaluatePairDirect(pairSource, targetDraw);
           notePrefix = '未找到該期快照，暫用目前同組A1/A2備援對照';
         } else {
@@ -11268,10 +11464,15 @@ ${settleRecord.analysisLines.join('\n')}`;
       const pairOmitInfo = pairSource && pairSource[0] && Array.isArray(pairSource[0].omittedInfo) ? pairSource[0].omittedInfo : [];
       const omitInfoForRow = is49 ? (pairOmitInfo.length ? pairOmitInfo : fixedLatestThenHighMissExcludeInfoFromDraws(mode, historyBasis)) : [];
       const omitLineForRow = omitInfoForRow.length ? `｜開獎前摘除=${fixedFormatMissList(omitInfoForRow)}` : '';
-      const noteText = `${notePrefix}｜A=${(result.hitsA || []).join('-')}→${result.scoreA}；B=${(result.hitsB || []).join('-')}→${result.scoreB}${omitLineForRow}`;
-      const histItems = pairSource.slice(0, 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBasis, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
-      const detailHTML = caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}`, targetDraw);
-      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期雙柱對照">
+      const isFourResult = result && result.isFour;
+      const noteText = isFourResult
+        ? `${notePrefix}｜四柱=${(result.hitsA || []).join('-')}→${result.scoreA}${omitLineForRow}`
+        : `${notePrefix}｜A=${(result.hitsA || []).join('-')}→${result.scoreA}；B=${(result.hitsB || []).join('-')}→${result.scoreB}${omitLineForRow}`;
+      const histItems = pairSource.slice(0, isFourResult ? 1 : 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBasis, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
+      const detailHTML = isFourResult
+        ? `<div class="recent10-detail"><div class="recent10-detail-title">${label}組四柱：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}</div>${caishenFormatGroupsForDetail4(histItems[0].groups, targetDraw)}</div>`
+        : caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}`, targetDraw);
+      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期${isFourResult ? '四柱' : '雙柱'}對照">
         <div>${issue}</div>
         <div class="${fixedStatusClass(result.status)}">${statusText}</div>
         <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(displayDraw || []).map(pad2).join(' ')}｜${notePrefix}</span></div>
@@ -11341,7 +11542,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     let pairSource = null;
     if (is49) {
       const archived = fixedLoadRecent10Result(mode, label, targetDraw);
-      if (archived && Array.isArray(archived.pairSource) && archived.pairSource.length >= 2) {
+      if (archived && Array.isArray(archived.pairSource) && archived.pairSource.length >= 1) {
         pairSource = archived.pairSource.slice(0, 2).map(x => ({
           groups: cloneGroups((x && x.groups) || []),
           omitted: (x && x.omitted) || [],
@@ -11363,7 +11564,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const allList = (draws && draws.length ? draws : getBacktestDraws());
     const rowCount = Math.min(5, allList.length);
     if (!pack || !Array.isArray(pack.pairs) || !rowCount) {
-      return '<div class="fixed-quick5-title">A～E 最近5期快速過倒總覽</div><div class="fixed-quick5-empty">目前資料不足，請先新增或匯入開獎資料。</div>';
+      return '<div class="fixed-quick5-title">A～C最近5期 / D～E最近10期快速過倒總覽</div><div class="fixed-quick5-empty">目前資料不足，請先新增或匯入開獎資料。</div>';
     }
     const head = Array.from({ length: rowCount }).map((_, idx) => `<th>${idx === 0 ? '最新' : '第' + (idx + 1) + '期'}</th>`).join('');
     const rows = (pack.pairs || []).map(groupPack => {
@@ -11380,7 +11581,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       }).join('');
       return `<tr><td>${label || '-'}</td>${cells}</tr>`;
     }).join('');
-    return `<div class="fixed-quick5-title">A～E 最近5期快速過倒總覽</div><table class="fixed-quick5-table"><thead><tr><th>組別</th>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+    return `<div class="fixed-quick5-title">A～C最近5期 / D～E最近10期快速過倒總覽</div><table class="fixed-quick5-table"><thead><tr><th>組別</th>${head}</tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   function fixedRenderQuick5Summary(pack, draws) {
@@ -11390,11 +11591,20 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedBuildOneGroupHTML(groupPack, draws, parentPack = null) {
     const label = groupPack.label;
+    const isFourGroup = groupPack.type === 'fourDown' || fixedIsFourPillarLabel(label);
     const items = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
-    const pairStats = caishenPairBacktestStats(items[0], items[1], draws);
-    const bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
-    const onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
-    const bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
+    let bothPass = '0.00', onePass = '0.00', bothFail = '0.00';
+    if (!isFourGroup) {
+      const pairStats = caishenPairBacktestStats(items[0], items[1], draws);
+      bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
+      onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
+      bothFail = ((pairStats.bothFailRate || 0) * 100).toFixed(2);
+    } else {
+      const list = (draws || []).slice(0, 10);
+      const passCount = list.filter(draw => fixedFourPillarPass(items[0].groups, draw, currentGameMode()).pass).length;
+      bothPass = list.length ? ((passCount / list.length) * 100).toFixed(2) : '0.00';
+      bothFail = list.length ? (((list.length - passCount) / list.length) * 100).toFixed(2) : '0.00';
+    }
     // 大組上方顯示本批『重新精選當下』實際摘除的10支；新增開獎後不跟著目前最新分數漂移。
     let displayInfo = [];
     if (getBallMax(currentGameMode()) === 49 && groupPack.pair && groupPack.pair[0]) {
@@ -11407,13 +11617,25 @@ ${settleRecord.analysisLines.join('\n')}`;
     const omittedLine = displayInfo.length ? `<div class="small-note">本組實際共同摘除號碼：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
-        <div class="fixed-pair-title">${label}組固定雙柱</div>
-        <div class="fixed-pair-summary">雙過 ${bothPass}%｜單過 ${onePass}%｜雙倒 ${bothFail}%</div>
+        <div class="fixed-pair-title">${label}組${isFourGroup ? '固定四柱' : '固定雙柱'}</div>
+        <div class="fixed-pair-summary">${isFourGroup ? `四柱過 ${bothPass}%｜四柱倒 ${bothFail}%` : `雙過 ${bothPass}%｜單過 ${onePass}%｜雙倒 ${bothFail}%`}</div>
       </div>
       ${omittedLine}
       ${fixedBuildRecent10HTML(label, items, draws, parentPack)}
       <div class="fixed-two-grid">
-        ${items.map((item, idx) => {
+        ${isFourGroup ? items.map((item, idx) => {
+          const globalIndex = Math.max(0, 'ABCDE'.indexOf(String(label || '').toUpperCase())) * 2 + idx;
+          return `<div class="fixed-sub-card">
+            <div class="clean-two-card defense">
+              <div class="clean-two-card-title"><span>${label}組四柱倒牌</span><span class="badge badge-random">9-10-10-10</span></div>
+              <div class="pillars">
+                ${(item.groups || []).map((g, gi) => `<div class="pillar"><div class="pillar-title">第${gi + 1}柱</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}
+              </div>
+              <div class="clean-two-meta">規則：最近10期四柱全部未過關才合格；四柱每柱至少中1支才算過。</div>
+              <div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="${globalIndex}">複製${label}組</button></div>
+            </div>
+          </div>`;
+        }).join('') : items.map((item, idx) => {
           const globalIndex = Math.max(0, 'ABCDE'.indexOf(String(label || '').toUpperCase())) * 2 + idx;
           const cardHTML = buildDailyTwoCardHTML(item, idx, items)
             .replace(`data-copy-type="daily" data-copy-index="${idx}"`, `data-copy-type="fixedDaily" data-copy-index="${globalIndex}"`)
@@ -11437,7 +11659,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="daily-agent-kpi">
         <div>目前彩種<br><b>${gameLabel(mode)}</b></div>
         <div>固定大組<br><b>A～E</b></div>
-        <div>每組規格<br><b>A1/A2 10-14-15</b></div>
+        <div>每組規格<br><b>A～C雙柱｜D/E四柱</b></div>
         <div>精選時間<br><b>${created}</b></div>
       </div>
       <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂/大樂透/六合彩沒有按「重新精選立柱」就不會換雙柱。A組會套用最新1～4期雙倒條件：A1/A2第一柱避開最新4期開獎號碼；第二、三柱不包五星，39球優先控制為0-2-3或0-3-2；大樂透/六合彩另在建立或重新精選時套用近30期加權過熱前10碼。之後 A～E 固定到下次重選。近10期每一列優先讀新增開獎前的畫面雙柱快照。狀態顯示以 A/B 三柱命中數相乘的實際碰數為準。</div>
@@ -11468,7 +11690,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
     if (dailyAgentResult) fixedRenderPack(pack, draws);
     resetLog();
-    log(`已重新精選 ${gameLabel(mode)} 固定立柱：A～E 各 2 組 10-14-15。其他彩種不受影響。`);
+    log(`已重新精選 ${gameLabel(mode)} 固定立柱：A～C 各2組10-14-15，D/E各1組9-10-10-10。其他彩種不受影響。`);
     log(`歷史已封存的近10期過倒不清除；下一次新增開獎會使用這批新雙柱封存判斷。`);
     if (getBallMax(mode) === 49) {
       log('本次大樂透/六合彩共同摘除（與上方顯示同一份名單）依近30期加權過熱前10碼：' + fixedFormatMissList(fixedHighMissExcludeInfo(mode)));
