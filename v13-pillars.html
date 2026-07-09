@@ -1416,7 +1416,7 @@
           </div>
           <div class="db-row-compact">
             <button class="btn btn-danger" id="addDrawBtn" type="button">新增到資料庫最上方</button>
-            <button class="btn btn-secondary" id="importPasteBtn" type="button">把下方貼上資料匯入目前彩種</button>
+            <button class="btn btn-secondary" id="importPasteBtn" type="button">把下方貼上資料新增到目前彩種</button>
             <button class="btn btn-secondary" id="copyDbBackupBtn" type="button">複製目前彩種百期格式</button>
             <button class="btn btn-danger" id="restoreDbBackupBtn" type="button">貼上備份還原</button>
             <button class="btn btn-dark" id="toggleDbBtn" type="button">展開資料庫檢查</button>
@@ -1435,7 +1435,7 @@
               <button class="btn btn-dark db-backup-toggle" id="toggleDbBackupBtn" type="button">展開</button>
             </div>
             <div class="db-backup-body" id="dbBackupBody">
-              <textarea id="dbBackupText" class="db-backup-textarea" placeholder="按「複製目前彩種百期格式」會輸出像百期開獎號碼一樣的純文字；可先貼到 LINE 備份，日後複製回新版的百期欄位，再按「把下方貼上資料匯入目前彩種」。"></textarea>
+              <textarea id="dbBackupText" class="db-backup-textarea" placeholder="按「複製目前彩種百期格式」會輸出像百期開獎號碼一樣的純文字；可先貼到 LINE 備份，日後複製回新版的百期欄位，可用新增匯入；若要完全覆蓋請改用「貼上備份還原」。"></textarea>
               <div class="db-mini">備份格式改為純文字：每行開獎號碼，第 1 行仍是最新一期；貼到 LINE 不會像亂碼。要備份 539 與天天樂時，請先切換彩種後各複製一次。</div>
             </div>
           </div>
@@ -7194,19 +7194,42 @@ ${settleRecord.analysisLines.join('\n')}`;
   function importTextareaToCurrentDb() {
     const lines = drawInput.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     if (!lines.length) { alert('下方貼上欄位目前沒有資料。'); return; }
+    const mode = currentGameMode();
+    const existing = loadDrawDb(mode);
     const imported = [];
+    const seenKeys = new Set(existing.map(r => formatNums((r && r.nums) || []) + '|' + String((r && r.date) || '').trim()));
+    const seenNumsOnly = new Set(existing.map(r => formatNums((r && r.nums) || [])));
+    let duplicated = 0;
+
     lines.forEach((line, idx) => {
       const nums = parseDrawLineSmart(line);
       if (!nums) return;
-      const datePart = extractDrawMetaDate(line, currentGameMode());
-      imported.push({ id: 'imp_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2), date: datePart, nums, createdAt: Date.now() - idx });
+      const datePart = extractDrawMetaDate(line, mode);
+      const numsKey = formatNums(nums);
+      const fullKey = numsKey + '|' + String(datePart || '').trim();
+
+      // 完全相同日期+號碼不重複新增；若只有號碼相同但日期不同，仍允許新增，避免誤刪歷史期數。
+      if (seenKeys.has(fullKey)) { duplicated++; return; }
+      seenKeys.add(fullKey);
+      seenNumsOnly.add(numsKey);
+      imported.push({
+        id: 'imp_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2),
+        date: datePart,
+        nums,
+        createdAt: Date.now() - idx
+      });
     });
-    if (!imported.length) { alert('沒有辨識到可匯入的開獎資料。'); return; }
-    saveDrawDb(imported, currentGameMode());
+
+    if (!imported.length) { alert(duplicated ? '貼上的資料都已存在，沒有新增。' : '沒有辨識到可匯入的開獎資料。'); return; }
+
+    // 重要：匯入只新增到最上方，不覆蓋原本資料庫。
+    saveDrawDb(imported.concat(existing), mode);
+    drawInput.value = '';
     syncDbToTextarea();
     renderDrawDb();
-    alert(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫，貼上欄位已自動清空。`);
-    log(`已匯入 ${imported.length} 筆到 ${gameLabel(currentGameMode())} 資料庫，貼上欄位已自動清空，最新一期位於最上方。`);
+    const afterCount = loadDrawDb(mode).length;
+    alert(`已新增 ${imported.length} 筆到 ${gameLabel(mode)} 資料庫。\n原本資料沒有被覆蓋。${duplicated ? `\n略過完全重複：${duplicated} 筆。` : ''}\n目前總筆數：${afterCount} 筆。`);
+    log(`已新增 ${imported.length} 筆到 ${gameLabel(mode)} 資料庫；原本資料保留，新增資料放在最上方，目前總筆數 ${afterCount} 筆。${duplicated ? ` 略過完全重複 ${duplicated} 筆。` : ''}`);
   }
 
   function buildDbBackupPayload() {
