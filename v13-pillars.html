@@ -1455,6 +1455,9 @@
 01 07 10 20 26
 04 09 16 28 37
 05 11 14 23 39"></textarea>
+            <button class="btn btn-secondary" id="importPasteNearbyBtn" type="button" style="margin-top:10px;">
+              把上方貼上資料新增到目前彩種
+            </button>
           </div>
         </div>
         <textarea id="noDrawInput" style="display:none;"></textarea>
@@ -12726,6 +12729,18 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 </script>
 
 
+
+
+<script>
+(function () {
+  const nearbyBtn = document.getElementById('importPasteNearbyBtn');
+  if (!nearbyBtn) return;
+  nearbyBtn.addEventListener('click', function () {
+    const originalBtn = document.getElementById('importPasteBtn');
+    if (originalBtn) originalBtn.click();
+  });
+})();
+</script>
 
 </body>
 </html>
