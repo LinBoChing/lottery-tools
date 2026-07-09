@@ -1281,6 +1281,7 @@
   margin:12px 0 0;
 }
 .draw-quick-actions .btn{ min-height:48px; }
+.draw-quick-actions .draw-restore-btn{ grid-column:1 / -1; }
 @media (max-width:768px){
   .draw-quick-actions{ grid-template-columns:1fr; }
 }
@@ -1476,6 +1477,7 @@
         <div class="draw-quick-actions">
           <button class="btn btn-secondary" id="copyLatestDeleteFirstBtn" type="button">一鍵複製最新一期＋刪除第一期</button>
           <button class="btn btn-secondary" id="copyFirstFiveDeleteFirstFiveBtn" type="button">一鍵複製前五期＋刪除前五期</button>
+          <button class="btn btn-dark draw-restore-btn" id="restoreQuickDeletedDrawsBtn" type="button">還原上次刪除號碼</button>
         </div>
         <textarea id="noDrawInput" style="display:none;"></textarea>
         <textarea id="candidateInput" style="display:none;"></textarea>
@@ -1647,6 +1649,7 @@
   const importPasteBtn = document.getElementById('importPasteBtn');
   const copyLatestDeleteFirstBtn = document.getElementById('copyLatestDeleteFirstBtn');
   const copyFirstFiveDeleteFirstFiveBtn = document.getElementById('copyFirstFiveDeleteFirstFiveBtn');
+  const restoreQuickDeletedDrawsBtn = document.getElementById('restoreQuickDeletedDrawsBtn');
   const copyDbBackupBtn = document.getElementById('copyDbBackupBtn');
   const restoreDbBackupBtn = document.getElementById('restoreDbBackupBtn');
   const dbBackupText = document.getElementById('dbBackupText');
@@ -7267,13 +7270,26 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fallbackCopyText(text) {
-    dbBackupText.value = text;
-    dbBackupText.focus();
-    dbBackupText.select();
-    try { document.execCommand('copy'); return true; } catch (err) { return false; }
+    // 使用臨時 textarea，不依賴已收合的備份欄位；避免顯示成功但實際沒複製。
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', 'readonly');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    let ok = false;
+    try { ok = document.execCommand('copy') === true; } catch (err) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
   }
 
   async function copyTextToClipboard(text) {
+    // 先把內容同步到備份欄位，若瀏覽器拒絕剪貼簿，使用者仍可看到/手動複製。
     dbBackupText.value = text;
     try {
       if (navigator.clipboard && window.isSecureContext) {
@@ -7285,13 +7301,42 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  function refreshAfterQuickDrawDelete(mode, deletedCount) {
+  const QUICK_DRAW_RESTORE_KEY = 'xjwy_last_quick_deleted_draws_v1';
+
+  function refreshAfterQuickDrawChange(mode, message) {
     syncDbToTextarea();
     renderDrawDb();
     if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats();
     if (typeof renderMemoryDb === 'function') renderMemoryDb();
     countDraws.textContent = getBacktestDraws().length;
-    log(`已刪除 ${gameLabel(mode)} 資料庫最上方 ${deletedCount} 期，並更新資料摘要。`);
+    if (message) log(message);
+  }
+
+  function saveQuickDeletedDrawsForRestore(mode, selected) {
+    const payload = {
+      mode,
+      gameLabel: gameLabel(mode),
+      deletedAt: Date.now(),
+      records: selected.map((r, idx) => ({
+        id: 'restore_' + Date.now() + '_' + idx + '_' + Math.random().toString(16).slice(2),
+        date: r && r.date ? String(r.date) : '',
+        nums: Array.isArray(r && r.nums) ? r.nums.slice() : [],
+        createdAt: r && r.createdAt ? r.createdAt : Date.now() - idx
+      }))
+    };
+    localStorage.setItem(QUICK_DRAW_RESTORE_KEY, JSON.stringify(payload));
+  }
+
+  function loadQuickDeletedDrawsForRestore() {
+    try {
+      const raw = localStorage.getItem(QUICK_DRAW_RESTORE_KEY);
+      if (!raw) return null;
+      const payload = JSON.parse(raw);
+      if (!payload || !payload.mode || !Array.isArray(payload.records) || !payload.records.length) return null;
+      return payload;
+    } catch (err) {
+      return null;
+    }
   }
 
   async function copyAndDeleteTopDraws(count) {
@@ -7300,16 +7345,41 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (!records.length) { alert(`${gameLabel(mode)} 資料庫目前沒有資料。`); return; }
     const takeCount = Math.min(Number(count) || 1, records.length);
     const selected = records.slice(0, takeCount);
+    // 複製格式：純號碼、一行一期；資料庫第 1 筆在最上方，代表最新一期。
     const text = selected.map(r => formatNums(r.nums)).join('\n');
-    const ok = await copyTextToClipboard(text);
+    let ok = false;
+    try { ok = await copyTextToClipboard(text); } catch (err) { ok = false; }
     if (!ok) {
-      alert('複製失敗，資料沒有刪除。請手動複製後再操作。');
+      alert('複製失敗，資料沒有刪除。系統已把要複製的號碼放到「資料庫備份貼上區」，請展開後手動複製。');
       return;
     }
+    saveQuickDeletedDrawsForRestore(mode, selected);
     const remaining = records.slice(takeCount);
     saveDrawDb(remaining, mode);
-    refreshAfterQuickDrawDelete(mode, takeCount);
-    alert(`已複製 ${gameLabel(mode)} 最上方 ${takeCount} 期號碼，並刪除資料庫前 ${takeCount} 期。`);
+    refreshAfterQuickDrawChange(mode, `已刪除 ${gameLabel(mode)} 資料庫最上方 ${takeCount} 期，並更新資料摘要；可按「還原上次刪除號碼」補回。`);
+    alert(`已複製 ${gameLabel(mode)} 最上方 ${takeCount} 期號碼，並刪除資料庫前 ${takeCount} 期。\n\n若後面複製立柱蓋掉剪貼簿，可按「還原上次刪除號碼」補回資料庫。\n\n複製內容：\n${text}`);
+  }
+
+  function restoreQuickDeletedDraws() {
+    const payload = loadQuickDeletedDrawsForRestore();
+    if (!payload) { alert('目前沒有可還原的上次刪除號碼。'); return; }
+    const mode = currentGameMode();
+    if (payload.mode !== mode) {
+      alert(`上次刪除的是「${payload.gameLabel || gameLabel(payload.mode)}」資料。\n請先切換到該彩種後再按還原。`);
+      return;
+    }
+    const restoreRecords = normalizeBackupRecordList(payload.records, mode);
+    if (!restoreRecords.length) {
+      localStorage.removeItem(QUICK_DRAW_RESTORE_KEY);
+      alert('上次刪除資料格式異常，已清除還原暫存。');
+      return;
+    }
+    const current = loadDrawDb(mode);
+    saveDrawDb(restoreRecords.concat(current), mode);
+    localStorage.removeItem(QUICK_DRAW_RESTORE_KEY);
+    refreshAfterQuickDrawChange(mode, `已還原 ${gameLabel(mode)} 上次刪除的 ${restoreRecords.length} 期到資料庫最上方。`);
+    const text = restoreRecords.map(r => formatNums(r.nums)).join('\n');
+    alert(`已還原上次刪除的 ${restoreRecords.length} 期到最上方。\n\n還原內容：\n${text}`);
   }
 
   function normalizeBackupRecordList(list, mode = currentGameMode()) {
@@ -7402,6 +7472,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   if (copyLatestDeleteFirstBtn) copyLatestDeleteFirstBtn.addEventListener('click', () => copyAndDeleteTopDraws(1));
   if (copyFirstFiveDeleteFirstFiveBtn) copyFirstFiveDeleteFirstFiveBtn.addEventListener('click', () => copyAndDeleteTopDraws(5));
+  if (restoreQuickDeletedDrawsBtn) restoreQuickDeletedDrawsBtn.addEventListener('click', restoreQuickDeletedDraws);
   copyDbBackupBtn.addEventListener('click', copyDatabaseBackup);
   restoreDbBackupBtn.addEventListener('click', () => { restoreDatabaseBackup(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
   toggleDbBtn.addEventListener('click', () => { dbExpanded = !dbExpanded; dbTableWrap.classList.toggle('open', dbExpanded); toggleDbBtn.textContent = dbExpanded ? '收起資料庫檢查' : '展開資料庫檢查'; renderDrawDb(); });
