@@ -1272,6 +1272,19 @@
 }
 
 
+
+/* 百期資料快捷按鈕 */
+.draw-quick-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin:12px 0 0;
+}
+.draw-quick-actions .btn{ min-height:48px; }
+@media (max-width:768px){
+  .draw-quick-actions{ grid-template-columns:1fr; }
+}
+
 /* 固定雙柱精選版 */
 .fixed-five-wrap{display:grid;gap:16px;margin-top:12px;}
 .fixed-pair-card{background:#020617;border:1px solid rgba(245,158,11,.42);border-radius:16px;padding:14px;}
@@ -1460,6 +1473,10 @@
             </button>
           </div>
         </div>
+        <div class="draw-quick-actions">
+          <button class="btn btn-secondary" id="copyLatestDeleteFirstBtn" type="button">一鍵複製最新一期＋刪除第一期</button>
+          <button class="btn btn-secondary" id="copyFirstFiveDeleteFirstFiveBtn" type="button">一鍵複製前五期＋刪除前五期</button>
+        </div>
         <textarea id="noDrawInput" style="display:none;"></textarea>
         <textarea id="candidateInput" style="display:none;"></textarea>
         <div class="clean-action-panel">
@@ -1628,6 +1645,8 @@
   const newDrawNums = document.getElementById('newDrawNums');
   const addDrawBtn = document.getElementById('addDrawBtn');
   const importPasteBtn = document.getElementById('importPasteBtn');
+  const copyLatestDeleteFirstBtn = document.getElementById('copyLatestDeleteFirstBtn');
+  const copyFirstFiveDeleteFirstFiveBtn = document.getElementById('copyFirstFiveDeleteFirstFiveBtn');
   const copyDbBackupBtn = document.getElementById('copyDbBackupBtn');
   const restoreDbBackupBtn = document.getElementById('restoreDbBackupBtn');
   const dbBackupText = document.getElementById('dbBackupText');
@@ -7265,6 +7284,34 @@ ${settleRecord.analysisLines.join('\n')}`;
     return fallbackCopyText(text);
   }
 
+
+  function refreshAfterQuickDrawDelete(mode, deletedCount) {
+    syncDbToTextarea();
+    renderDrawDb();
+    if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats();
+    if (typeof renderMemoryDb === 'function') renderMemoryDb();
+    countDraws.textContent = getBacktestDraws().length;
+    log(`已刪除 ${gameLabel(mode)} 資料庫最上方 ${deletedCount} 期，並更新資料摘要。`);
+  }
+
+  async function copyAndDeleteTopDraws(count) {
+    const mode = currentGameMode();
+    const records = loadDrawDb(mode);
+    if (!records.length) { alert(`${gameLabel(mode)} 資料庫目前沒有資料。`); return; }
+    const takeCount = Math.min(Number(count) || 1, records.length);
+    const selected = records.slice(0, takeCount);
+    const text = selected.map(r => formatNums(r.nums)).join('\n');
+    const ok = await copyTextToClipboard(text);
+    if (!ok) {
+      alert('複製失敗，資料沒有刪除。請手動複製後再操作。');
+      return;
+    }
+    const remaining = records.slice(takeCount);
+    saveDrawDb(remaining, mode);
+    refreshAfterQuickDrawDelete(mode, takeCount);
+    alert(`已複製 ${gameLabel(mode)} 最上方 ${takeCount} 期號碼，並刪除資料庫前 ${takeCount} 期。`);
+  }
+
   function normalizeBackupRecordList(list, mode = currentGameMode()) {
     if (!Array.isArray(list)) return [];
     return list.map((r, idx) => normalizeDrawRecord({
@@ -7352,6 +7399,9 @@ ${settleRecord.analysisLines.join('\n')}`;
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
   addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); addRecordToDb(nums, newDrawDate.value, modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
+
+  if (copyLatestDeleteFirstBtn) copyLatestDeleteFirstBtn.addEventListener('click', () => copyAndDeleteTopDraws(1));
+  if (copyFirstFiveDeleteFirstFiveBtn) copyFirstFiveDeleteFirstFiveBtn.addEventListener('click', () => copyAndDeleteTopDraws(5));
   copyDbBackupBtn.addEventListener('click', copyDatabaseBackup);
   restoreDbBackupBtn.addEventListener('click', () => { restoreDatabaseBackup(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
   toggleDbBtn.addEventListener('click', () => { dbExpanded = !dbExpanded; dbTableWrap.classList.toggle('open', dbExpanded); toggleDbBtn.textContent = dbExpanded ? '收起資料庫檢查' : '展開資料庫檢查'; renderDrawDb(); });
