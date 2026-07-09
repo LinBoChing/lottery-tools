@@ -1475,8 +1475,8 @@
             <div class="learn-tools-body">
               <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新精選立柱</button>
               <div id="fixedQuick5Summary" class="fixed-quick5-box">
-                <div class="fixed-quick5-title">A～C最近5期 / D～E最近10期快速過倒總覽</div>
-                <div class="fixed-quick5-empty">按「天選雙柱」或「重新精選立柱」後，這裡會快速顯示 A～C 最近 1～5 期，D～E 最近 1～10 期結果。</div>
+                <div class="fixed-quick5-title">A～E最近5期快速過倒總覽</div>
+                <div class="fixed-quick5-empty">按「天選雙柱」或「重新精選立柱」後，這裡會快速顯示 A～E 最近 1～5 期結果。</div>
               </div>
             </div>
           </details>
@@ -11484,13 +11484,13 @@ ${settleRecord.analysisLines.join('\n')}`;
         }
       }
 
-      const statusText = caishenOutcomeStatusText(result.status);
-      const labels = result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB);
+      const isFourResult = result && result.isFour;
+      const statusText = isFourResult ? fixedFourPassFailText(result) : caishenOutcomeStatusText(result.status);
+      const labels = isFourResult ? '' : (result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB));
       const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
       const pairOmitInfo = pairSource && pairSource[0] && Array.isArray(pairSource[0].omittedInfo) ? pairSource[0].omittedInfo : [];
       const omitInfoForRow = is49 ? (pairOmitInfo.length ? pairOmitInfo : fixedLatestThenHighMissExcludeInfoFromDraws(mode, historyBasis)) : [];
       const omitLineForRow = omitInfoForRow.length ? `｜開獎前摘除=${fixedFormatMissList(omitInfoForRow)}` : '';
-      const isFourResult = result && result.isFour;
       const noteText = isFourResult
         ? `${notePrefix}｜四柱=${(result.hitsA || []).join('-')}→${result.scoreA}${omitLineForRow}`
         : `${notePrefix}｜A=${(result.hitsA || []).join('-')}→${result.scoreA}；B=${(result.hitsB || []).join('-')}→${result.scoreB}${omitLineForRow}`;
@@ -11501,7 +11501,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期${isFourResult ? '四柱' : '雙柱'}對照">
         <div>${issue}</div>
         <div class="${fixedStatusClass(result.status)}">${statusText}</div>
-        <div><span class="recent10-hit">${labels}</span><span class="recent10-draw">｜${(displayDraw || []).map(pad2).join(' ')}｜${notePrefix}</span></div>
+        <div>${isFourResult ? '' : `<span class="recent10-hit">${labels}</span>`}<span class="recent10-draw">｜${(displayDraw || []).map(pad2).join(' ')}｜${notePrefix}</span></div>
         ${detailHTML}
       </div>`;
     }).join('');
@@ -11560,6 +11560,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     return '⚪';
   }
 
+  function fixedFourPassFailText(result) {
+    return result && result.status === 'bothPass' ? '過' : '倒';
+  }
+
   function fixedQuick5ResultForRow(label, pack, allList, idx, mode) {
     const is49 = getBallMax(mode) === 49;
     const targetDraw = allList[idx];
@@ -11581,7 +11585,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const rowPack = fixedWalkForwardPackForRow(mode, allList, idx, pack);
       pairSource = fixedPackPairSourceForLabel(rowPack, label) || currentPairSource;
     }
-    if (!pairSource || pairSource.length < 2) return null;
+    if (!pairSource || pairSource.length < 1) return null;
     return fixedEvaluatePairDirect(pairSource, targetDraw);
   }
 
@@ -11590,24 +11594,29 @@ ${settleRecord.analysisLines.join('\n')}`;
     const allList = (draws && draws.length ? draws : getBacktestDraws());
     const rowCount = Math.min(5, allList.length);
     if (!pack || !Array.isArray(pack.pairs) || !rowCount) {
-      return '<div class="fixed-quick5-title">A～C最近5期 / D～E最近10期快速過倒總覽</div><div class="fixed-quick5-empty">目前資料不足，請先新增或匯入開獎資料。</div>';
+      return '<div class="fixed-quick5-title">A～E最近5期快速過倒總覽</div><div class="fixed-quick5-empty">目前資料不足，請先新增或匯入開獎資料。</div>';
     }
     const head = Array.from({ length: rowCount }).map((_, idx) => `<th>${idx === 0 ? '最新' : '第' + (idx + 1) + '期'}</th>`).join('');
     const rows = (pack.pairs || []).map(groupPack => {
       const label = String(groupPack && groupPack.label || '').toUpperCase();
+      const isFourLabel = fixedIsFourPillarLabel(label) || groupPack.type === 'fourDown';
       const cells = Array.from({ length: rowCount }).map((_, idx) => {
         const result = fixedQuick5ResultForRow(label, pack, allList, idx, mode);
         const status = result ? result.status : 'unknown';
         const combo = result && result.comboLabel ? result.comboLabel : '';
-        const title = combo ? ` title="${fixedQuick5StatusText(status)} ${combo}"` : '';
-        const display = combo
-          ? `<span class="fixed-quick5-icon">${fixedQuick5StatusIcon(status)}</span><span class="fixed-quick5-combo">${combo}</span>`
-          : fixedQuick5StatusText(status);
+        const title = isFourLabel
+          ? ` title="${fixedFourPassFailText(result)}"`
+          : (combo ? ` title="${fixedQuick5StatusText(status)} ${combo}"` : '');
+        const display = isFourLabel
+          ? fixedFourPassFailText(result)
+          : (combo
+            ? `<span class="fixed-quick5-icon">${fixedQuick5StatusIcon(status)}</span><span class="fixed-quick5-combo">${combo}</span>`
+            : fixedQuick5StatusText(status));
         return `<td><span class="fixed-quick5-chip ${fixedQuick5CellClass(status)}"${title}>${display}</span></td>`;
       }).join('');
       return `<tr><td>${label || '-'}</td>${cells}</tr>`;
     }).join('');
-    return `<div class="fixed-quick5-title">A～C最近5期 / D～E最近10期快速過倒總覽</div><table class="fixed-quick5-table"><thead><tr><th>組別</th>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+    return `<div class="fixed-quick5-title">A～E最近5期快速過倒總覽</div><table class="fixed-quick5-table"><thead><tr><th>組別</th>${head}</tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   function fixedRenderQuick5Summary(pack, draws) {
@@ -12755,4 +12764,3 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 
 </body>
 </html>
-
