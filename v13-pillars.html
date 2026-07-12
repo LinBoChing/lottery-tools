@@ -1309,6 +1309,25 @@
 @media (max-width:768px){.fixed-two-grid{grid-template-columns:1fr;}.fixed-quick5-table{font-size:11px;}.fixed-quick5-table th,.fixed-quick5-table td{padding:6px 3px;}.fixed-quick5-chip{min-width:34px;padding:3px 5px;}}
 
 
+
+
+/* D/E 四柱自訂摘除工具 */
+.fixed-remove-panel{
+  background:linear-gradient(135deg,rgba(249,115,22,.12),rgba(2,6,23,.92));
+  border:2px solid rgba(249,115,22,.72);
+  border-radius:16px;
+  padding:14px;
+  min-height:100%;
+}
+.fixed-remove-title{font-size:18px;font-weight:1000;color:#fdba74;margin-bottom:8px;}
+.fixed-remove-input{width:100%;min-height:110px;resize:vertical;background:#020617;color:#f8fafc;border:1px solid rgba(249,115,22,.55);border-radius:12px;padding:12px;font-size:16px;line-height:1.6;}
+.fixed-remove-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.fixed-remove-actions .btn{width:auto;padding:9px 12px;font-size:13px;}
+.fixed-remove-stats{margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(2,6,23,.78);border:1px solid var(--border);color:#cbd5e1;font-size:13px;line-height:1.75;}
+.fixed-remove-count{font-size:18px;font-weight:1000;color:#fdba74;letter-spacing:.5px;}
+.fixed-remove-list{color:#fecaca;font-weight:900;word-break:break-word;}
+@media(max-width:768px){.fixed-remove-panel{min-height:auto}.fixed-remove-input{min-height:92px;}}
+
 /* 已移除：財神立柱記憶資料庫與右側記憶庫快捷按鈕 */
 #goMemoryDbBtn, #memoryDbWrap, .memory-db-card { display:none !important; }
 
@@ -11752,10 +11771,75 @@ ${settleRecord.analysisLines.join('\n')}`;
     return Math.max(0, 'ABCDE'.indexOf(key)) * 2 + Number(idx || 0);
   }
 
+
+
+  function fixedRemoveStorageKey(label, mode = currentGameMode()) {
+    return `xj_fixed_four_remove_${String(mode || '539')}_${String(label || '').toUpperCase()}`;
+  }
+
+  function fixedParseRemoveNumbers(value, mode = currentGameMode()) {
+    const max = getBallMax(mode);
+    const nums = String(value || '').match(/\d{1,2}/g) || [];
+    return [...new Set(nums.map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= max))].sort((a,b) => a-b);
+  }
+
+  function fixedLoadRemoveNumbers(label, mode = currentGameMode()) {
+    try { return fixedParseRemoveNumbers(localStorage.getItem(fixedRemoveStorageKey(label, mode)) || '', mode); }
+    catch (e) { return []; }
+  }
+
+  function fixedSaveRemoveNumbers(label, numbers, mode = currentGameMode()) {
+    const clean = fixedParseRemoveNumbers((numbers || []).join(' '), mode);
+    try { localStorage.setItem(fixedRemoveStorageKey(label, mode), clean.map(pad2).join(' ')); } catch (e) {}
+    return clean;
+  }
+
+  function fixedSubtractFourGroups(groups, removeNumbers) {
+    const removeSet = new Set((removeNumbers || []).map(Number));
+    return (groups || []).map(g => (g || []).filter(n => !removeSet.has(Number(n))));
+  }
+
+  function fixedFourCountsLabel(groups) {
+    return (groups || []).slice(0,4).map(g => (g || []).length).join('-');
+  }
+
+  function fixedBuildRemovePanelHTML(label, originalGroups, removeNumbers) {
+    const filtered = fixedSubtractFourGroups(originalGroups, removeNumbers);
+    const originalLabel = fixedFourCountsLabel(originalGroups);
+    const afterLabel = fixedFourCountsLabel(filtered);
+    const removedActually = (removeNumbers || []).filter(n => (originalGroups || []).some(g => (g || []).map(Number).includes(Number(n))));
+    return `<div class="fixed-remove-panel" data-fixed-remove-label="${label}">
+      <div class="fixed-remove-title">${label}組摘除不出牌</div>
+      <div class="small-note" style="margin:0 0 8px;">貼上要摘除的號碼，左側四柱會立即刪除，複製時也只會複製摘除後的結果。</div>
+      <textarea class="fixed-remove-input" data-fixed-remove-input="${label}" placeholder="例：01 07 12 15">${(removeNumbers || []).map(pad2).join(' ')}</textarea>
+      <div class="fixed-remove-actions">
+        <button class="btn btn-secondary fixed-remove-apply" type="button" data-fixed-remove-apply="${label}">套用摘除</button>
+        <button class="btn btn-dark fixed-remove-clear" type="button" data-fixed-remove-clear="${label}">清除恢復</button>
+      </div>
+      <div class="fixed-remove-stats">
+        摘除前：<b>${originalLabel}</b><br>
+        摘除後：<span class="fixed-remove-count">${afterLabel}</span><br>
+        實際摘除：<span class="fixed-remove-list">${removedActually.length ? removedActually.map(pad2).join(' ') : '無'}</span>
+      </div>
+    </div>`;
+  }
+
+  function fixedApplyFourRemoval(label, rawValue, clear = false) {
+    const key = String(label || '').toUpperCase();
+    const mode = currentGameMode();
+    const nums = clear ? [] : fixedParseRemoveNumbers(rawValue, mode);
+    fixedSaveRemoveNumbers(key, nums, mode);
+    if (fixedDisplayedPackCache) fixedRenderPack(fixedDisplayedPackCache, getBacktestDraws());
+  }
+
   function fixedBuildOneGroupHTML(groupPack, draws, parentPack = null) {
     const label = groupPack.label;
     const isFourGroup = groupPack.type === 'fourDown' || fixedIsFourPillarLabel(label);
-    const items = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
+    const originalItems = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
+    const fourRemoveNumbers = isFourGroup ? fixedLoadRemoveNumbers(label, currentGameMode()) : [];
+    const items = isFourGroup
+      ? originalItems.map(item => ({ ...item, groups: fixedSubtractFourGroups(item.groups || [], fourRemoveNumbers) }))
+      : originalItems;
     let bothPass = '0.00', onePass = '0.00', bothFail = '0.00';
     if (!isFourGroup) {
       const pairStats = caishenPairBacktestStats(items[0], items[1], draws);
@@ -11790,7 +11874,7 @@ ${settleRecord.analysisLines.join('\n')}`;
           const globalIndex = fixedFlatCopyIndex(label, idx);
           return `<div class="fixed-sub-card">
             <div class="clean-two-card defense">
-              <div class="clean-two-card-title"><span>${label}組四柱倒牌</span><span class="badge badge-random">9-10-10-10</span></div>
+              <div class="clean-two-card-title"><span>${label}組四柱倒牌</span><span class="badge badge-random">${fixedFourCountsLabel(item.groups || [])}</span></div>
               <div class="pillars">
                 ${(item.groups || []).map((g, gi) => `<div class="pillar"><div class="pillar-title">第${gi + 1}柱</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}
               </div>
@@ -11798,7 +11882,7 @@ ${settleRecord.analysisLines.join('\n')}`;
               <div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="${globalIndex}">複製${label}組</button></div>
             </div>
           </div>`;
-        }).join('') : items.map((item, idx) => {
+        }).join('') + fixedBuildRemovePanelHTML(label, (originalItems[0] && originalItems[0].groups) || [], fourRemoveNumbers) : items.map((item, idx) => {
           const globalIndex = fixedFlatCopyIndex(label, idx);
           const cardHTML = buildDailyTwoCardHTML(item, idx, items)
             .replace(`data-copy-type="daily" data-copy-index="${idx}"`, `data-copy-type="fixedDaily" data-copy-index="${globalIndex}"`)
@@ -11814,7 +11898,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     const mode = currentGameMode();
     fixedDisplayedPackCache = fixedClonePack(pack);
     lastFixedDaily = pack && Array.isArray(pack.pairs)
-      ? pack.pairs.flatMap(p => (p.pair || []).map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] })))
+      ? pack.pairs.flatMap(p => (p.pair || []).map((x, idx) => {
+          const item = fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] });
+          if (fixedIsFourPillarLabel(p.label) || p.type === 'fourDown') {
+            item.groups = fixedSubtractFourGroups(item.groups || [], fixedLoadRemoveNumbers(p.label, mode));
+          }
+          return item;
+        }))
       : [];
     const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW', { hour12: false }) : '未知';
     fixedRenderQuick5Summary(pack, draws);
@@ -11829,6 +11919,24 @@ ${settleRecord.analysisLines.join('\n')}`;
       ${fixedCurrentTopMissHTML(mode)}
       <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws, pack)).join('')}</div>`;
     document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
+    document.querySelectorAll('[data-fixed-remove-input]').forEach(input => {
+      input.addEventListener('change', () => {
+        const label = input.getAttribute('data-fixed-remove-input');
+        fixedApplyFourRemoval(label, input.value, false);
+      });
+      input.addEventListener('paste', () => {
+        const label = input.getAttribute('data-fixed-remove-input');
+        setTimeout(() => fixedApplyFourRemoval(label, input.value, false), 0);
+      });
+    });
+    document.querySelectorAll('[data-fixed-remove-apply]').forEach(btn => btn.addEventListener('click', () => {
+      const label = btn.getAttribute('data-fixed-remove-apply');
+      const input = document.querySelector(`[data-fixed-remove-input="${label}"]`);
+      fixedApplyFourRemoval(label, input ? input.value : '', false);
+    }));
+    document.querySelectorAll('[data-fixed-remove-clear]').forEach(btn => btn.addEventListener('click', () => {
+      fixedApplyFourRemoval(btn.getAttribute('data-fixed-remove-clear'), '', true);
+    }));
   }
 
   async function runReselectFixedPillars() {
