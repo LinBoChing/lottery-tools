@@ -1311,6 +1311,47 @@
 
 
 
+
+
+/* 多組立柱第一柱重複檢查器 */
+.first-pillar-checker{
+  margin-top:12px;
+  border:1px solid rgba(56,189,248,.42);
+  border-radius:14px;
+  background:rgba(2,6,23,.72);
+  padding:12px;
+}
+.first-pillar-checker-title{font-size:16px;font-weight:900;color:#7dd3fc;margin-bottom:6px;}
+.first-pillar-checker-input{
+  width:100%;
+  min-height:92px;
+  max-height:180px;
+  resize:vertical;
+  background:#020617;
+  color:#f8fafc;
+  border:1px solid rgba(56,189,248,.42);
+  border-radius:11px;
+  padding:10px 12px;
+  font-size:14px;
+  line-height:1.55;
+}
+.first-pillar-checker-result{
+  margin-top:9px;
+  padding:10px 12px;
+  border-radius:11px;
+  border:1px solid var(--border);
+  background:#0b1220;
+  color:#94a3b8;
+  font-size:13px;
+  line-height:1.7;
+  word-break:break-word;
+}
+.first-pillar-checker-result.pass{border-color:rgba(34,197,94,.55);background:rgba(34,197,94,.10);color:#bbf7d0;}
+.first-pillar-checker-result.fail{border-color:rgba(239,68,68,.62);background:rgba(239,68,68,.12);color:#fecaca;}
+.first-pillar-checker-result.warn{border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.10);color:#fde68a;}
+.first-pillar-pair{padding:5px 0;border-top:1px solid rgba(148,163,184,.18);}
+.first-pillar-pair:first-of-type{margin-top:5px;}
+
 /* D/E 四柱自訂摘除工具 */
 .fixed-remove-panel{
   background:linear-gradient(135deg,rgba(249,115,22,.12),rgba(2,6,23,.92));
@@ -1492,6 +1533,12 @@
               把上方貼上資料新增到目前彩種
             </button>
           </div>
+        </div>
+
+        <div class="first-pillar-checker">
+          <div class="first-pillar-checker-title">多組立柱｜第一柱重複檢查</div>
+          <textarea id="firstPillarCheckInput" class="first-pillar-checker-input" placeholder="可貼多組完整立柱；每組一行並用＋分柱，或每柱一行、空行分組。貼上後會自動檢查任兩組第一柱重複是否超過 3 支。"></textarea>
+          <div id="firstPillarCheckResult" class="first-pillar-checker-result">尚未貼上立柱。任兩組第一柱重複 0～3 支為通過，4 支以上會警告。</div>
         </div>
         <div class="draw-quick-actions">
           <button class="btn btn-secondary" id="copyLatestDeleteFirstBtn" type="button">一鍵複製最新一期＋刪除第一期</button>
@@ -12988,6 +13035,102 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const originalBtn = document.getElementById('importPasteBtn');
     if (originalBtn) originalBtn.click();
   });
+})();
+</script>
+
+
+<script>
+(function () {
+  const input = document.getElementById('firstPillarCheckInput');
+  const result = document.getElementById('firstPillarCheckResult');
+  if (!input || !result) return;
+
+  function extractNums(text) {
+    const matches = String(text || '').match(/(?:^|\D)(0?[1-9]|[1-4]\d)(?=\D|$)/g) || [];
+    const nums = matches.map(x => Number((x.match(/\d+/) || [''])[0])).filter(n => n >= 1 && n <= 49);
+    return [...new Set(nums)];
+  }
+
+  function parseGroups(text) {
+    const normalized = String(text || '').replace(/，/g, ',').replace(/[＋]/g, '+').trim();
+    if (!normalized) return [];
+    const lines = normalized.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    const plusLines = lines.filter(line => line.includes('+'));
+
+    if (plusLines.length) {
+      return plusLines.map((line, index) => ({
+        label: `第${index + 1}組`,
+        first: extractNums(line.split('+')[0])
+      })).filter(g => g.first.length);
+    }
+
+    const blocks = normalized.split(/\n\s*\n+/).map(x => x.trim()).filter(Boolean);
+    if (blocks.length > 1) {
+      return blocks.map((block, index) => ({
+        label: `第${index + 1}組`,
+        first: extractNums(block.split(/\r?\n/)[0])
+      })).filter(g => g.first.length);
+    }
+
+    // 沒有空行時，支援每三柱或每四柱為一組；優先依常見第一柱 9～10 支判斷。
+    const parsedLines = lines.map(extractNums).filter(arr => arr.length);
+    const groups = [];
+    let i = 0;
+    while (i < parsedLines.length) {
+      groups.push({ label: `第${groups.length + 1}組`, first: parsedLines[i] });
+      const remaining = parsedLines.length - i;
+      if (remaining >= 4 && parsedLines[i].length === 9) i += 4;
+      else if (remaining >= 3) i += 3;
+      else i += 1;
+    }
+    return groups;
+  }
+
+  function fmt(nums) {
+    return nums.map(n => String(n).padStart(2, '0')).join(' ');
+  }
+
+  function analyze() {
+    const groups = parseGroups(input.value);
+    result.className = 'first-pillar-checker-result';
+
+    if (!input.value.trim()) {
+      result.textContent = '尚未貼上立柱。任兩組第一柱重複 0～3 支為通過，4 支以上會警告。';
+      return;
+    }
+    if (groups.length < 2) {
+      result.classList.add('warn');
+      result.textContent = `目前只辨識到 ${groups.length} 組，至少需要 2 組才能比較。請確認每組使用「＋」分柱，或以空行分組。`;
+      return;
+    }
+
+    const comparisons = [];
+    let maxOverlap = 0;
+    let hasFail = false;
+    for (let i = 0; i < groups.length; i++) {
+      const a = new Set(groups[i].first);
+      for (let j = i + 1; j < groups.length; j++) {
+        const overlap = groups[j].first.filter(n => a.has(n)).sort((x, y) => x - y);
+        maxOverlap = Math.max(maxOverlap, overlap.length);
+        if (overlap.length > 3) hasFail = true;
+        comparisons.push({ a: i + 1, b: j + 1, overlap });
+      }
+    }
+
+    result.classList.add(hasFail ? 'fail' : 'pass');
+    const headline = hasFail
+      ? `⚠️ 發現第一柱重複超過 3 支：共辨識 ${groups.length} 組，最高重複 ${maxOverlap} 支。`
+      : `✅ 檢查通過：共辨識 ${groups.length} 組，任兩組第一柱重複都沒有超過 3 支。`;
+    const details = comparisons.map(item => {
+      const status = item.overlap.length > 3 ? '⚠️' : '✓';
+      const nums = item.overlap.length ? `｜${fmt(item.overlap)}` : '｜無重複號碼';
+      return `<div class="first-pillar-pair">${status} 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</div>`;
+    }).join('');
+    result.innerHTML = `<b>${headline}</b>${details}`;
+  }
+
+  input.addEventListener('input', analyze);
+  input.addEventListener('paste', function () { setTimeout(analyze, 0); });
 })();
 </script>
 
