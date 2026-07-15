@@ -1281,9 +1281,27 @@
   margin:12px 0 0;
 }
 .draw-quick-actions .btn{ min-height:48px; }
+.draw-copy-x-wrap{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:minmax(0, .65fr) minmax(0, 1.35fr);
+  gap:10px;
+}
+.draw-copy-x-input{
+  width:100%;
+  min-height:48px;
+  background:#020617;
+  color:#f8fafc;
+  border:1px solid rgba(56,189,248,.55);
+  border-radius:12px;
+  padding:11px 12px;
+  font-size:16px;
+  text-align:center;
+}
 .draw-quick-actions .draw-restore-btn{ grid-column:1 / -1; }
 @media (max-width:768px){
   .draw-quick-actions{ grid-template-columns:1fr; }
+  .draw-copy-x-wrap{ grid-template-columns:1fr; }
 }
 
 /* 固定雙柱精選版 */
@@ -1541,6 +1559,10 @@
           <div id="firstPillarCheckResult" class="first-pillar-checker-result">尚未貼上立柱。任兩組第一柱重複 0～3 支為通過，4 支以上會警告。</div>
         </div>
         <div class="draw-quick-actions">
+          <div class="draw-copy-x-wrap">
+            <input id="copyLatestXCountInput" class="draw-copy-x-input" type="number" inputmode="numeric" min="1" step="1" value="20" placeholder="輸入期數，例如 20">
+            <button class="btn btn-primary" id="copyLatestXDrawsBtn" type="button">一鍵複製近 X 期開獎號碼</button>
+          </div>
           <button class="btn btn-secondary" id="copyLatestDeleteFirstBtn" type="button">一鍵複製最新一期＋刪除第一期</button>
           <button class="btn btn-secondary" id="copyFirstFiveDeleteFirstFiveBtn" type="button">一鍵複製前五期＋刪除前五期</button>
           <button class="btn btn-dark draw-restore-btn" id="restoreQuickDeletedDrawsBtn" type="button">還原上次刪除號碼</button>
@@ -1713,6 +1735,8 @@
   const newDrawNums = document.getElementById('newDrawNums');
   const addDrawBtn = document.getElementById('addDrawBtn');
   const importPasteBtn = document.getElementById('importPasteBtn');
+  const copyLatestXCountInput = document.getElementById('copyLatestXCountInput');
+  const copyLatestXDrawsBtn = document.getElementById('copyLatestXDrawsBtn');
   const copyLatestDeleteFirstBtn = document.getElementById('copyLatestDeleteFirstBtn');
   const copyFirstFiveDeleteFirstFiveBtn = document.getElementById('copyFirstFiveDeleteFirstFiveBtn');
   const restoreQuickDeletedDrawsBtn = document.getElementById('restoreQuickDeletedDrawsBtn');
@@ -7405,6 +7429,36 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
   }
 
+  async function copyLatestXDraws() {
+    const mode = currentGameMode();
+    const records = loadDrawDb(mode);
+    if (!records.length) {
+      alert(`${gameLabel(mode)} 資料庫目前沒有資料。`);
+      return;
+    }
+
+    const rawCount = Number(copyLatestXCountInput && copyLatestXCountInput.value);
+    if (!Number.isInteger(rawCount) || rawCount < 1) {
+      alert('請輸入大於 0 的整數期數，例如 20。');
+      if (copyLatestXCountInput) copyLatestXCountInput.focus();
+      return;
+    }
+
+    const takeCount = Math.min(rawCount, records.length);
+    const text = records.slice(0, takeCount).map(r => formatNums(r.nums)).join('\n');
+    let ok = false;
+    try { ok = await copyTextToClipboard(text); } catch (err) { ok = false; }
+
+    if (!ok) {
+      alert(`自動複製失敗。已把近 ${takeCount} 期號碼放到「資料庫備份貼上區」，請展開後手動複製。`);
+      return;
+    }
+
+    const shortageNote = rawCount > records.length ? `\n目前資料庫只有 ${records.length} 期，因此已複製全部資料。` : '';
+    alert(`已複製 ${gameLabel(mode)} 近 ${takeCount} 期開獎號碼。${shortageNote}\n\n最上方為最新一期。`);
+    log(`已一鍵複製 ${gameLabel(mode)} 近 ${takeCount} 期開獎號碼；未刪除任何資料。`);
+  }
+
   async function copyAndDeleteTopDraws(count) {
     const mode = currentGameMode();
     const records = loadDrawDb(mode);
@@ -7536,6 +7590,10 @@ ${settleRecord.analysisLines.join('\n')}`;
   addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); addRecordToDb(nums, newDrawDate.value, modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
 
+  if (copyLatestXDrawsBtn) copyLatestXDrawsBtn.addEventListener('click', copyLatestXDraws);
+  if (copyLatestXCountInput) copyLatestXCountInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') copyLatestXDraws();
+  });
   if (copyLatestDeleteFirstBtn) copyLatestDeleteFirstBtn.addEventListener('click', () => copyAndDeleteTopDraws(1));
   if (copyFirstFiveDeleteFirstFiveBtn) copyFirstFiveDeleteFirstFiveBtn.addEventListener('click', () => copyAndDeleteTopDraws(5));
   if (restoreQuickDeletedDrawsBtn) restoreQuickDeletedDrawsBtn.addEventListener('click', restoreQuickDeletedDraws);
