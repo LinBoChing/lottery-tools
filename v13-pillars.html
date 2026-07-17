@@ -11984,14 +11984,14 @@ ${settleRecord.analysisLines.join('\n')}`;
                 ${(item.groups || []).map((g, gi) => `<div class="pillar"><div class="pillar-title">第${gi + 1}柱</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}
               </div>
               <div class="clean-two-meta">規則：最近10期四柱全部未過關才合格；四柱每柱至少中1支才算過。</div>
-              <div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="${globalIndex}">複製${label}組</button></div>
+              <div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="${globalIndex}">複製${label}組</button><button class="btn btn-dark add-first-check-btn" data-copy-type="fixedDaily" data-copy-index="${globalIndex}" type="button">加入第一柱比對</button></div>
             </div>
           </div>`;
         }).join('') + fixedBuildRemovePanelHTML(label, (originalItems[0] && originalItems[0].groups) || [], fourRemoveNumbers) : items.map((item, idx) => {
           const globalIndex = fixedFlatCopyIndex(label, idx);
           const cardHTML = buildDailyTwoCardHTML(item, idx, items)
             .replace(`data-copy-type="daily" data-copy-index="${idx}"`, `data-copy-type="fixedDaily" data-copy-index="${globalIndex}"`)
-            .replace('複製這一組</button>', `複製${label}${idx + 1}</button>`);
+            .replace('複製這一組</button>', `複製${label}${idx + 1}</button><button class="btn btn-dark add-first-check-btn" data-copy-type="fixedDaily" data-copy-index="${globalIndex}" type="button">加入第一柱比對</button>`);
           return `<div class="fixed-sub-card">${cardHTML}</div>`;
         }).join('')}
       </div>
@@ -12225,6 +12225,29 @@ ${settleRecord.analysisLines.join('\n')}`;
       ? groups.map(g => (g || []).map(pad2).join(',')).join('+')
       : exportText(groups);
     await copyTextSmart(text, `第 ${index + 1} 組已複製`);
+  }
+
+  function addGroupToFirstPillarCheck(items, rawIndex) {
+    const index = Number(rawIndex);
+    if (!Array.isArray(items) || !items.length || !Number.isInteger(index) || index < 0 || index >= items.length) {
+      alert('找不到可加入比對的立柱。請先重新產生結果後再試一次。');
+      return;
+    }
+    const groups = items[index].groups || [];
+    if (!groups.length) {
+      alert('這組立柱沒有可加入的內容。');
+      return;
+    }
+    const input = document.getElementById('firstPillarCheckInput');
+    if (!input) {
+      alert('找不到第一柱比對區。');
+      return;
+    }
+    const text = groups.map(g => (g || []).map(pad2).join(',')).join('+');
+    const current = input.value.trim();
+    input.value = current ? `${current}\n\n${text}` : text;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   async function copySinglePillar(items, rawIndex, rawPillarIndex) {
@@ -12467,6 +12490,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       const item = lastLucky5Results && lastLucky5Results[idx];
       if (!item || !item.combo) { alert('找不到可複製的幸運五碼，請重新推演。'); return; }
       await copyTextSmart(item.combo.map(pad2).join(','), `幸運五碼第 ${idx + 1} 組已複製`);
+      return;
+    }
+
+    const addFirstCheckBtn = e.target.closest('.add-first-check-btn');
+    if (addFirstCheckBtn) {
+      const items = getItemByCopyType(addFirstCheckBtn.dataset.copyType);
+      addGroupToFirstPillarCheck(items, addFirstCheckBtn.dataset.copyIndex);
       return;
     }
 
