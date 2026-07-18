@@ -10670,7 +10670,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       omitted = omittedInfo.map(x => x.n);
     }
 
-    if (label === 'B' || label === 'C') {
+    if (label === 'A' || label === 'B' || label === 'C') {
       const rng = fixedLocalRng([FIXED_DUAL_STORAGE_PREFIX, mode, label, 'target10', Date.now(), Math.random()].join('::'));
       const targetPair = fixedBuildTargetPatternPair(label, sharedPool || fixedRangeForMode(mode), rng, historyDraws || getBacktestDraws(), mode, omitted, omittedInfo);
       if (targetPair && fixedTargetPairPerfect(targetPair, label, historyDraws || getBacktestDraws(), mode)) {
@@ -11215,21 +11215,25 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  function fixedTargetScoresForPairLabel(label) {
+  function fixedTargetPatternsForPairLabel(label) {
     const key = String(label || '').toUpperCase();
-    if (key === 'B') {
-      return {
-        first:  [0, 0, 0, 0, 4, 3, 3, 4, 0, 4],
-        second: [4, 3, 0, 4, 3, 4, 0, 3, 4, 3]
-      };
-    }
-    if (key === 'C') {
-      return {
-        first:  [4, 0, 3, 4, 3, 4, 0, 3, 4, 3],
-        second: [0, 0, 0, 0, 4, 3, 3, 4, 0, 4]
-      };
-    }
-    return null;
+    if (!['A', 'B', 'C'].includes(key)) return null;
+
+    // A1～C2 全部套用同一套十期生成規則（索引0 = 最新期）：
+    // 最新～第5期：0-2-3 或 0-3-2
+    // 第6～第7期：三星四碰，亦即 2-2-1 的任意柱位排列
+    // 第8～第10期：第一柱三期合計爆發（合計8～10支，且至少一期中4或5支）
+    const patterns = [
+      'ZERO_23', 'ZERO_23', 'ZERO_23', 'ZERO_23', 'ZERO_23',
+      'FOUR_HIT', 'FOUR_HIT',
+      'BURST3', 'BURST3', 'BURST3'
+    ];
+    return { first: patterns.slice(), second: patterns.slice() };
+  }
+
+  // 保留舊函式名稱供其他程式碼相容；內容已改為型態規則。
+  function fixedTargetScoresForPairLabel(label) {
+    return fixedTargetPatternsForPairLabel(label);
   }
 
   function fixedPillarCountsOnDraw(groups, draw, mode) {
@@ -11237,25 +11241,65 @@ ${settleRecord.analysisLines.join('\n')}`;
     return (groups || []).map(g => (g || []).reduce((sum, n) => sum + (drawSet.has(Number(n)) ? 1 : 0), 0));
   }
 
-  function fixedTargetPillarPenalty(groups, historyDraws, mode, targetScores) {
-    const draws = (historyDraws || []).slice(0, 10);
-    if (!Array.isArray(targetScores) || targetScores.length < 10 || draws.length < 10) return 999999;
-    let penalty = 0;
-    for (let i = 0; i < 10; i++) {
-      const counts = fixedPillarCountsOnDraw(groups, draws[i], mode);
-      const score = caishenHitComboScore(groups, draws[i]);
-      const want = Number(targetScores[i] || 0);
-      const h1 = counts[0] || 0;
-      if (want === 0) {
-        if (score !== 0) penalty += 260 + Math.abs(score) * 14;
-        // 使用者指定：B/C 前四期的 0，都必須是第一柱 0 支造成的倒。
-        if (i < 4 && h1 !== 0) penalty += 900 + h1 * 160;
-      } else {
-        if (score !== want) penalty += 220 + Math.abs(score - want) * 42 + (score === 0 ? 120 : 0);
-        // 3碰/4碰不得靠第一柱 0，必須是真正三柱過關。
-        if (h1 <= 0 || (counts[1] || 0) <= 0 || (counts[2] || 0) <= 0) penalty += 360;
-      }
+  function fixedPatternRowPenalty(counts, wanted) {
+    const c = [Number(counts[0] || 0), Number(counts[1] || 0), Number(counts[2] || 0)];
+
+    if (wanted === 'ZERO_23') {
+      const exact = c[0] === 0 && ((c[1] === 2 && c[2] === 3) || (c[1] === 3 && c[2] === 2));
+      if (exact) return 0;
+      let penalty = Math.abs(c[0]) * 1100;
+      const d23 = Math.abs(c[1] - 2) + Math.abs(c[2] - 3);
+      const d32 = Math.abs(c[1] - 3) + Math.abs(c[2] - 2);
+      penalty += Math.min(d23, d32) * 320;
+      if (c[0] !== 0) penalty += 900;
+      return penalty + 120;
     }
+
+    if (wanted === 'FOUR_HIT') {
+      // 三星四碰唯一型態為 2-2-1，柱位順序不限，但三柱都必須有中。
+      const sorted = c.slice().sort((a, b) => a - b);
+      const exact = sorted[0] === 1 && sorted[1] === 2 && sorted[2] === 2;
+      if (exact) return 0;
+      const target = [1, 2, 2];
+      let penalty = sorted.reduce((sum, v, i) => sum + Math.abs(v - target[i]) * 360, 0);
+      if (c.some(v => v <= 0)) penalty += 1000;
+      return penalty + 140;
+    }
+
+    if (wanted === '500') {
+      const exact = c[0] === 5 && c[1] === 0 && c[2] === 0;
+      if (exact) return 0;
+      return Math.abs(c[0] - 5) * 520 + Math.abs(c[1]) * 900 + Math.abs(c[2]) * 900 + 180;
+    }
+
+    return 999999;
+  }
+
+  function fixedTargetPillarPenalty(groups, historyDraws, mode, targetPatterns) {
+    const draws = (historyDraws || []).slice(0, 10);
+    if (!Array.isArray(targetPatterns) || targetPatterns.length < 10 || draws.length < 10) return 999999;
+    let penalty = 0;
+
+    // 最新期～第7期仍逐期檢查指定型態。
+    for (let i = 0; i < 7; i++) {
+      const counts = fixedPillarCountsOnDraw(groups, draws[i], mode);
+      penalty += fixedPatternRowPenalty(counts, targetPatterns[i]);
+    }
+
+    // 第8～第10期改採「三期合計爆發」：
+    // 第一柱三期合計8～10支，且至少其中一期中4或5支。
+    const burstFirstHits = [];
+    for (let i = 7; i < 10; i++) {
+      const counts = fixedPillarCountsOnDraw(groups, draws[i], mode);
+      burstFirstHits.push(Number(counts[0] || 0));
+    }
+    const burstTotal = burstFirstHits.reduce((sum, v) => sum + v, 0);
+    const burstMax = Math.max(...burstFirstHits);
+
+    if (burstTotal < 8) penalty += (8 - burstTotal) * 700;
+    if (burstTotal > 10) penalty += (burstTotal - 10) * 420;
+    if (burstMax < 4) penalty += (4 - burstMax) * 900 + 500;
+
     return penalty;
   }
 
@@ -11525,11 +11569,11 @@ ${settleRecord.analysisLines.join('\n')}`;
         if (max === 49) groups = fixedEnsureFourGroupsUseOnlyPool(groups, sharedPool, rng);
         return { label, type: 'fourDown', pair: [{ groups, label: `${label}1`, omitted, omittedInfo, type: 'fourDown' }], createdAt: 'four-pillar-down10', mode };
       }
-      if (label === 'B' || label === 'C') {
+      if (label === 'A' || label === 'B' || label === 'C') {
         const targetPair = fixedBuildTargetPatternPair(label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo);
         if (targetPair && targetPair.length === 2) {
           targetPair.forEach(x => used.add(fixedGroupsKey(x.groups)));
-          return { label, pair: targetPair, createdAt: 'walk-forward-target10', mode };
+          return { label, pair: targetPair, createdAt: 'abc-shared-target10-v2', mode };
         }
       }
       while (pair.length < 2 && guard < 300) {
