@@ -1339,7 +1339,9 @@
   background:rgba(2,6,23,.72);
   padding:12px;
 }
-.first-pillar-checker-title{font-size:16px;font-weight:900;color:#7dd3fc;margin-bottom:6px;}
+.first-pillar-checker-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px;}
+.first-pillar-checker-title{font-size:16px;font-weight:900;color:#7dd3fc;}
+.first-pillar-paste6-btn{width:auto;padding:8px 11px;font-size:13px;border-radius:10px;}
 .first-pillar-checker-input{
   width:100%;
   min-height:92px;
@@ -1367,8 +1369,12 @@
 .first-pillar-checker-result.pass{border-color:rgba(34,197,94,.55);background:rgba(34,197,94,.10);color:#bbf7d0;}
 .first-pillar-checker-result.fail{border-color:rgba(239,68,68,.62);background:rgba(239,68,68,.12);color:#fecaca;}
 .first-pillar-checker-result.warn{border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.10);color:#fde68a;}
-.first-pillar-pair{padding:5px 0;border-top:1px solid rgba(148,163,184,.18);}
-.first-pillar-pair:first-of-type{margin-top:5px;}
+.first-pillar-pair{padding:7px 9px;margin-top:6px;border:1px solid rgba(148,163,184,.18);border-radius:10px;background:rgba(15,23,42,.48);}
+.first-pillar-pair:first-of-type{margin-top:8px;}
+.first-pillar-pair.pass-low{border-color:rgba(34,197,94,.72);background:rgba(34,197,94,.13);color:#dcfce7;box-shadow:0 0 0 1px rgba(34,197,94,.12) inset;}
+.first-pillar-pair.pass-low b{color:#86efac;}
+.first-pillar-pair.fail-high{border-color:rgba(239,68,68,.65);background:rgba(239,68,68,.10);color:#fecaca;}
+.first-pillar-pair.fail-high b{color:#fca5a5;}
 
 /* D/E 四柱自訂摘除工具 */
 .fixed-remove-panel{
@@ -1554,7 +1560,10 @@
         </div>
 
         <div class="first-pillar-checker">
-          <div class="first-pillar-checker-title">多組立柱｜第一柱重複檢查</div>
+          <div class="first-pillar-checker-head">
+            <div class="first-pillar-checker-title">多組立柱｜第一柱重複檢查</div>
+            <button class="btn btn-secondary first-pillar-paste6-btn" id="pasteABC6ToFirstCheckBtn" type="button">一鍵貼上 A1～C2 六組</button>
+          </div>
           <textarea id="firstPillarCheckInput" class="first-pillar-checker-input" placeholder="可貼多組完整立柱；每組一行並用＋分柱，或每柱一行、空行分組。貼上後會自動檢查任兩組第一柱重複是否超過 3 支。"></textarea>
           <div id="firstPillarCheckResult" class="first-pillar-checker-result">尚未貼上立柱。任兩組第一柱重複 0～3 支為通過，4 支以上會警告。</div>
         </div>
@@ -11220,16 +11229,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (!['A', 'B', 'C'].includes(key)) return null;
 
     // A1～C2 全部套用同一套十期生成規則（索引0 = 最新期）：
-    // 最新～第3期：0-2-3 或 0-3-2
-    // 第4期：隨機結果，不限制柱位命中型態
-    // 第5期：0-2-3 或 0-3-2
-    // 第6～第7期：三星四碰，亦即 2-2-1 的任意柱位排列
-    // 第8期：隨機結果，不限制柱位命中型態
-    // 第9～第10期：第一柱兩期合計爆發（合計6～8支，且至少一期中4或5支）
+    // 最新～第5期：第一柱固定0支；第二、三柱優先平均中2～3支，單柱不超過4支。
+    // 第6～第8期：以三星過關為主，三星3碰（3-1-1）或4碰（2-2-1）皆可。
+    // 第9期：第一柱固定中2支；第10期：第一柱固定中1支；第二、三柱結果不限制。
     const patterns = [
-      'ZERO_23', 'ZERO_23', 'ZERO_23', 'RANDOM', 'ZERO_23',
-      'FOUR_HIT', 'FOUR_HIT',
-      'RANDOM', 'BURST2', 'BURST2'
+      'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED',
+      'PASS_3_OR_4', 'PASS_3_OR_4', 'PASS_3_OR_4',
+      'FIRST_TWO_RANDOM', 'FIRST_ONE_RANDOM'
     ];
     return { first: patterns.slice(), second: patterns.slice() };
   }
@@ -11263,6 +11269,47 @@ ${settleRecord.analysisLines.join('\n')}`;
       return penalty + 120;
     }
 
+    if (wanted === 'FIRST_ZERO_BALANCED') {
+      // 第一柱必須0支；第二、三柱以2～3支最理想，任何一柱超過4支都重扣。
+      let penalty = 0;
+      if (c[0] !== 0) penalty += Math.abs(c[0]) * 1500 + 1200;
+      const h2 = c[1], h3 = c[2];
+      if (h2 >= 2 && h2 <= 3) penalty += 0;
+      else penalty += Math.min(Math.abs(h2 - 2), Math.abs(h2 - 3)) * 260 + 100;
+      if (h3 >= 2 && h3 <= 3) penalty += 0;
+      else penalty += Math.min(Math.abs(h3 - 2), Math.abs(h3 - 3)) * 260 + 100;
+      if (h2 > 4) penalty += (h2 - 4) * 1800 + 1200;
+      if (h3 > 4) penalty += (h3 - 4) * 1800 + 1200;
+      // 2-3 / 3-2 最佳；2-2、3-3也可，但略扣分。
+      if (!((h2 === 2 && h3 === 3) || (h2 === 3 && h3 === 2))) {
+        penalty += Math.abs(h2 - h3) > 1 ? 180 : 60;
+      }
+      return penalty;
+    }
+
+    if (wanted === 'PASS_3_OR_4') {
+      // 三星3碰 = 3-1-1；三星4碰 = 2-2-1，柱位順序皆不限。
+      const sorted = c.slice().sort((a, b) => a - b);
+      const is3 = sorted[0] === 1 && sorted[1] === 1 && sorted[2] === 3;
+      const is4 = sorted[0] === 1 && sorted[1] === 2 && sorted[2] === 2;
+      if (is3 || is4) return 0;
+      const p3 = Math.abs(sorted[0] - 1) + Math.abs(sorted[1] - 1) + Math.abs(sorted[2] - 3);
+      const p4 = Math.abs(sorted[0] - 1) + Math.abs(sorted[1] - 2) + Math.abs(sorted[2] - 2);
+      let penalty = Math.min(p3, p4) * 420 + 140;
+      if (c.some(v => v <= 0)) penalty += 1100;
+      return penalty;
+    }
+
+    if (wanted === 'FIRST_TWO_RANDOM') {
+      // 只限制第一柱剛好中2支，第二、三柱完全隨機。
+      return c[0] === 2 ? 0 : Math.abs(c[0] - 2) * 1200 + 500;
+    }
+
+    if (wanted === 'FIRST_ONE_RANDOM') {
+      // 只限制第一柱剛好中1支，第二、三柱完全隨機。
+      return c[0] === 1 ? 0 : Math.abs(c[0] - 1) * 1200 + 500;
+    }
+
     if (wanted === 'FOUR_HIT') {
       // 三星四碰唯一型態為 2-2-1，柱位順序不限，但三柱都必須有中。
       const sorted = c.slice().sort((a, b) => a - b);
@@ -11287,27 +11334,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     const draws = (historyDraws || []).slice(0, 10);
     if (!Array.isArray(targetPatterns) || targetPatterns.length < 10 || draws.length < 10) return 999999;
     let penalty = 0;
-
-    // 最新期～第8期逐期檢查指定型態；第4、第8期為 RANDOM，懲罰固定為0。
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 10; i++) {
       const counts = fixedPillarCountsOnDraw(groups, draws[i], mode);
       penalty += fixedPatternRowPenalty(counts, targetPatterns[i]);
     }
-
-    // 第9～第10期改採「兩期合計爆發」：
-    // 第一柱兩期合計6～8支，且至少其中一期中4或5支。
-    const burstFirstHits = [];
-    for (let i = 8; i < 10; i++) {
-      const counts = fixedPillarCountsOnDraw(groups, draws[i], mode);
-      burstFirstHits.push(Number(counts[0] || 0));
-    }
-    const burstTotal = burstFirstHits.reduce((sum, v) => sum + v, 0);
-    const burstMax = Math.max(...burstFirstHits);
-
-    if (burstTotal < 6) penalty += (6 - burstTotal) * 700;
-    if (burstTotal > 8) penalty += (burstTotal - 8) * 420;
-    if (burstMax < 4) penalty += (4 - burstMax) * 900 + 500;
-
     return penalty;
   }
 
@@ -11338,7 +11368,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const combinedPenalty = groups => {
       const targetPenalty = fixedTargetPillarPenalty(groups, historyDraws, mode, targetScores);
       const overlap = overlapPenalty(groups);
-      // 第4、第8期已釋放自由度；在維持其餘歷史型態下，顯著提高第一柱避重權重。
+      // 在維持十期目標型態下，顯著提高第一柱避重權重。
       return { total: targetPenalty * 50000 + overlap.penalty, targetPenalty, maxOverlap: overlap.maxOverlap };
     };
 
@@ -11613,7 +11643,7 @@ ${settleRecord.analysisLines.join('\n')}`;
             used.add(fixedGroupsKey(x.groups));
             if (x.groups && Array.isArray(x.groups[0])) abcReferenceFirstPillars.push(x.groups[0].slice());
           });
-          return { label, pair: targetPair, createdAt: 'abc-random4-8-first-overlap-v2', mode };
+          return { label, pair: targetPair, createdAt: 'abc-zero5-pass678-first2-910-low-overlap-v1', mode };
         }
       }
       while (pair.length < 2 && guard < 300) {
@@ -12333,6 +12363,24 @@ ${settleRecord.analysisLines.join('\n')}`;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+
+  function pasteABC6ToFirstPillarCheck() {
+    const input = document.getElementById('firstPillarCheckInput');
+    if (!input) return;
+    const abcItems = (lastFixedDaily || []).slice(0, 6).filter(item => item && Array.isArray(item.groups) && item.groups.length >= 3);
+    if (abcItems.length < 6) {
+      alert('目前尚未產生完整的 A1～C2 六組立柱，請先按重新精選立柱。');
+      return;
+    }
+    const appendedText = abcItems.map(item => (item.groups || []).map(g => (g || []).map(pad2).join(',')).join('+')).join('\n\n');
+    const current = input.value.trim();
+    input.value = current ? `${current}\n\n${appendedText}` : appendedText;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  const pasteABC6Btn = document.getElementById('pasteABC6ToFirstCheckBtn');
+  if (pasteABC6Btn) pasteABC6Btn.addEventListener('click', pasteABC6ToFirstPillarCheck);
 
   async function copySinglePillar(items, rawIndex, rawPillarIndex) {
     const index = Number(rawIndex);
@@ -13296,7 +13344,8 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const details = comparisons.map(item => {
       const status = item.overlap.length > 3 ? '⚠️' : '✓';
       const nums = item.overlap.length ? `｜${fmt(item.overlap)}` : '｜無重複號碼';
-      return `<div class="first-pillar-pair">${status} 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</div>`;
+      const pairClass = item.overlap.length <= 3 ? 'pass-low' : 'fail-high';
+      return `<div class="first-pillar-pair ${pairClass}">${status} 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</div>`;
     }).join('');
     result.innerHTML = `<b>${headline}</b>${details}`;
   }
