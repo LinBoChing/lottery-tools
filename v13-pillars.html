@@ -1375,6 +1375,11 @@
 .first-pillar-pair.pass-low b{color:#86efac;}
 .first-pillar-pair.fail-high{border-color:rgba(239,68,68,.65);background:rgba(239,68,68,.10);color:#fecaca;}
 .first-pillar-pair.fail-high b{color:#fca5a5;}
+.first-pillar-pair-main{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;}
+.first-pillar-copy-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px;}
+.first-pillar-copy-btn{width:auto;padding:6px 9px;font-size:12px;border-radius:8px;border:1px solid rgba(56,189,248,.48);background:rgba(56,189,248,.14);color:#bae6fd;font-weight:900;cursor:pointer;}
+.first-pillar-copy-btn:hover{background:rgba(56,189,248,.24);}
+.first-pillar-copy-btn.copied{border-color:rgba(34,197,94,.72);background:rgba(34,197,94,.20);color:#bbf7d0;}
 
 /* D/E 四柱自訂摘除工具 */
 .fixed-remove-panel{
@@ -11231,11 +11236,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     // A1～C2 全部套用同一套十期生成規則（索引0 = 最新期）：
     // 最新～第5期：第一柱固定0支；第二、三柱優先平均中2～3支，單柱不超過4支。
     // 第6～第8期：以三星過關為主，三星3碰（3-1-1）或4碰（2-2-1）皆可。
-    // 第9期：第一柱固定中2支；第10期：第一柱固定中1支；第二、三柱結果不限制。
+    // 第9期：第一柱固定中1支；第10期：第一柱固定中1支；第二、三柱結果不限制。
     const patterns = [
       'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED',
       'PASS_3_OR_4', 'PASS_3_OR_4', 'PASS_3_OR_4',
-      'FIRST_TWO_RANDOM', 'FIRST_ONE_RANDOM'
+      'FIRST_ONE_RANDOM', 'FIRST_ONE_RANDOM'
     ];
     return { first: patterns.slice(), second: patterns.slice() };
   }
@@ -11599,8 +11604,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     let sharedPool = all;
     let omittedInfo = [];
     let omitted = [];
-    // A1→A2→B1→B2→C1→C2 依序保存第一柱，供後續生成避重。
-    const abcReferenceFirstPillars = [];
+    // A、B、C 各自獨立生成；每個字母組內仍維持 1→2 的第一柱避重。
     if (max === 49) {
       omittedInfo = fixedLatestThenHighMissExcludeInfoFromDraws(mode, historyDraws);
       const unique = [];
@@ -11637,20 +11641,19 @@ ${settleRecord.analysisLines.join('\n')}`;
         return { label, type: 'fourDown', pair: [{ groups, label: `${label}1`, omitted, omittedInfo, type: 'fourDown' }], createdAt: 'four-pillar-down10', mode };
       }
       if (label === 'A' || label === 'B' || label === 'C') {
-        const targetPair = fixedBuildTargetPatternPair(label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo, abcReferenceFirstPillars);
+        // 每個字母組都從空白參考開始：A2只避A1、B2只避B1、C2只避C1；
+        // A/B/C彼此不交叉避重，且共用同一套隨機生成流程。
+        const targetPair = fixedBuildTargetPatternPair(label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo, []);
         if (targetPair && targetPair.length === 2) {
           targetPair.forEach(x => {
             used.add(fixedGroupsKey(x.groups));
-            if (x.groups && Array.isArray(x.groups[0])) abcReferenceFirstPillars.push(x.groups[0].slice());
           });
-          return { label, pair: targetPair, createdAt: 'abc-zero5-pass678-first2-910-low-overlap-v1', mode };
+          return { label, pair: targetPair, createdAt: 'abc-same-as-a-pairwise-random-v1', mode };
         }
       }
       while (pair.length < 2 && guard < 300) {
         guard++;
-        let groups = label === 'A'
-          ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool, rng, historyDraws, mode)
-          : fixedBuildOnePillarFromPoolDet(sharedPool, rng);
+        let groups = fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool, rng, historyDraws, mode);
         if (max === 49) groups = fixedEnsureGroupsUseOnlyPool(groups, sharedPool, rng);
         const key = fixedGroupsKey(groups);
         if (used.has(key)) continue;
@@ -11658,9 +11661,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
       }
       while (pair.length < 2) {
-        let groups = label === 'A'
-          ? fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool, rng, historyDraws, mode)
-          : fixedBuildOnePillarFromPoolDet(sharedPool, rng);
+        let groups = fixedBuildAGroupFirstZeroPillarFromPoolDet(sharedPool, rng, historyDraws, mode);
         if (max === 49) groups = fixedEnsureGroupsUseOnlyPool(groups, sharedPool, rng);
         pair.push({ groups, label: `${label}${pair.length + 1}`, omitted, omittedInfo });
       }
@@ -13280,28 +13281,39 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     if (plusLines.length) {
       return plusLines.map((line, index) => ({
         label: `第${index + 1}組`,
-        first: extractNums(line.split('+')[0])
+        first: extractNums(line.split('+')[0]),
+        raw: line
       })).filter(g => g.first.length);
     }
 
     const blocks = normalized.split(/\n\s*\n+/).map(x => x.trim()).filter(Boolean);
     if (blocks.length > 1) {
-      return blocks.map((block, index) => ({
-        label: `第${index + 1}組`,
-        first: extractNums(block.split(/\r?\n/)[0])
-      })).filter(g => g.first.length);
+      return blocks.map((block, index) => {
+        const blockLines = block.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+        return {
+          label: `第${index + 1}組`,
+          first: extractNums(blockLines[0]),
+          raw: blockLines.join('+')
+        };
+      }).filter(g => g.first.length);
     }
 
     // 沒有空行時，支援每三柱或每四柱為一組；優先依常見第一柱 9～10 支判斷。
-    const parsedLines = lines.map(extractNums).filter(arr => arr.length);
+    const parsedLines = lines.map(line => ({ text: line, nums: extractNums(line) })).filter(item => item.nums.length);
     const groups = [];
     let i = 0;
     while (i < parsedLines.length) {
-      groups.push({ label: `第${groups.length + 1}組`, first: parsedLines[i] });
       const remaining = parsedLines.length - i;
-      if (remaining >= 4 && parsedLines[i].length === 9) i += 4;
-      else if (remaining >= 3) i += 3;
-      else i += 1;
+      let span = 1;
+      if (remaining >= 4 && parsedLines[i].nums.length === 9) span = 4;
+      else if (remaining >= 3) span = 3;
+      const chunk = parsedLines.slice(i, i + span);
+      groups.push({
+        label: `第${groups.length + 1}組`,
+        first: chunk[0].nums,
+        raw: chunk.map(item => item.text).join('+')
+      });
+      i += span;
     }
     return groups;
   }
@@ -13337,18 +13349,88 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       }
     }
 
-    result.classList.add(hasFail ? 'fail' : 'pass');
-    const headline = hasFail
-      ? `⚠️ 發現第一柱重複超過 3 支：共辨識 ${groups.length} 組，最高重複 ${maxOverlap} 支。`
-      : `✅ 檢查通過：共辨識 ${groups.length} 組，任兩組第一柱重複都沒有超過 3 支。`;
-    const details = comparisons.map(item => {
-      const status = item.overlap.length > 3 ? '⚠️' : '✓';
+    const visibleComparisons = comparisons.filter(item => item.overlap.length <= 3);
+    const hiddenCount = comparisons.length - visibleComparisons.length;
+    result.classList.add('pass');
+    const headline = `✅ 共辨識 ${groups.length} 組；目前顯示重複 0～3 支的 ${visibleComparisons.length} 組比對結果。${hiddenCount ? `已隱藏 ${hiddenCount} 組重複 4 支以上的結果。` : ''}`;
+    const details = visibleComparisons.map(item => {
       const nums = item.overlap.length ? `｜${fmt(item.overlap)}` : '｜無重複號碼';
-      const pairClass = item.overlap.length <= 3 ? 'pass-low' : 'fail-high';
-      return `<div class="first-pillar-pair ${pairClass}">${status} 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</div>`;
+      return `<div class="first-pillar-pair pass-low"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</span></div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button></div></div>`;
     }).join('');
-    result.innerHTML = `<b>${headline}</b>${details}`;
+    result.innerHTML = `<b>${headline}</b>${details || '<div class="first-pillar-pair pass-low">目前沒有重複 0～3 支的比對結果。</div>'}`;
   }
+
+  async function copyText(text) {
+    const value = String(text || '');
+    if (!value) throw new Error('empty copy text');
+
+    // 優先使用新版剪貼簿；若手機/PWA拒絕權限，立即改走傳統複製。
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch (error) {
+      // 繼續使用 fallback，不直接顯示失敗。
+    }
+
+    const temp = document.createElement('textarea');
+    temp.value = value;
+    temp.setAttribute('readonly', 'readonly');
+    temp.style.position = 'fixed';
+    temp.style.left = '-9999px';
+    temp.style.top = '0';
+    temp.style.width = '1px';
+    temp.style.height = '1px';
+    temp.style.opacity = '0.01';
+    temp.style.pointerEvents = 'none';
+    document.body.appendChild(temp);
+
+    const selection = document.getSelection ? document.getSelection() : null;
+    const savedRange = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+    temp.focus({ preventScroll: true });
+    temp.select();
+    temp.setSelectionRange(0, value.length);
+
+    let ok = false;
+    try {
+      ok = document.execCommand('copy') === true;
+    } catch (error) {
+      ok = false;
+    }
+
+    temp.remove();
+    if (selection && savedRange) {
+      try {
+        selection.removeAllRanges();
+        selection.addRange(savedRange);
+      } catch (error) {}
+    }
+    if (!ok) throw new Error('copy failed');
+    return true;
+  }
+
+  result.addEventListener('click', async function (event) {
+    const btn = event.target.closest('.first-pillar-copy-btn');
+    if (!btn) return;
+    const groups = parseGroups(input.value);
+    const index = Number(btn.dataset.copyGroup);
+    const group = groups[index];
+    if (!group || !group.raw) return;
+    const originalText = btn.textContent;
+    try {
+      await copyText(group.raw);
+      btn.textContent = `✓ 已複製第${index + 1}組`;
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.classList.remove('copied');
+      }, 1200);
+    } catch (error) {
+      btn.textContent = '複製失敗';
+      setTimeout(() => { btn.textContent = originalText; }, 1200);
+    }
+  });
 
   input.addEventListener('input', analyze);
   input.addEventListener('paste', function () { setTimeout(analyze, 0); });
