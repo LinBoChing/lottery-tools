@@ -11220,13 +11220,16 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (!['A', 'B', 'C'].includes(key)) return null;
 
     // A1～C2 全部套用同一套十期生成規則（索引0 = 最新期）：
-    // 最新～第5期：0-2-3 或 0-3-2
+    // 最新～第3期：0-2-3 或 0-3-2
+    // 第4期：隨機結果，不限制柱位命中型態
+    // 第5期：0-2-3 或 0-3-2
     // 第6～第7期：三星四碰，亦即 2-2-1 的任意柱位排列
-    // 第8～第10期：第一柱三期合計爆發（合計8～10支，且至少一期中4或5支）
+    // 第8期：隨機結果，不限制柱位命中型態
+    // 第9～第10期：第一柱兩期合計爆發（合計6～8支，且至少一期中4或5支）
     const patterns = [
-      'ZERO_23', 'ZERO_23', 'ZERO_23', 'ZERO_23', 'ZERO_23',
+      'ZERO_23', 'ZERO_23', 'ZERO_23', 'RANDOM', 'ZERO_23',
       'FOUR_HIT', 'FOUR_HIT',
-      'BURST3', 'BURST3', 'BURST3'
+      'RANDOM', 'BURST2', 'BURST2'
     ];
     return { first: patterns.slice(), second: patterns.slice() };
   }
@@ -11243,6 +11246,11 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedPatternRowPenalty(counts, wanted) {
     const c = [Number(counts[0] || 0), Number(counts[1] || 0), Number(counts[2] || 0)];
+
+    if (wanted === 'RANDOM') {
+      // 隨機期完全不納入型態懲罰，讓生成器把自由度用於降低第一柱重複。
+      return 0;
+    }
 
     if (wanted === 'ZERO_23') {
       const exact = c[0] === 0 && ((c[1] === 2 && c[2] === 3) || (c[1] === 3 && c[2] === 2));
@@ -11280,24 +11288,24 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (!Array.isArray(targetPatterns) || targetPatterns.length < 10 || draws.length < 10) return 999999;
     let penalty = 0;
 
-    // 最新期～第7期仍逐期檢查指定型態。
-    for (let i = 0; i < 7; i++) {
+    // 最新期～第8期逐期檢查指定型態；第4、第8期為 RANDOM，懲罰固定為0。
+    for (let i = 0; i < 8; i++) {
       const counts = fixedPillarCountsOnDraw(groups, draws[i], mode);
       penalty += fixedPatternRowPenalty(counts, targetPatterns[i]);
     }
 
-    // 第8～第10期改採「三期合計爆發」：
-    // 第一柱三期合計8～10支，且至少其中一期中4或5支。
+    // 第9～第10期改採「兩期合計爆發」：
+    // 第一柱兩期合計6～8支，且至少其中一期中4或5支。
     const burstFirstHits = [];
-    for (let i = 7; i < 10; i++) {
+    for (let i = 8; i < 10; i++) {
       const counts = fixedPillarCountsOnDraw(groups, draws[i], mode);
       burstFirstHits.push(Number(counts[0] || 0));
     }
     const burstTotal = burstFirstHits.reduce((sum, v) => sum + v, 0);
     const burstMax = Math.max(...burstFirstHits);
 
-    if (burstTotal < 8) penalty += (8 - burstTotal) * 700;
-    if (burstTotal > 10) penalty += (burstTotal - 10) * 420;
+    if (burstTotal < 6) penalty += (6 - burstTotal) * 700;
+    if (burstTotal > 8) penalty += (burstTotal - 8) * 420;
     if (burstMax < 4) penalty += (4 - burstMax) * 900 + 500;
 
     return penalty;
@@ -11309,24 +11317,47 @@ ${settleRecord.analysisLines.join('\n')}`;
     return groups;
   }
 
-  function fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, targetScores) {
+  function fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, targetScores, referenceFirstPillars = []) {
     const basePool = (pool || fixedRangeForMode(mode)).map(Number).filter(Number.isFinite).slice(0, 39);
     if (basePool.length < 39 || (historyDraws || []).length < 10) return fixedBuildOnePillarFromPoolDet(basePool, rng);
 
+    const overlapPenalty = groups => {
+      const first = new Set(((groups && groups[0]) || []).map(Number));
+      let penalty = 0;
+      let maxOverlap = 0;
+      (referenceFirstPillars || []).forEach(ref => {
+        const overlap = (ref || []).reduce((sum, n) => sum + (first.has(Number(n)) ? 1 : 0), 0);
+        maxOverlap = Math.max(maxOverlap, overlap);
+        // 主要目標改為第一柱分散：0～3支理想；4支明顯扣分；5支以上近乎淘汰。
+        if (overlap === 4) penalty += 70000;
+        else if (overlap === 5) penalty += 450000;
+        else if (overlap >= 6) penalty += 3000000 + (overlap - 6) * 1000000;
+      });
+      return { penalty, maxOverlap };
+    };
+    const combinedPenalty = groups => {
+      const targetPenalty = fixedTargetPillarPenalty(groups, historyDraws, mode, targetScores);
+      const overlap = overlapPenalty(groups);
+      // 第4、第8期已釋放自由度；在維持其餘歷史型態下，顯著提高第一柱避重權重。
+      return { total: targetPenalty * 50000 + overlap.penalty, targetPenalty, maxOverlap: overlap.maxOverlap };
+    };
+
     let bestFlat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
     let bestGroups = fixedGroupsFromFlat(bestFlat);
-    let bestPenalty = fixedTargetPillarPenalty(bestGroups, historyDraws, mode, targetScores);
-    if (bestPenalty === 0) return bestGroups;
+    let bestEval = combinedPenalty(bestGroups);
+    let bestPenalty = bestEval.total;
+    if (bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3) return bestGroups;
 
     const runs = 34;
     const steps = 1800;
     for (let run = 0; run < runs; run++) {
       let flat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
       let groups = fixedGroupsFromFlat(flat);
-      let score = fixedTargetPillarPenalty(groups, historyDraws, mode, targetScores);
+      let evalNow = combinedPenalty(groups);
+      let score = evalNow.total;
       let temperature = 18;
       for (let step = 0; step < steps; step++) {
-        if (score === 0) {
+        if (evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3) {
           groups.forEach(g => g.sort((a, b) => a - b));
           return groups;
         }
@@ -11335,13 +11366,16 @@ ${settleRecord.analysisLines.join('\n')}`;
         if (a === b) b = (b + 1) % 39;
         [flat[a], flat[b]] = [flat[b], flat[a]];
         const ng = fixedGroupsFromFlat(flat);
-        const ns = fixedTargetPillarPenalty(ng, historyDraws, mode, targetScores);
+        const nextEval = combinedPenalty(ng);
+        const ns = nextEval.total;
         const accept = ns <= score || Math.exp((score - ns) / Math.max(1, temperature)) > rng();
         if (accept) {
           groups = ng;
+          evalNow = nextEval;
           score = ns;
           if (score < bestPenalty) {
             bestPenalty = score;
+            bestEval = nextEval;
             bestFlat = flat.slice();
             bestGroups = groups.map(g => g.slice());
           }
@@ -11363,11 +11397,12 @@ ${settleRecord.analysisLines.join('\n')}`;
            fixedTargetPillarPenalty(pair[1].groups, historyDraws, mode, t.second) === 0;
   }
 
-  function fixedBuildTargetPatternPair(label, pool, rng, historyDraws, mode, omitted = [], omittedInfo = []) {
+  function fixedBuildTargetPatternPair(label, pool, rng, historyDraws, mode, omitted = [], omittedInfo = [], referenceFirstPillars = []) {
     const t = fixedTargetScoresForPairLabel(label);
     if (!t) return null;
-    const firstGroups = fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, t.first);
-    const secondGroups = fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, t.second);
+    const firstGroups = fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, t.first, referenceFirstPillars);
+    const refsForSecond = (referenceFirstPillars || []).concat([firstGroups[0]]);
+    const secondGroups = fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, t.second, refsForSecond);
     return [
       { groups: firstGroups, label: `${label}1`, omitted, omittedInfo },
       { groups: secondGroups, label: `${label}2`, omitted, omittedInfo }
@@ -11534,6 +11569,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     let sharedPool = all;
     let omittedInfo = [];
     let omitted = [];
+    // A1→A2→B1→B2→C1→C2 依序保存第一柱，供後續生成避重。
+    const abcReferenceFirstPillars = [];
     if (max === 49) {
       omittedInfo = fixedLatestThenHighMissExcludeInfoFromDraws(mode, historyDraws);
       const unique = [];
@@ -11570,10 +11607,13 @@ ${settleRecord.analysisLines.join('\n')}`;
         return { label, type: 'fourDown', pair: [{ groups, label: `${label}1`, omitted, omittedInfo, type: 'fourDown' }], createdAt: 'four-pillar-down10', mode };
       }
       if (label === 'A' || label === 'B' || label === 'C') {
-        const targetPair = fixedBuildTargetPatternPair(label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo);
+        const targetPair = fixedBuildTargetPatternPair(label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo, abcReferenceFirstPillars);
         if (targetPair && targetPair.length === 2) {
-          targetPair.forEach(x => used.add(fixedGroupsKey(x.groups)));
-          return { label, pair: targetPair, createdAt: 'abc-shared-target10-v2', mode };
+          targetPair.forEach(x => {
+            used.add(fixedGroupsKey(x.groups));
+            if (x.groups && Array.isArray(x.groups[0])) abcReferenceFirstPillars.push(x.groups[0].slice());
+          });
+          return { label, pair: targetPair, createdAt: 'abc-random4-8-first-overlap-v2', mode };
         }
       }
       while (pair.length < 2 && guard < 300) {
