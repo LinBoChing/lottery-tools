@@ -2239,11 +2239,29 @@
       rows.push('');
     });
 
+    // 週結算摘要：彩球類與金富翁分開計算，方便貼到 LINE 對帳。
+    const morningTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.morning), 0);
+    const nightTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.night), 0);
+    const bltTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.blt), 0);
+    const sixTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.six), 0);
+    const goldTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.gold), 0);
+    const workTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.work), 0);
+    const lotteryTotal = morningTotal + nightTotal + bltTotal + sixTotal;
     const settlementTotal = loadWeeklySettlementTotal();
     const afterSettlementTotal = settlementTotal + grandTotal;
-    rows.push(`本週總計：${grandTotal > 0 ? '+' : ''}${formatMoneyValue(grandTotal)}`);
-    rows.push(`上週結算：${settlementTotal > 0 ? '+' : ''}${formatMoneyValue(settlementTotal)}`);
-    rows.push(`結算後累積：${afterSettlementTotal > 0 ? '+' : ''}${formatMoneyValue(afterSettlementTotal)}`);
+    const signedMoney = value => `${value > 0 ? '+' : ''}${formatMoneyValue(value)}`;
+
+    rows.push('📌 本週分類結算');
+    if (morningTotal !== 0) rows.push(`天天樂${signedMoney(morningTotal)}`);
+    if (nightTotal !== 0) rows.push(`539${signedMoney(nightTotal)}`);
+    if (bltTotal !== 0) rows.push(`大樂透${signedMoney(bltTotal)}`);
+    if (sixTotal !== 0) rows.push(`六合彩${signedMoney(sixTotal)}`);
+    rows.push(`彩球共${signedMoney(lotteryTotal)}`);
+    rows.push(`金富翁${signedMoney(goldTotal)}`);
+    if (workTotal !== 0) rows.push(`幫哥工作${signedMoney(workTotal)}`);
+    rows.push(`本週共計${signedMoney(grandTotal)}`);
+    rows.push(`上周盈虧${signedMoney(settlementTotal)}`);
+    rows.push(`整合結算上周盈虧${signedMoney(afterSettlementTotal)}`);
     return rows.join('\n');
   }
 
