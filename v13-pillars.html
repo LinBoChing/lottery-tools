@@ -1569,8 +1569,15 @@
             <div class="first-pillar-checker-title">多組立柱｜第一柱重複檢查</div>
             <button class="btn btn-secondary first-pillar-paste6-btn" id="pasteABC6ToFirstCheckBtn" type="button">一鍵貼上 A1～C2 六組</button>
           </div>
-          <textarea id="firstPillarCheckInput" class="first-pillar-checker-input" placeholder="可貼多組完整立柱；每組一行並用＋分柱，或每柱一行、空行分組。貼上後會自動檢查任兩組第一柱重複是否超過 3 支。"></textarea>
-          <div id="firstPillarCheckResult" class="first-pillar-checker-result">尚未貼上立柱。任兩組第一柱重複 0～3 支為通過，4 支以上會警告。</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px;">
+            <label for="firstPillarDisplayLimit" style="color:#cbd5e1;font-size:13px;font-weight:800;">顯示重複上限</label>
+            <select id="firstPillarDisplayLimit" class="db-select" style="width:auto;min-width:150px;min-height:40px;padding:8px 10px;">
+              <option value="2">2 支（含）以下</option>
+              <option value="3" selected>3 支（含）以下</option>
+            </select>
+          </div>
+          <textarea id="firstPillarCheckInput" class="first-pillar-checker-input" placeholder="可貼多組完整立柱；每組一行並用＋分柱，或每柱一行、空行分組。貼上後會依上方選擇，只顯示重複 2 支或 3 支（含）以下的結果。"></textarea>
+          <div id="firstPillarCheckResult" class="first-pillar-checker-result">尚未貼上立柱。目前顯示重複 0～3 支的比對結果。</div>
         </div>
         <div class="draw-quick-actions">
           <div class="draw-copy-x-wrap">
@@ -10745,11 +10752,65 @@ ${settleRecord.analysisLines.join('\n')}`;
     return pack;
   }
 
+  function fixedComparisonDOverrideKey(mode = currentGameMode()) {
+    return `xj_fixed_comparison_d_override_${String(mode || '539')}`;
+  }
+
+  function fixedLoadComparisonDOverride(mode = currentGameMode()) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(fixedComparisonDOverrideKey(mode)) || 'null');
+      const groups = raw && Array.isArray(raw.groups) ? raw.groups : null;
+      if (!groups || groups.length !== 3 || groups[0].length !== 10 || groups[1].length !== 10 || groups[2].length !== 19) return null;
+      return groups.map(g => g.map(Number).filter(Number.isFinite));
+    } catch (e) { return null; }
+  }
+
+  function fixedSaveComparisonDOverride(groups, mode = currentGameMode()) {
+    localStorage.setItem(fixedComparisonDOverrideKey(mode), JSON.stringify({
+      mode,
+      groups: groups.map(g => g.slice()),
+      savedAt: new Date().toISOString()
+    }));
+  }
+
+  function fixedApplyComparisonDOverride(pack, mode = currentGameMode()) {
+    if (!pack || !Array.isArray(pack.pairs)) return pack;
+    const groups = fixedLoadComparisonDOverride(mode);
+    if (!groups) return pack;
+    let dPack = pack.pairs.find(p => String(p && p.label || '').toUpperCase() === 'D');
+    if (!dPack) {
+      dPack = { label: 'D', type: 'comparisonD', pair: [] };
+      pack.pairs.push(dPack);
+    }
+    dPack.type = 'comparisonD';
+    dPack.pair = [{ groups: groups.map(g => g.slice()), label: 'D1', type: 'comparisonD', source: 'first-pillar-comparison-override' }];
+    dPack.createdAt = 'first-pillar-comparison-10-10-19';
+    return pack;
+  }
+
   function fixedNormalizePack(raw, mode = currentGameMode()) {
     if (!raw || raw.mode !== mode || !Array.isArray(raw.pairs) || raw.pairs.length !== 5) return null;
+    fixedApplyComparisonDOverride(raw, mode);
+    // 舊版本若仍保存 D 雙柱 10-14-15，載入時直接遷移成單一 D 10-10-19。
+    const dRaw = raw.pairs.find(p => String(p && p.label || '').toUpperCase() === 'D');
+    if (dRaw) {
+      const validD = dRaw.type === 'comparisonD' && Array.isArray(dRaw.pair) && dRaw.pair.length === 1 &&
+        Array.isArray(dRaw.pair[0].groups) && dRaw.pair[0].groups.length === 3 &&
+        dRaw.pair[0].groups[0].length === 10 && dRaw.pair[0].groups[1].length === 10 && dRaw.pair[0].groups[2].length === 19;
+      if (!validD) {
+        const pool = fixedRangeForMode(mode).slice(0, 39);
+        const groups = [pool.slice(0, 10), pool.slice(10, 20), pool.slice(20, 39)];
+        dRaw.type = 'comparisonD';
+        dRaw.pair = [{ groups, label: 'D1', type: 'comparisonD', source: 'migrated-10-10-19' }];
+        dRaw.createdAt = 'comparison-d-migrated';
+      }
+    }
     const basicOk = raw.pairs.every(p => {
       const label = String(p && p.label || '').toUpperCase();
       if (!p || !Array.isArray(p.pair)) return false;
+      if (label === 'D') {
+        return p.type === 'comparisonD' && p.pair.length === 1 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 10 && x.groups[2].length === 19);
+      }
       if (fixedIsFourPillarLabel(label)) {
         return p.pair.length === 1 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 4 && x.groups[0].length === 9 && x.groups[1].length === 10 && x.groups[2].length === 10 && x.groups[3].length === 10);
       }
@@ -11479,7 +11540,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedIsFourPillarLabel(label) {
     const key = String(label || '').toUpperCase();
-    return key === 'D' || key === 'E';
+    return key === 'E';
   }
 
   function fixedFourPillarGroupsFromFlat(flat) {
@@ -11653,6 +11714,12 @@ ${settleRecord.analysisLines.join('\n')}`;
     const pairs = FIXED_PAIR_LABELS.map(label => {
       const pair = [];
       let guard = 0;
+      if (label === 'D') {
+        // D 已改為單一 10-10-19。尚未從第一柱比對套用前，先以目前39支池建立一組可用預設值。
+        const flat = fixedShuffleWithRng(sharedPool, rng).slice(0, 39);
+        const groups = [flat.slice(0, 10), flat.slice(10, 20), flat.slice(20, 39)].map(g => g.sort((a, b) => a - b));
+        return { label, type: 'comparisonD', pair: [{ groups, label: 'D1', omitted, omittedInfo, type: 'comparisonD', source: 'default-10-10-19' }], createdAt: 'comparison-d-default', mode };
+      }
       if (fixedIsFourPillarLabel(label)) {
         let groups = fixedBuildFourPillarDownFromPool(sharedPool, rng, historyDraws, mode);
         if (max === 49) groups = fixedEnsureFourGroupsUseOnlyPool(groups, sharedPool, rng);
@@ -11781,7 +11848,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     const labelText = String(label || '').toUpperCase();
     const groupPack = pack && Array.isArray(pack.pairs) ? pack.pairs.find(p => String(p.label || '').toUpperCase() === labelText) : null;
     if (!groupPack || !Array.isArray(groupPack.pair) || groupPack.pair.length < 1) return null;
-    const takeCount = groupPack.type === 'fourDown' || fixedIsFourPillarLabel(labelText) ? 1 : 2;
+    const takeCount = groupPack.type === 'comparisonD' || groupPack.type === 'fourDown' || fixedIsFourPillarLabel(labelText) ? 1 : 2;
     return groupPack.pair.slice(0, takeCount).map(x => ({
       groups: cloneGroups((x && x.groups) || []),
       omitted: (x && x.omitted) || [],
@@ -11863,8 +11930,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
 
       const isFourResult = result && result.isFour;
-      const statusText = isFourResult ? fixedFourPassFailText(result) : caishenOutcomeStatusText(result.status);
-      const labels = isFourResult ? '' : (result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB));
+      const isSingleDResult = String(label || '').toUpperCase() === 'D' && pairSource && pairSource.length === 1;
+      const statusText = (isFourResult || isSingleDResult) ? fixedFourPassFailText(result) : caishenOutcomeStatusText(result.status);
+      const labels = (isFourResult || isSingleDResult) ? '' : (result.comboLabel || caishenHitComboLabel(result.scoreA, result.scoreB));
       const issue = idx === 0 ? '最新期' : `第${idx + 1}期`;
       const pairOmitInfo = pairSource && pairSource[0] && Array.isArray(pairSource[0].omittedInfo) ? pairSource[0].omittedInfo : [];
       const omitInfoForRow = is49 ? (pairOmitInfo.length ? pairOmitInfo : fixedLatestThenHighMissExcludeInfoFromDraws(mode, historyBasis)) : [];
@@ -11872,11 +11940,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       const noteText = isFourResult
         ? `${notePrefix}｜四柱=${(result.hitsA || []).join('-')}→${result.scoreA}${omitLineForRow}`
         : `${notePrefix}｜A=${(result.hitsA || []).join('-')}→${result.scoreA}；B=${(result.hitsB || []).join('-')}→${result.scoreB}${omitLineForRow}`;
-      const histItems = pairSource.slice(0, isFourResult ? 1 : 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBasis, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
+      const histItems = pairSource.slice(0, (isFourResult || isSingleDResult) ? 1 : 2).map((x, pIdx) => fixedItemFromGroups(x.groups, historyBasis, `${label}${pIdx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
       const detailHTML = isFourResult
         ? `<div class="recent10-detail"><div class="recent10-detail-title">${label}組四柱：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}</div>${caishenFormatGroupsForDetail4(histItems[0].groups, targetDraw)}</div>`
-        : caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}`, targetDraw);
-      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期${isFourResult ? '四柱' : '雙柱'}對照">
+        : isSingleDResult
+          ? `<div class="recent10-detail"><div class="recent10-detail-title">D組 10-10-19：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}</div>${caishenFormatGroupsForDetail(histItems[0].groups, targetDraw)}</div>`
+          : caishenBuildPairDetailHTML([histItems[0].groups, histItems[1].groups], [`${label}1`, `${label}2`], `${label}組：${noteText}｜顯示上一期=${(displayDraw || []).map(pad2).join(' ')}｜對照開獎=${(targetDraw || []).map(pad2).join(' ')}`, targetDraw);
+      return `<div class="recent10-row recent10-clickable" title="點擊查看${label}組該期${isFourResult ? '四柱' : (isSingleDResult ? '單組10-10-19' : '雙柱')}對照">
         <div>${issue}</div>
         <div class="${fixedStatusClass(result.status)}">${statusText}</div>
         <div>${isFourResult ? '' : `<span class="recent10-hit">${labels}</span>`}<span class="recent10-draw">｜${(displayDraw || []).map(pad2).join(' ')}｜${notePrefix}</span></div>
@@ -12072,6 +12142,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedBuildOneGroupHTML(groupPack, draws, parentPack = null) {
     const label = groupPack.label;
+    const isComparisonD = String(label || '').toUpperCase() === 'D' && groupPack.type === 'comparisonD';
     const isFourGroup = groupPack.type === 'fourDown' || fixedIsFourPillarLabel(label);
     const originalItems = groupPack.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${label}${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
     const fourRemoveNumbers = isFourGroup ? fixedLoadRemoveNumbers(label, currentGameMode()) : [];
@@ -12079,7 +12150,12 @@ ${settleRecord.analysisLines.join('\n')}`;
       ? originalItems.map(item => ({ ...item, groups: fixedSubtractFourGroups(item.groups || [], fourRemoveNumbers) }))
       : originalItems;
     let bothPass = '0.00', onePass = '0.00', bothFail = '0.00';
-    if (!isFourGroup) {
+    if (isComparisonD) {
+      const list = (draws || []).slice(0, 10);
+      const passCount = list.filter(draw => fixedHitScoreForGroupsDirect(items[0].groups || [], draw).score > 0).length;
+      bothPass = list.length ? ((passCount / list.length) * 100).toFixed(2) : '0.00';
+      bothFail = list.length ? (((list.length - passCount) / list.length) * 100).toFixed(2) : '0.00';
+    } else if (!isFourGroup) {
       const pairStats = caishenPairBacktestStats(items[0], items[1], draws);
       bothPass = ((pairStats.bothPassRate || 0) * 100).toFixed(2);
       onePass = ((pairStats.onePassRate || 0) * 100).toFixed(2);
@@ -12100,15 +12176,18 @@ ${settleRecord.analysisLines.join('\n')}`;
       displayInfo = actualOmitted.map(n => ({ n, ...(infoMap.get(Number(n)) || {}), source: infoMap.get(Number(n)) ? (infoMap.get(Number(n)).source || 'hot30') : 'batch' }));
     }
     const omittedLine = displayInfo.length ? `<div class="small-note">本組實際共同摘除號碼：<b>${fixedFormatMissList(displayInfo)}</b></div>` : '';
-    return `<div class="fixed-pair-card">
+    return `<div class="fixed-pair-card" data-fixed-group-card="${String(label || '').toUpperCase()}">
       <div class="fixed-pair-head">
-        <div class="fixed-pair-title">${label}組${isFourGroup ? '固定四柱' : '固定雙柱'}</div>
-        <div class="fixed-pair-summary">${isFourGroup ? `四柱過 ${bothPass}%｜四柱倒 ${bothFail}%` : `雙過 ${bothPass}%｜單過 ${onePass}%｜雙倒 ${bothFail}%`}</div>
+        <div class="fixed-pair-title">${label}組${isComparisonD ? '第一柱比對玩法 10-10-19' : (isFourGroup ? '固定四柱' : '固定雙柱')}</div>
+        <div class="fixed-pair-summary">${isComparisonD ? `近10期過 ${bothPass}%｜倒 ${bothFail}%` : (isFourGroup ? `四柱過 ${bothPass}%｜四柱倒 ${bothFail}%` : `雙過 ${bothPass}%｜單過 ${onePass}%｜雙倒 ${bothFail}%`)}</div>
       </div>
       ${omittedLine}
       ${fixedBuildRecent10HTML(label, items, draws, parentPack)}
       <div class="fixed-two-grid">
-        ${isFourGroup ? items.map((item, idx) => {
+        ${isComparisonD ? items.map((item, idx) => {
+          const globalIndex = fixedFlatCopyIndex(label, idx);
+          return `<div class="fixed-sub-card"><div class="clean-two-card"><div class="clean-two-card-title"><span>D組 10-10-19</span><span class="badge badge-ai">第一柱比對套用</span></div><div class="pillars">${(item.groups || []).map((g, gi) => `<div class="pillar"><div class="pillar-title">第${gi + 1}柱（${g.length}支）</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}</div><div class="clean-two-meta">第一柱採用比對的第1組第一柱；第二柱採用第2組第一柱去除重複號碼後，再由剩餘號碼補足10支；第三柱放其餘19支。</div><div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="${globalIndex}">複製D組</button><button class="btn btn-dark add-first-check-btn" data-copy-type="fixedDaily" data-copy-index="${globalIndex}" type="button">加入第一柱比對</button></div></div></div>`;
+        }).join('') : isFourGroup ? items.map((item, idx) => {
           const globalIndex = fixedFlatCopyIndex(label, idx);
           return `<div class="fixed-sub-card">
             <div class="clean-two-card defense">
@@ -12134,6 +12213,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedRenderPack(pack, draws) {
     if (!dailyAgentResult) return;
     const mode = currentGameMode();
+    fixedApplyComparisonDOverride(pack, mode);
     fixedDisplayedPackCache = fixedClonePack(pack);
     lastFixedDaily = pack && Array.isArray(pack.pairs)
       ? pack.pairs.flatMap(p => (p.pair || []).map((x, idx) => {
@@ -12150,10 +12230,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="daily-agent-kpi">
         <div>目前彩種<br><b>${gameLabel(mode)}</b></div>
         <div>固定大組<br><b>A～E</b></div>
-        <div>每組規格<br><b>A～C雙柱｜D/E四柱</b></div>
+        <div>每組規格<br><b>A～C雙柱｜D比對10-10-19｜E四柱</b></div>
         <div>精選時間<br><b>${created}</b></div>
       </div>
-      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂/大樂透/六合彩沒有按「重新精選立柱」就不會換雙柱。A組會套用最新1～4期雙倒條件：A1/A2第一柱避開最新4期開獎號碼；第二、三柱不包五星，39球優先控制為0-2-3或0-3-2；大樂透/六合彩另在建立或重新精選時套用近30期加權過熱前10碼。之後 A～E 固定到下次重選。近10期每一列優先讀新增開獎前的畫面雙柱快照。狀態顯示以 A/B 三柱命中數相乘的實際碰數為準。</div>
+      <div class="small-note">這批固定立柱已依彩種獨立保存：539、天天樂、大樂透、六合彩互不共用。539/天天樂/大樂透/六合彩沒有按「重新精選立柱」就不會換雙柱。A組會套用最新1～4期雙倒條件：A1/A2第一柱避開最新4期開獎號碼；第二、三柱不包五星，39球優先控制為0-2-3或0-3-2；大樂透/六合彩另在建立或重新精選時套用近30期加權過熱前10碼。之後 A～C、E固定到下次重選；D可由第一柱比對結果一鍵套用。近10期每一列優先讀新增開獎前的畫面雙柱快照。狀態顯示以 A/B 三柱命中數相乘的實際碰數為準。</div>
       ${fixedCurrentTopMissHTML(mode)}
       <div class="fixed-five-wrap">${pack.pairs.map(p => fixedBuildOneGroupHTML(p, draws, pack)).join('')}</div>`;
     document.querySelectorAll('.recent10-clickable').forEach(row => row.addEventListener('click', () => row.classList.toggle('open')));
@@ -13257,6 +13337,63 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     }
   });
 
+  // 提供第一柱比對區直接套用 D 組；必須放在主程式作用域內，才能真正寫入並重新渲染固定立柱。
+  window.applyFirstPillarComparisonToD = function(groups) {
+    try {
+      const mode = currentGameMode();
+      if (!Array.isArray(groups) || groups.length !== 3 || groups[0].length !== 10 || groups[1].length !== 10 || groups[2].length !== 19) {
+        throw new Error('D組格式必須為10-10-19');
+      }
+      const normalizedGroups = groups.map(g => [...new Set(g.map(Number))].sort((a,b)=>a-b));
+      let pack = null;
+      if (fixedDisplayedPackCache && Array.isArray(fixedDisplayedPackCache.pairs)) {
+        pack = fixedClonePack(fixedDisplayedPackCache);
+      }
+      if (!pack || !Array.isArray(pack.pairs)) {
+        pack = fixedLoadRawPack(mode);
+      }
+      if (!pack || !Array.isArray(pack.pairs)) {
+        pack = fixedGetOrCreatePack(mode);
+      }
+      if (!pack || !Array.isArray(pack.pairs)) {
+        pack = fixedGenerateFivePairsFromHistory(mode, getBacktestDraws(), `comparison-d-${Date.now()}`);
+      }
+      if (!pack || !Array.isArray(pack.pairs)) throw new Error('無法建立固定立柱資料');
+
+      let dPack = pack.pairs.find(x => String(x && x.label || '').toUpperCase() === 'D');
+      if (!dPack) {
+        dPack = { label: 'D', type: 'comparisonD', pair: [] };
+        pack.pairs.push(dPack);
+      }
+      dPack.type = 'comparisonD';
+      dPack.pair = [{
+        groups: normalizedGroups.map(g => g.slice()),
+        label: 'D1',
+        type: 'comparisonD',
+        source: 'first-pillar-comparison'
+      }];
+      dPack.createdAt = new Date().toISOString();
+      pack.createdAt = new Date().toISOString();
+
+      fixedSaveComparisonDOverride(normalizedGroups, mode);
+      fixedSavePack(pack, mode);
+      const saved = fixedLoadRawPack(mode);
+      fixedDisplayedPackCache = fixedClonePack(saved || pack);
+      fixedRenderPack(saved || pack, getBacktestDraws());
+
+      const verifyD = (saved || pack).pairs.find(x => String(x && x.label || '').toUpperCase() === 'D');
+      const verifyGroups = verifyD && verifyD.pair && verifyD.pair[0] && verifyD.pair[0].groups;
+      if (JSON.stringify(verifyGroups) !== JSON.stringify(normalizedGroups)) {
+        throw new Error('D組寫入後驗證不一致');
+      }
+      return true;
+    } catch (error) {
+      console.error('套用D組失敗：', error);
+      alert(`套用失敗：${error.message || error}`);
+      return false;
+    }
+  };
+
   // 財神立柱記憶資料庫已移除：不再初始化、不再渲染、不再綁定快捷跳轉。
 
 })();
@@ -13299,6 +13436,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     if (plusLines.length) {
       return plusLines.map((line, index) => ({
         label: `第${index + 1}組`,
+        pillars: line.split('+').map(extractNums).filter(x => x.length),
         first: extractNums(line.split('+')[0]),
         raw: line
       })).filter(g => g.first.length);
@@ -13310,6 +13448,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
         const blockLines = block.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
         return {
           label: `第${index + 1}組`,
+          pillars: blockLines.map(extractNums).filter(x => x.length),
           first: extractNums(blockLines[0]),
           raw: blockLines.join('+')
         };
@@ -13328,6 +13467,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       const chunk = parsedLines.slice(i, i + span);
       groups.push({
         label: `第${groups.length + 1}組`,
+        pillars: chunk.map(item => item.nums),
         first: chunk[0].nums,
         raw: chunk.map(item => item.text).join('+')
       });
@@ -13340,12 +13480,24 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     return nums.map(n => String(n).padStart(2, '0')).join(' ');
   }
 
+  const displayLimitSelect = document.getElementById('firstPillarDisplayLimit');
+  const savedDisplayLimit = Number(localStorage.getItem('firstPillarDisplayLimit'));
+  if (displayLimitSelect && (savedDisplayLimit === 2 || savedDisplayLimit === 3)) {
+    displayLimitSelect.value = String(savedDisplayLimit);
+  }
+
+  function getDisplayLimit() {
+    const value = Number(displayLimitSelect ? displayLimitSelect.value : 3);
+    return value === 2 ? 2 : 3;
+  }
+
   function analyze() {
     const groups = parseGroups(input.value);
+    const displayLimit = getDisplayLimit();
     result.className = 'first-pillar-checker-result';
 
     if (!input.value.trim()) {
-      result.textContent = '尚未貼上立柱。任兩組第一柱重複 0～3 支為通過，4 支以上會警告。';
+      result.textContent = `尚未貼上立柱。目前顯示重複 0～${displayLimit} 支的比對結果。`;
       return;
     }
     if (groups.length < 2) {
@@ -13367,15 +13519,51 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       }
     }
 
-    const visibleComparisons = comparisons.filter(item => item.overlap.length <= 3);
+    const visibleComparisons = comparisons.filter(item => item.overlap.length <= displayLimit);
     const hiddenCount = comparisons.length - visibleComparisons.length;
     result.classList.add('pass');
-    const headline = `✅ 共辨識 ${groups.length} 組；目前顯示重複 0～3 支的 ${visibleComparisons.length} 組比對結果。${hiddenCount ? `已隱藏 ${hiddenCount} 組重複 4 支以上的結果。` : ''}`;
+    const headline = `✅ 共辨識 ${groups.length} 組；目前顯示重複 0～${displayLimit} 支的 ${visibleComparisons.length} 組比對結果。${hiddenCount ? `已隱藏 ${hiddenCount} 組重複 ${displayLimit + 1} 支以上的結果。` : ''}`;
     const details = visibleComparisons.map(item => {
       const nums = item.overlap.length ? `｜${fmt(item.overlap)}` : '｜無重複號碼';
-      return `<div class="first-pillar-pair pass-low"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</span></div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button></div></div>`;
+      return `<div class="first-pillar-pair pass-low"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</span></div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button></div></div>`;
     }).join('');
-    result.innerHTML = `<b>${headline}</b>${details || '<div class="first-pillar-pair pass-low">目前沒有重複 0～3 支的比對結果。</div>'}`;
+    result.innerHTML = `<b>${headline}</b>${details || `<div class="first-pillar-pair pass-low">目前沒有重複 0～${displayLimit} 支的比對結果。</div>`}`;
+  }
+
+  function buildComparisonD(groupA, groupB) {
+    const universe = Array.from({ length: 39 }, (_, i) => i + 1);
+    const first = [...new Set((groupA && groupA.first || []).map(Number).filter(n => n >= 1 && n <= 39))].slice(0, 10);
+    const firstSet = new Set(first);
+    const secondBase = [...new Set((groupB && groupB.first || []).map(Number).filter(n => n >= 1 && n <= 39 && !firstSet.has(n)))];
+    const used = new Set([...first, ...secondBase]);
+    const preferredFill = [];
+    const pillarsB = groupB && Array.isArray(groupB.pillars) ? groupB.pillars : [];
+    [pillarsB[2] || [], pillarsB[1] || [], universe].forEach(list => (list || []).forEach(n => {
+      n = Number(n);
+      if (n >= 1 && n <= 39 && !used.has(n) && !preferredFill.includes(n)) preferredFill.push(n);
+    }));
+    const second = secondBase.slice(0, 10);
+    while (second.length < 10 && preferredFill.length) {
+      const n = preferredFill.shift();
+      if (!firstSet.has(n) && !second.includes(n)) second.push(n);
+    }
+    const secondSet = new Set(second);
+    const third = universe.filter(n => !firstSet.has(n) && !secondSet.has(n));
+    if (first.length !== 10 || second.length !== 10 || third.length !== 19) return null;
+    return [first.sort((a,b)=>a-b), second.sort((a,b)=>a-b), third.sort((a,b)=>a-b)];
+  }
+
+  function applyComparisonD(groupA, groupB) {
+    const groups = buildComparisonD(groupA, groupB);
+    if (!groups) {
+      alert('套用失敗：兩組第一柱都必須能辨識到10支有效號碼。');
+      return false;
+    }
+    if (typeof window.applyFirstPillarComparisonToD !== 'function') {
+      alert('套用失敗：D組套用功能尚未載入。');
+      return false;
+    }
+    return window.applyFirstPillarComparisonToD(groups);
   }
 
   async function copyText(text) {
@@ -13429,6 +13617,19 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
   }
 
   result.addEventListener('click', async function (event) {
+    const applyBtn = event.target.closest('.apply-comparison-d-btn');
+    if (applyBtn) {
+      const groups = parseGroups(input.value);
+      const a = Number(applyBtn.dataset.applyDA);
+      const b = Number(applyBtn.dataset.applyDB);
+      const originalText = applyBtn.textContent;
+      if (applyComparisonD(groups[a], groups[b])) {
+        applyBtn.textContent = '✓ 已套用到D組';
+        applyBtn.classList.add('copied');
+        setTimeout(() => { applyBtn.textContent = originalText; applyBtn.classList.remove('copied'); }, 1500);
+      }
+      return;
+    }
     const btn = event.target.closest('.first-pillar-copy-btn');
     if (!btn) return;
     const groups = parseGroups(input.value);
@@ -13450,8 +13651,15 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     }
   });
 
+  if (displayLimitSelect) {
+    displayLimitSelect.addEventListener('change', function () {
+      localStorage.setItem('firstPillarDisplayLimit', String(getDisplayLimit()));
+      analyze();
+    });
+  }
   input.addEventListener('input', analyze);
   input.addEventListener('paste', function () { setTimeout(analyze, 0); });
+  analyze();
 })();
 </script>
 
