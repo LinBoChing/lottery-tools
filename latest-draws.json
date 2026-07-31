@@ -1,0 +1,32 @@
+{
+  "updated_at": "尚未執行 GitHub Actions",
+  "games": {
+    "539": {
+      "date": "",
+      "issue": "",
+      "nums": [
+        4,
+        7,
+        8,
+        16,
+        38
+      ],
+      "source": "seed; run workflow to refresh"
+    },
+    "dayday": {
+      "date": "",
+      "issue": "",
+      "nums": [
+        12,
+        19,
+        26,
+        29,
+        39
+      ],
+      "source": "seed; run workflow to refresh"
+    }
+  },
+  "warnings": [
+    "首次部署後請到 Actions 手動執行一次 Update lottery results"
+  ]
+}
