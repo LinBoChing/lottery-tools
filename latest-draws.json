@@ -1,32 +1,30 @@
 {
-  "updated_at": "尚未執行 GitHub Actions",
+  "updated_at": "2026-07-31T01:58:22+00:00",
   "games": {
     "539": {
       "date": "",
       "issue": "",
       "nums": [
-        4,
-        7,
-        8,
-        16,
-        38
+        1,
+        2,
+        6,
+        9,
+        32
       ],
-      "source": "seed; run workflow to refresh"
+      "source": "https://www.taiwanlottery.com/"
     },
     "dayday": {
       "date": "",
       "issue": "",
       "nums": [
-        12,
-        19,
+        6,
+        13,
         26,
         29,
-        39
+        31
       ],
-      "source": "seed; run workflow to refresh"
+      "source": "California Lottery"
     }
   },
-  "warnings": [
-    "首次部署後請到 Actions 手動執行一次 Update lottery results"
-  ]
+  "warnings": []
 }
