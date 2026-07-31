@@ -1,8 +1,20 @@
 {
   "game": "539",
-  "updated_at": "2026-07-31T11:35:28+00:00",
-  "count": 1,
+  "updated_at": "2026-07-31T14:31:56+00:00",
+  "count": 2,
   "draws": [
+    {
+      "date": "2026/07/31",
+      "issue": "",
+      "nums": [
+        1,
+        9,
+        12,
+        25,
+        26
+      ],
+      "source": "https://www.pilio.idv.tw/lto539/list.asp"
+    },
     {
       "date": "2026/07/30",
       "issue": "",
