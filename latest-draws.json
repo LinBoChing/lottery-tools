@@ -1,20 +1,20 @@
 {
-  "updated_at": "2026-07-31T01:58:22+00:00",
+  "updated_at": "2026-07-31T02:04:34+00:00",
   "games": {
     "539": {
-      "date": "",
+      "date": "2026/07/30",
       "issue": "",
       "nums": [
-        1,
-        2,
-        6,
-        9,
-        32
+        3,
+        4,
+        7,
+        8,
+        16
       ],
-      "source": "https://www.taiwanlottery.com/"
+      "source": "https://www.pilio.idv.tw/lto539/drawlist/drawlist.asp"
     },
     "dayday": {
-      "date": "",
+      "date": "2026/07/30",
       "issue": "",
       "nums": [
         6,
@@ -23,7 +23,7 @@
         29,
         31
       ],
-      "source": "California Lottery"
+      "source": "LotteryUSA Fantasy 5"
     }
   },
   "warnings": []
