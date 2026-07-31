@@ -8,6 +8,11 @@ from urllib.request import Request, urlopen
 from bs4 import BeautifulSoup
 
 OUTPUT_FILE = Path("latest-draws.json")
+HISTORY_FILES = {
+    "539": Path("history-539.json"),
+    "dayday": Path("history-dayday.json"),
+}
+MAX_HISTORY_DRAWS = 500
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -429,6 +434,99 @@ def valid_game(game) -> bool:
     return True
 
 
+
+def load_history(key: str) -> dict:
+    path = HISTORY_FILES[key]
+    if not path.exists():
+        return {
+            "game": key,
+            "updated_at": "",
+            "draws": [],
+        }
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {
+            "game": key,
+            "updated_at": "",
+            "draws": [],
+        }
+
+    if isinstance(data, list):
+        draws = data
+    elif isinstance(data, dict):
+        draws = data.get("draws", [])
+    else:
+        draws = []
+
+    if not isinstance(draws, list):
+        draws = []
+
+    return {
+        "game": key,
+        "updated_at": str(data.get("updated_at", "")) if isinstance(data, dict) else "",
+        "draws": [draw for draw in draws if valid_game(draw)],
+    }
+
+
+def draw_identity(key: str, draw: dict) -> tuple:
+    issue = str(draw.get("issue", "")).strip()
+
+    # 天天樂優先用期號去重；539目前沒有期號，改用日期加號碼。
+    if key == "dayday" and issue:
+        return ("issue", issue)
+
+    return (
+        "date_nums",
+        str(draw.get("date", "")).strip(),
+        tuple(draw.get("nums", [])),
+    )
+
+
+def update_history(key: str, latest: dict, updated_at: str) -> None:
+    history = load_history(key)
+    existing = history.get("draws", [])
+
+    merged = [latest]
+    seen = {draw_identity(key, latest)}
+
+    for draw in existing:
+        identity = draw_identity(key, draw)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        merged.append(draw)
+
+    # 日期最新的排最上方；相同日期時以期號較大的優先。
+    def sort_key(draw: dict):
+        try:
+            date_value = datetime.strptime(
+                str(draw.get("date", "")),
+                "%Y/%m/%d",
+            )
+        except ValueError:
+            date_value = datetime.min
+
+        issue_text = str(draw.get("issue", "")).strip()
+        issue_value = int(issue_text) if issue_text.isdigit() else 0
+        return (date_value, issue_value)
+
+    merged.sort(key=sort_key, reverse=True)
+    merged = merged[:MAX_HISTORY_DRAWS]
+
+    output = {
+        "game": key,
+        "updated_at": updated_at,
+        "count": len(merged),
+        "draws": merged,
+    }
+
+    HISTORY_FILES[key].write_text(
+        json.dumps(output, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
 def main() -> None:
     old = load_old()
     old_games = old.get("games", {})
@@ -462,10 +560,11 @@ def main() -> None:
                     f"{key}抓取失敗且沒有可保留的舊資料"
                 )
 
+    updated_at = datetime.now(timezone.utc).isoformat(
+        timespec="seconds"
+    )
     output = {
-        "updated_at": datetime.now(timezone.utc).isoformat(
-            timespec="seconds"
-        ),
+        "updated_at": updated_at,
         "games": games,
         "warnings": warnings,
     }
@@ -473,6 +572,14 @@ def main() -> None:
         json.dumps(output, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+    for key, game in games.items():
+        update_history(key, game, updated_at)
+        print(
+            f"{key}歷史資料：{HISTORY_FILES[key]}｜"
+            f"最多保留{MAX_HISTORY_DRAWS}期"
+        )
+
     print(json.dumps(output, ensure_ascii=False, indent=2))
 
 
