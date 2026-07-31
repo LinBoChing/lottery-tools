@@ -13765,6 +13765,10 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     return nums.map(n => String(n).padStart(2, '0')).join(' ');
   }
 
+  function fmtComma(nums) {
+    return nums.map(n => String(n).padStart(2, '0')).join(',');
+  }
+
   const displayLimitSelect = document.getElementById('firstPillarDisplayLimit');
   const savedDisplayLimit = Number(localStorage.getItem('firstPillarDisplayLimit'));
   if (displayLimitSelect && (savedDisplayLimit === 2 || savedDisplayLimit === 3)) {
@@ -13810,7 +13814,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const headline = `✅ 共辨識 ${groups.length} 組；目前顯示重複 0～${displayLimit} 支的 ${visibleComparisons.length} 組比對結果。${hiddenCount ? `已隱藏 ${hiddenCount} 組重複 ${displayLimit + 1} 支以上的結果。` : ''}`;
     const details = visibleComparisons.map(item => {
       const nums = item.overlap.length ? `｜${fmt(item.overlap)}` : '｜無重複號碼';
-      return `<div class="first-pillar-pair pass-low"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</span></div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button></div></div>`;
+      return `<div class="first-pillar-pair pass-low"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</span></div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
     }).join('');
     result.innerHTML = `<b>${headline}</b>${details || `<div class="first-pillar-pair pass-low">目前沒有重複 0～${displayLimit} 支的比對結果。</div>`}`;
   }
@@ -13902,16 +13906,63 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
   }
 
   result.addEventListener('click', async function (event) {
+    const copyDBtn = event.target.closest('.copy-comparison-d-btn');
+    if (copyDBtn) {
+      const groups = parseGroups(input.value);
+      const a = Number(copyDBtn.dataset.copyDA);
+      const b = Number(copyDBtn.dataset.copyDB);
+      const dGroups = buildComparisonD(groups[a], groups[b]);
+      const originalText = copyDBtn.textContent;
+      if (!dGroups) {
+        copyDBtn.textContent = '複製失敗';
+        setTimeout(() => { copyDBtn.textContent = originalText; }, 1200);
+        return;
+      }
+      const firstGroupText = groups[a]?.raw || '';
+      const secondGroupText = groups[b]?.raw || '';
+      const thirdGroupText = dGroups.map(fmtComma).join('+');
+      const text = [firstGroupText, secondGroupText, thirdGroupText].filter(Boolean).join('\n\n');
+      try {
+        await copyText(text);
+        copyDBtn.textContent = '✓ 已複製三組立柱';
+        copyDBtn.classList.add('copied');
+        setTimeout(() => {
+          copyDBtn.textContent = originalText;
+          copyDBtn.classList.remove('copied');
+        }, 1500);
+      } catch (error) {
+        copyDBtn.textContent = '複製失敗';
+        setTimeout(() => { copyDBtn.textContent = originalText; }, 1200);
+      }
+      return;
+    }
+
     const applyBtn = event.target.closest('.apply-comparison-d-btn');
     if (applyBtn) {
       const groups = parseGroups(input.value);
       const a = Number(applyBtn.dataset.applyDA);
       const b = Number(applyBtn.dataset.applyDB);
       const originalText = applyBtn.textContent;
-      if (applyComparisonD(groups[a], groups[b])) {
-        applyBtn.textContent = '✓ 已套用到D組';
+      const dGroups = buildComparisonD(groups[a], groups[b]);
+      if (!dGroups) {
+        applyBtn.textContent = '套用失敗';
+        setTimeout(() => { applyBtn.textContent = originalText; }, 1200);
+        return;
+      }
+      if (typeof window.applyFirstPillarComparisonToD !== 'function' || !window.applyFirstPillarComparisonToD(dGroups)) {
+        return;
+      }
+      try {
+        await copyText(dGroups.map(fmtComma).join('+'));
+        applyBtn.textContent = '✓ 已套用並複製D組';
         applyBtn.classList.add('copied');
-        setTimeout(() => { applyBtn.textContent = originalText; applyBtn.classList.remove('copied'); }, 1500);
+        setTimeout(() => {
+          applyBtn.textContent = originalText;
+          applyBtn.classList.remove('copied');
+        }, 1600);
+      } catch (error) {
+        applyBtn.textContent = '已套用，複製失敗';
+        setTimeout(() => { applyBtn.textContent = originalText; }, 1500);
       }
       return;
     }
