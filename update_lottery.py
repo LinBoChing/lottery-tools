@@ -69,19 +69,19 @@ def normalize_date(value: str) -> str:
 
     match = re.search(r"(20\d{2})[/-](\d{1,2})[/-](\d{1,2})", value)
     if match:
-        y, m, d = map(int, match.groups())
-        return f"{y:04d}/{m:02d}/{d:02d}"
+        year, month, day = map(int, match.groups())
+        return f"{year:04d}/{month:02d}/{day:02d}"
 
     match = re.search(
         r"([A-Za-z]+)\s+(\d{1,2}),?\s+(20\d{2})",
         value,
     )
     if match:
-        month, day, year = match.groups()
+        month_name, day, year = match.groups()
         for fmt in ("%B %d %Y", "%b %d %Y"):
             try:
                 return datetime.strptime(
-                    f"{month} {day} {year}", fmt
+                    f"{month_name} {day} {year}", fmt
                 ).strftime("%Y/%m/%d")
             except ValueError:
                 pass
@@ -89,21 +89,14 @@ def normalize_date(value: str) -> str:
     raise RuntimeError(f"日期無法辨識：{value!r}")
 
 
-def row_numbers(text: str) -> list[int]:
-    # 先移除完整日期，避免月份、日期被誤當球號。
-    cleaned = re.sub(
-        r"20\d{2}[/-]\d{1,2}[/-]\d{1,2}",
-        " ",
-        text,
-    )
-    cleaned = re.sub(
-        r"\d{1,2}[/-]\d{1,2}[/-]20\d{2}",
-        " ",
-        cleaned,
-    )
+def validate_recent_date(date_text: str) -> None:
+    parsed = datetime.strptime(date_text, "%Y/%m/%d")
+    if parsed.year < 2020:
+        raise RuntimeError(f"日期年份異常：{date_text}")
 
-    # 優先讀取逗號分隔的五碼。
-    groups = re.findall(
+
+def parse_five_comma_numbers(text: str) -> list[int]:
+    match = re.search(
         r"(?<!\d)(0?[1-9]|[12]\d|3[0-9])"
         r"\s*[,，]\s*"
         r"(0?[1-9]|[12]\d|3[0-9])"
@@ -113,14 +106,53 @@ def row_numbers(text: str) -> list[int]:
         r"(0?[1-9]|[12]\d|3[0-9])"
         r"\s*[,，]\s*"
         r"(0?[1-9]|[12]\d|3[0-9])(?!\d)",
-        cleaned,
+        text,
     )
-    for group in groups:
-        nums = [int(x) for x in group]
-        if valid_nums(nums):
-            return nums
+    if not match:
+        return []
+    nums = [int(value) for value in match.groups()]
+    return nums if valid_nums(nums) else []
 
-    return []
+
+def parse_pilio_date(line: str) -> str:
+    # Pilio目前格式：
+    # 07/30 26(四)
+    # 其中「26」代表西元2026年的後兩碼，不是民國26年。
+    match = re.search(
+        r"(?<!\d)(\d{1,2})/(\d{1,2})\s+(\d{2})(?:\([^)]*\))?",
+        line,
+    )
+    if match:
+        month, day, year_2 = map(int, match.groups())
+        year = 2000 + year_2
+        date = f"{year:04d}/{month:02d}/{day:02d}"
+        validate_recent_date(date)
+        return date
+
+    # 若網站改成完整西元日期，直接使用。
+    match = re.search(
+        r"(20\d{2})[/-](\d{1,2})[/-](\d{1,2})",
+        line,
+    )
+    if match:
+        year, month, day = map(int, match.groups())
+        date = f"{year:04d}/{month:02d}/{day:02d}"
+        validate_recent_date(date)
+        return date
+
+    # 若未來改成完整民國年，例如115/07/30。
+    match = re.search(
+        r"(?<!\d)(1\d{2})[/-](\d{1,2})[/-](\d{1,2})(?!\d)",
+        line,
+    )
+    if match:
+        roc_year, month, day = map(int, match.groups())
+        year = 1911 + roc_year
+        date = f"{year:04d}/{month:02d}/{day:02d}"
+        validate_recent_date(date)
+        return date
+
+    raise RuntimeError(f"Pilio資料列找不到可用日期：{line!r}")
 
 
 def fetch_539() -> dict:
@@ -135,7 +167,6 @@ def fetch_539() -> dict:
             html = fetch(url)
             soup = BeautifulSoup(html, "lxml")
 
-            # 僅逐列解析，不再從整頁連續抽取任意五個數字。
             for tr in soup.find_all("tr"):
                 cells = [
                     re.sub(r"\s+", " ", cell.get_text(" ", strip=True))
@@ -145,29 +176,11 @@ def fetch_539() -> dict:
                     continue
 
                 line = " | ".join(cells)
-                nums = row_numbers(line)
+                nums = parse_five_comma_numbers(line)
                 if not valid_nums(nums):
                     continue
 
-                # Pilio 常見日期格式：07/30 26(四)
-                # 其中 26 是民國年尾碼，不可當成球號。
-                date_match = re.search(
-                    r"(?<!\d)(\d{1,2})/(\d{1,2})\s+(\d{2,3})(?:\([^)]*\))?",
-                    line,
-                )
-                if date_match:
-                    month, day, roc_year = map(int, date_match.groups())
-                    year = 1911 + roc_year
-                    date = f"{year:04d}/{month:02d}/{day:02d}"
-                else:
-                    full_date = re.search(
-                        r"(20\d{2})[/-](\d{1,2})[/-](\d{1,2})",
-                        line,
-                    )
-                    if not full_date:
-                        continue
-                    year, month, day = map(int, full_date.groups())
-                    date = f"{year:04d}/{month:02d}/{day:02d}"
+                date = parse_pilio_date(line)
 
                 return {
                     "date": date,
@@ -176,7 +189,7 @@ def fetch_539() -> dict:
                     "source": url,
                 }
 
-            errors.append(f"{url}: 找不到含日期及5碼的資料列")
+            errors.append(f"{url}: 找不到同列日期與5個開獎號碼")
 
         except Exception as exc:
             errors.append(f"{url}: {exc}")
@@ -184,36 +197,144 @@ def fetch_539() -> dict:
     raise RuntimeError("539抓取失敗；" + " | ".join(errors))
 
 
+def unique_in_order(values: list[int]) -> list[int]:
+    result = []
+    for value in values:
+        if value not in result:
+            result.append(value)
+    return result
+
+
+def extract_ball_elements(container) -> list[int]:
+    selectors = (
+        ".ball",
+        "[class*='ball']",
+        "[class*='winning-number']",
+        "[class*='winning_number']",
+        "[class*='draw-number']",
+        "[data-testid*='ball']",
+        "[aria-label*='ball']",
+    )
+
+    values = []
+    for selector in selectors:
+        for node in container.select(selector):
+            value = re.sub(r"\s+", " ", node.get_text(" ", strip=True))
+            if re.fullmatch(r"0?[1-9]|[12]\d|3[0-9]", value):
+                values.append(int(value))
+
+    return unique_in_order(values)
+
+
+def official_winning_container(soup: BeautifulSoup):
+    # 從文字節點「Winning Numbers」往上尋找最小且含日期、期號的容器。
+    labels = soup.find_all(
+        string=lambda value: (
+            isinstance(value, str)
+            and "winning numbers" in value.lower()
+        )
+    )
+
+    for label in labels:
+        node = label.parent
+        for _ in range(7):
+            if node is None:
+                break
+            text = re.sub(r"\s+", " ", node.get_text(" ", strip=True))
+            has_date = bool(
+                re.search(
+                    r"(?:MON|TUE|WED|THU|FRI|SAT|SUN)"
+                    r"/[A-Z]{3}\s+\d{1,2},\s+20\d{2}",
+                    text,
+                    flags=re.I,
+                )
+            )
+            has_issue = bool(re.search(r"Draw\s*#\s*\d+", text, flags=re.I))
+            if has_date and has_issue:
+                return node
+            node = node.parent
+
+    return None
+
+
 def parse_calottery_official_page() -> dict:
     url = "https://www.calottery.com/en/draw-games/fantasy-5"
     html = fetch(url)
     soup = BeautifulSoup(html, "lxml")
-    text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True))
 
-    # 官方頁目前會呈現：
-    # Winning Numbers: WED/JUL 29, 2026 Draw #11953 12 19 26 29 39
-    match = re.search(
-        r"Winning Numbers:\s*"
+    container = official_winning_container(soup)
+    if container is None:
+        raise RuntimeError("官方頁面找不到Winning Numbers容器")
+
+    text = re.sub(r"\s+", " ", container.get_text(" ", strip=True))
+
+    date_match = re.search(
         r"(?:MON|TUE|WED|THU|FRI|SAT|SUN)"
-        r"/([A-Z]{3})\s+(\d{1,2}),\s+(20\d{2})"
-        r"\s+Draw\s*#\s*(\d+)"
-        r"\s+((?:(?:0?[1-9]|[12]\d|3[0-9])\s+){4}"
-        r"(?:0?[1-9]|[12]\d|3[0-9]))",
+        r"/([A-Z]{3})\s+(\d{1,2}),\s+(20\d{2})",
         text,
         flags=re.I,
     )
-    if not match:
-        raise RuntimeError("官方Fantasy 5頁面找不到Winning Numbers資料")
+    if not date_match:
+        raise RuntimeError("Winning Numbers容器找不到日期")
 
-    month_name, day, year, issue, nums_text = match.groups()
+    month_name, day, year = date_match.groups()
     date = datetime.strptime(
         f"{month_name.title()} {day} {year}",
         "%b %d %Y",
     ).strftime("%Y/%m/%d")
+    validate_recent_date(date)
 
-    nums = [int(x) for x in re.findall(r"\d{1,2}", nums_text)]
+    issue_match = re.search(r"Draw\s*#\s*(\d+)", text, flags=re.I)
+    if not issue_match:
+        raise RuntimeError("Winning Numbers容器找不到期號")
+    issue = issue_match.group(1)
+
+    # 第一優先：讀取官方頁球號DOM元素。
+    nums = extract_ball_elements(container)
+
+    # 容器可能含重複的桌機版與手機版元素；尋找任一連續5碼有效組合。
+    if len(nums) >= 5:
+        for index in range(len(nums) - 4):
+            candidate = nums[index:index + 5]
+            if valid_nums(candidate):
+                nums = candidate
+                break
+
+    # 第二優先：從「Draw #期號」後方的有限文字區段取得候選數字。
+    # 官方頁曾出現一個額外的「3」在五顆球之前，因此採最後5個有效數字，
+    # 避免把前置欄位誤當第一顆球號。
     if not valid_nums(nums):
-        raise RuntimeError(f"官方Fantasy 5號碼驗證失敗：{nums}")
+        after_issue = text[issue_match.end():]
+        stop = re.search(
+            r"(?:Draw Results|Prize Payouts|Winning Details|"
+            r"Next Draw|Estimated Jackpot|Past Winning Numbers|How to Play)",
+            after_issue,
+            flags=re.I,
+        )
+        if stop:
+            after_issue = after_issue[:stop.start()]
+
+        candidates = [
+            int(value)
+            for value in re.findall(
+                r"(?<!\d)(0?[1-9]|[12]\d|3[0-9])(?!\d)",
+                after_issue,
+            )
+        ]
+        candidates = unique_in_order(candidates)
+
+        if len(candidates) >= 5:
+            # 從尾端向前尋找有效的連續5碼。
+            for index in range(len(candidates) - 5, -1, -1):
+                candidate = candidates[index:index + 5]
+                if valid_nums(candidate):
+                    nums = candidate
+                    break
+
+    if not valid_nums(nums):
+        raise RuntimeError(
+            f"官方Fantasy 5球號解析失敗；容器候選值：{nums}"
+        )
 
     return {
         "date": date,
@@ -228,7 +349,6 @@ def parse_lotteryusa_fallback() -> dict:
     html = fetch(url)
     soup = BeautifulSoup(html, "lxml")
 
-    # 逐個結構區塊尋找「日期 + 同區塊內5個球號」。
     for node in soup.find_all(["tr", "article", "li", "section", "div"]):
         text = re.sub(r"\s+", " ", node.get_text(" ", strip=True))
         date_match = re.search(
@@ -240,31 +360,21 @@ def parse_lotteryusa_fallback() -> dict:
         if not date_match:
             continue
 
-        # 只讀取該DOM區塊中具球號語意的元素。
-        values = []
-        for ball in node.select(
-            ".ball, [class*='ball'], [class*='number'], "
-            "[data-testid*='ball'], [aria-label*='number']"
-        ):
-            ball_text = ball.get_text(" ", strip=True)
-            if re.fullmatch(r"0?[1-9]|[12]\d|3[0-9]", ball_text):
-                values.append(int(ball_text))
+        values = extract_ball_elements(node)
+        if len(values) >= 5:
+            for index in range(len(values) - 4):
+                candidate = values[index:index + 5]
+                if valid_nums(candidate):
+                    date = normalize_date(date_match.group(0))
+                    validate_recent_date(date)
+                    return {
+                        "date": date,
+                        "issue": "",
+                        "nums": sorted(candidate),
+                        "source": url,
+                    }
 
-        # 去重但保留順序。
-        nums = []
-        for value in values:
-            if value not in nums:
-                nums.append(value)
-
-        if valid_nums(nums[:5]):
-            return {
-                "date": normalize_date(date_match.group(0)),
-                "issue": "",
-                "nums": sorted(nums[:5]),
-                "source": url,
-            }
-
-    raise RuntimeError("LotteryUSA找不到日期與同區塊5個球號")
+    raise RuntimeError("LotteryUSA找不到同區塊日期與5個球號")
 
 
 def fetch_fantasy5() -> dict:
@@ -277,6 +387,7 @@ def fetch_fantasy5() -> dict:
             result = parser()
             if not result.get("date"):
                 raise RuntimeError("日期空白")
+            validate_recent_date(result["date"])
             if not valid_nums(result.get("nums")):
                 raise RuntimeError("號碼格式不正確")
             return result
@@ -296,11 +407,19 @@ def load_old() -> dict:
 
 
 def valid_game(game) -> bool:
-    return (
+    if not (
         isinstance(game, dict)
         and bool(str(game.get("date", "")).strip())
         and valid_nums(game.get("nums"))
-    )
+    ):
+        return False
+
+    try:
+        validate_recent_date(str(game["date"]))
+    except Exception:
+        return False
+
+    return True
 
 
 def main() -> None:
