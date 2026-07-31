@@ -7830,7 +7830,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     autoUpdateOnOpen.checked = saved === null ? true : saved === '1';
     autoUpdateOnOpen.addEventListener('change', () => localStorage.setItem(AUTO_DRAW_PREF_KEY, autoUpdateOnOpen.checked ? '1' : '0'));
   }
-  if (autoUpdateDrawBtn) autoUpdateDrawBtn.addEventListener('click', (event) => { if (!autoUpdateDrawBtn.hasAttribute('onclick')) window.runAutoDrawUpdate(event); });
+  // 舊版外站抓取器停用：按鈕統一交由頁尾 autoDrawStandalone 處理。
 
   gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
@@ -12543,7 +12543,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
   autoRebuildDaydayCacheOnce();
   initDrawDatabase();
-  setTimeout(() => { if (autoUpdateOnOpen && autoUpdateOnOpen.checked) updateLatest539AndDayday({silent:true}); }, 900);
+  // 舊版外站自動抓取停用，避免與 latest-draws.json 更新器同時執行。
   caishenRenderSelfTuneProfileSelect();
 
   function legacyCopyText(text) {
@@ -14025,17 +14025,58 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     return {added:true,before:after.length-1,after:after.length};
   }
   function refreshUi(){
+    try{
+      const gameSelect=document.getElementById('gameMode');
+      if(gameSelect){
+        // 觸發原程式既有的 applyGameMode / syncDbToTextarea / renderDrawDb。
+        gameSelect.dispatchEvent(new Event('change',{bubbles:true}));
+      }
+    }catch(e){}
     try{if(typeof window.syncDbToTextarea==='function')window.syncDbToTextarea();}catch(e){}
     try{if(typeof window.renderDrawDb==='function')window.renderDrawDb();}catch(e){}
-    try{const mode=(document.getElementById('gameMode')||{}).value||'539';const list=readList(mode);const c=document.getElementById('dbCount'),l=document.getElementById('dbLatest');if(c)c.textContent=String(list.length);if(l&&list[0])l.textContent=(list[0].date?list[0].date+' ':'')+fmt(list[0].nums);}catch(e){}
+    try{
+      const mode=(document.getElementById('gameMode')||{}).value||'539';
+      const list=readList(mode);
+      const c=document.getElementById('dbCount');
+      const l=document.getElementById('dbLatest');
+      if(c)c.textContent=String(list.length);
+      if(l)l.textContent=list[0]?((list[0].date?list[0].date+' ':'')+fmt(list[0].nums)):'尚無資料';
+    }catch(e){}
   }
   async function loadFeed(){
-    const url='./latest-draws.json?t='+Date.now();
-    const r=await fetch(url,{cache:'no-store'});
-    if(!r.ok)throw new Error('找不到 latest-draws.json（HTTP '+r.status+'）');
-    const data=await r.json();
-    if(!data||!data.games)throw new Error('latest-draws.json 格式不正確');
-    return data;
+    const stamp=Date.now();
+    const pageUrl=new URL(window.location.href);
+    pageUrl.hash='';
+    pageUrl.search='';
+
+    // 依目前HTML所在資料夾讀取；另加入網站根目錄備援。
+    const candidates=[
+      new URL('latest-draws.json?cb='+stamp,pageUrl).href,
+      new URL('./latest-draws.json?cb='+stamp,window.location.href).href,
+      window.location.origin+'/latest-draws.json?cb='+stamp
+    ];
+    const tried=[];
+    for(const url of [...new Set(candidates)]){
+      try{
+        const r=await fetch(url,{
+          cache:'no-store',
+          headers:{'Accept':'application/json'}
+        });
+        tried.push(url+' → HTTP '+r.status);
+        if(!r.ok)continue;
+        const raw=await r.text();
+        let data;
+        try{data=JSON.parse(raw);}catch(e){
+          throw new Error('回傳內容不是JSON，開頭：'+raw.slice(0,60));
+        }
+        if(!data||!data.games)throw new Error('latest-draws.json 缺少 games');
+        data.__feedUrl=url;
+        return data;
+      }catch(e){
+        tried.push(url+' → '+(e.message||e));
+      }
+    }
+    throw new Error('找不到可用的 latest-draws.json；'+tried.join('；'));
   }
   window.autoDrawStandalone=async function(ev){
     if(ev&&ev.preventDefault)ev.preventDefault();
@@ -14055,7 +14096,8 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       }
       refreshUi();
       const updated=data.updated_at?('\n資料檔更新：'+data.updated_at):'';
-      show(messages.join('\n')+updated,success?'ok':'err');
+      const feed=data.__feedUrl?('\n讀取位置：'+data.__feedUrl):'';
+      show(messages.join('\n')+updated+feed,success?'ok':'err');
     }catch(e){show('更新失敗：'+(e.message||e)+'。請先在 GitHub Actions 執行「Update lottery results」。','err');}
     finally{btn.disabled=false;btn.textContent='更新539＋天天樂';}
     return false;
