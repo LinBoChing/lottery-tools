@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -278,10 +278,12 @@ def parse_calottery_official_page() -> dict:
         raise RuntimeError("Winning Numbers容器找不到日期")
 
     month_name, day, year = date_match.groups()
-    date = datetime.strptime(
+    california_date = datetime.strptime(
         f"{month_name.title()} {day} {year}",
         "%b %d %Y",
-    ).strftime("%Y/%m/%d")
+    )
+    # 加州晚間開獎時，台灣已經是隔日。
+    date = (california_date + timedelta(days=1)).strftime("%Y/%m/%d")
     validate_recent_date(date)
 
     issue_match = re.search(r"Draw\s*#\s*(\d+)", text, flags=re.I)
@@ -365,7 +367,12 @@ def parse_lotteryusa_fallback() -> dict:
             for index in range(len(values) - 4):
                 candidate = values[index:index + 5]
                 if valid_nums(candidate):
-                    date = normalize_date(date_match.group(0))
+                    source_date = datetime.strptime(
+                        normalize_date(date_match.group(0)),
+                        "%Y/%m/%d",
+                    )
+                    # 備援網站同樣使用加州當地日期，轉成台灣日期。
+                    date = (source_date + timedelta(days=1)).strftime("%Y/%m/%d")
                     validate_recent_date(date)
                     return {
                         "date": date,
