@@ -1,8 +1,8 @@
 {
-  "updated_at": "2026-07-31T02:11:32+00:00",
+  "updated_at": "2026-07-31T02:29:20+00:00",
   "games": {
     "539": {
-      "date": "1937/07/30",
+      "date": "2026/07/30",
       "issue": "",
       "nums": [
         4,
@@ -17,11 +17,11 @@
       "date": "2026/07/30",
       "issue": "11954",
       "nums": [
-        3,
         6,
         13,
         26,
-        29
+        29,
+        31
       ],
       "source": "https://www.calottery.com/en/draw-games/fantasy-5"
     }
