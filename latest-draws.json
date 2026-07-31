@@ -1,29 +1,29 @@
 {
-  "updated_at": "2026-07-31T02:04:34+00:00",
+  "updated_at": "2026-07-31T02:11:32+00:00",
   "games": {
     "539": {
-      "date": "2026/07/30",
+      "date": "1937/07/30",
       "issue": "",
       "nums": [
-        3,
         4,
         7,
         8,
-        16
+        16,
+        38
       ],
-      "source": "https://www.pilio.idv.tw/lto539/drawlist/drawlist.asp"
+      "source": "https://www.pilio.idv.tw/lto539/list.asp"
     },
     "dayday": {
       "date": "2026/07/30",
-      "issue": "",
+      "issue": "11954",
       "nums": [
+        3,
         6,
         13,
         26,
-        29,
-        31
+        29
       ],
-      "source": "LotteryUSA Fantasy 5"
+      "source": "https://www.calottery.com/en/draw-games/fantasy-5"
     }
   },
   "warnings": []
