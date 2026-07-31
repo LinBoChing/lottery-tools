@@ -1,19 +1,9 @@
 {
+  "game": "dayday",
   "updated_at": "2026-07-31T03:20:59+00:00",
-  "games": {
-    "539": {
-      "date": "2026/07/30",
-      "issue": "",
-      "nums": [
-        4,
-        7,
-        8,
-        16,
-        38
-      ],
-      "source": "https://www.pilio.idv.tw/lto539/list.asp"
-    },
-    "dayday": {
+  "count": 1,
+  "draws": [
+    {
       "date": "2026/07/31",
       "issue": "11954",
       "nums": [
@@ -25,6 +15,5 @@
       ],
       "source": "https://www.calottery.com/en/draw-games/fantasy-5"
     }
-  },
-  "warnings": []
+  ]
 }
