@@ -1591,7 +1591,10 @@
         <div class="first-pillar-checker">
           <div class="first-pillar-checker-head">
             <div class="first-pillar-checker-title">多組立柱｜第一柱重複檢查</div>
-            <button class="btn btn-secondary first-pillar-paste6-btn" id="pasteABC6ToFirstCheckBtn" type="button">一鍵貼上 A1～C2 六組</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+              <button class="btn btn-primary first-pillar-paste6-btn" id="extractABC023ToFirstCheckBtn" type="button">提取 0-3-2／0-2-3</button>
+              <button class="btn btn-secondary first-pillar-paste6-btn" id="pasteABC6ToFirstCheckBtn" type="button">一鍵貼上 A1～C2 六組</button>
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px;">
             <label for="firstPillarDisplayLimit" style="color:#cbd5e1;font-size:13px;font-weight:800;">顯示重複上限</label>
@@ -12683,6 +12686,82 @@ ${settleRecord.analysisLines.join('\n')}`;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+
+  function extractABC023ToFirstPillarCheck() {
+    const input = document.getElementById('firstPillarCheckInput');
+    if (!input) {
+      alert('找不到第一柱比對區。');
+      return;
+    }
+
+    const abcItems = (lastFixedDaily || []).slice(0, 6);
+    if (abcItems.length < 6 || abcItems.some(item => !item || !Array.isArray(item.groups) || item.groups.length < 3)) {
+      alert('目前尚未產生完整的 A1～C2 六組立柱，請先按重新精選立柱。');
+      return;
+    }
+
+    const latestDraw = (getBacktestDraws() || [])[0];
+    if (!Array.isArray(latestDraw) || latestDraw.length < 5) {
+      alert('找不到最新一期開獎號碼，請先把新號碼新增到資料庫最上方。');
+      return;
+    }
+
+    const labels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    const matched = [];
+    const matchedLabels = [];
+
+    abcItems.forEach((item, index) => {
+      const hitInfo = fixedHitScoreForGroupsDirect(item.groups || [], latestDraw);
+      const hits = (hitInfo.hits || []).slice(0, 3).map(Number);
+      const isTarget = hits.length === 3 && hits[0] === 0 && (
+        (hits[1] === 3 && hits[2] === 2) ||
+        (hits[1] === 2 && hits[2] === 3)
+      );
+      if (!isTarget) return;
+      matched.push((item.groups || []).map(g => (g || []).map(pad2).join(',')).join('+'));
+      matchedLabels.push(`${labels[index]}（${hits.join('-')}）`);
+    });
+
+    if (!matched.length) {
+      alert(`最新一期 ${latestDraw.map(pad2).join(' ')} 中，A～C目前沒有 0-3-2 或 0-2-3 的雙柱結果；第一柱比對區原有內容已保留。`);
+      return;
+    }
+
+    // 追加到現有第一柱比對內容，不清空舊立柱；完全相同的立柱不重複加入。
+    const normalizePillarText = text => String(text || '')
+      .replace(/\s+/g, '')
+      .replace(/，/g, ',');
+    const currentBlocks = input.value.trim()
+      ? input.value.trim().split(/\n\s*\n+/).map(block => block.trim()).filter(Boolean)
+      : [];
+    const existingSet = new Set(currentBlocks.map(normalizePillarText));
+    const newlyAdded = [];
+    const newlyAddedLabels = [];
+
+    matched.forEach((text, index) => {
+      const key = normalizePillarText(text);
+      if (existingSet.has(key)) return;
+      existingSet.add(key);
+      newlyAdded.push(text);
+      newlyAddedLabels.push(matchedLabels[index]);
+    });
+
+    if (!newlyAdded.length) {
+      alert(`本次符合的 ${matched.length} 組立柱都已存在於第一柱比對區，沒有重複加入。`);
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    input.value = currentBlocks.length
+      ? `${currentBlocks.join('\n\n')}\n\n${newlyAdded.join('\n\n')}`
+      : newlyAdded.join('\n\n');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    alert(`已新增 ${newlyAdded.length} 組到第一柱比對：${newlyAddedLabels.join('、')}；原有立柱已保留。`);
+  }
+
+  const extractABC023Btn = document.getElementById('extractABC023ToFirstCheckBtn');
+  if (extractABC023Btn) extractABC023Btn.addEventListener('click', extractABC023ToFirstPillarCheck);
 
   const pasteABC6Btn = document.getElementById('pasteABC6ToFirstCheckBtn');
   if (pasteABC6Btn) pasteABC6Btn.addEventListener('click', pasteABC6ToFirstPillarCheck);
