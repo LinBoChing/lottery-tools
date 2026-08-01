@@ -1372,6 +1372,33 @@
 .first-pillar-pair{padding:7px 9px;margin-top:6px;border:1px solid rgba(148,163,184,.18);border-radius:10px;background:rgba(15,23,42,.48);}
 .first-pillar-pair:first-of-type{margin-top:8px;}
 .first-pillar-pair.pass-low{border-color:rgba(34,197,94,.72);background:rgba(34,197,94,.13);color:#dcfce7;box-shadow:0 0 0 1px rgba(34,197,94,.12) inset;}
+    .first-pillar-pair.balanced-head-pair {
+      border-color: #f59e0b !important;
+      background: linear-gradient(135deg, rgba(245,158,11,.20), rgba(234,179,8,.08)) !important;
+      box-shadow: 0 0 0 1px rgba(245,158,11,.20), 0 0 18px rgba(245,158,11,.15);
+    }
+    .balanced-head-badge {
+      display: inline-block;
+      margin-left: 7px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #f59e0b;
+      color: #111827;
+      font-size: 12px;
+      font-weight: 900;
+      vertical-align: middle;
+    }
+    .first-pillar-head-info {
+      margin-top: 7px;
+      color: #cbd5e1;
+      font-size: 12px;
+      line-height: 1.65;
+      font-weight: 700;
+    }
+    .balanced-head-pair .first-pillar-head-info {
+      color: #fde68a;
+    }
+
 .first-pillar-pair.pass-low b{color:#86efac;}
 .first-pillar-pair.fail-high{border-color:rgba(239,68,68,.65);background:rgba(239,68,68,.10);color:#fecaca;}
 .first-pillar-pair.fail-high b{color:#fca5a5;}
@@ -1638,16 +1665,17 @@
               <button class="btn btn-primary t0-auto-search-btn" id="autoFindT0LowOverlapBtn" type="button">一鍵尋找 T0 合格低重複雙柱</button>
               <button class="btn btn-dark" id="stopT0LowOverlapBtn" type="button" disabled style="width:auto;">停止</button>
             </div>
-            <div id="t0AutoSearchStatus" class="t0-auto-search-status">完整重播你的實際流程：刪除 T0 → 執行原本重新精選立柱 → 還原 T0 → 執行原本天選雙柱 → 執行原本提取 0-3-2／0-2-3 → 合格者接續加入比對區；找到重複2支以下才停止。</div>
+            <div id="t0AutoSearchStatus" class="t0-auto-search-status">以539／天天樂5顆球為主。自動重播採輕量搜尋並略過不相關的E組深度計算，以恢復手機流暢度；安全池只是數學可行範圍，另顯示合格第一柱實際使用的號碼聯集。生成時只以隨機同分打散增加多樣性，不偷看T0或比對區。</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px;">
             <label for="firstPillarDisplayLimit" style="color:#cbd5e1;font-size:13px;font-weight:800;">顯示重複上限</label>
             <select id="firstPillarDisplayLimit" class="db-select" style="width:auto;min-width:150px;min-height:40px;padding:8px 10px;">
               <option value="2">2 支（含）以下</option>
               <option value="3" selected>3 支（含）以下</option>
+              <option value="4">4 支（含）以下</option>
             </select>
           </div>
-          <textarea id="firstPillarCheckInput" class="first-pillar-checker-input" placeholder="可貼多組完整立柱；每組一行並用＋分柱，或每柱一行、空行分組。貼上後會依上方選擇，只顯示重複 2 支或 3 支（含）以下的結果。"></textarea>
+          <textarea id="firstPillarCheckInput" class="first-pillar-checker-input" placeholder="可貼多組完整立柱；每組一行並用＋分柱，或每柱一行、空行分組。貼上後會依上方選擇，只顯示重複 2、3 或 4 支（含）以下的結果。"></textarea>
           <div id="firstPillarCheckResult" class="first-pillar-checker-result">尚未貼上立柱。目前顯示重複 0～3 支的比對結果。</div>
         </div>
         <div class="draw-quick-actions">
@@ -11564,16 +11592,45 @@ ${settleRecord.analysisLines.join('\n')}`;
     const key = String(label || '').toUpperCase();
     if (!['A', 'B', 'C'].includes(key)) return null;
 
-    // A1～C2 全部套用同一套十期生成規則（索引0 = 最新期）：
-    // 最新～第5期：第一柱固定0支；第二、三柱優先平均中2～3支，單柱不超過4支。
-    // 第6～第8期：以三星過關為主，三星3碰（3-1-1）或4碰（2-2-1）皆可。
-    // 第9期：第一柱固定中1支；第10期：第一柱固定中1支；第二、三柱結果不限制。
-    const patterns = [
-      'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED', 'FIRST_ZERO_BALANCED',
-      'PASS_3_OR_4', 'PASS_3_OR_4', 'PASS_3_OR_4',
-      'FIRST_ONE_RANDOM', 'FIRST_ONE_RANDOM'
+    // 僅在 T0 完整重播自動搜尋期間啟用；一般手動重新精選仍為等級0。
+    const relaxLevel = Math.max(0, Math.min(3, Number(window.__t0FiveBallRelaxLevel || 0)));
+
+    // 五顆彩球分級：
+    // 等級0：第1～5期維持原始 FIRST_ZERO_BALANCED；
+    //         第6～8期 PASS_3_OR_4；第9～10期 FIRST_ONE_RANDOM。
+    // 等級1：先放鬆第5期，第一柱允許0～1支，但0支優先。
+    // 等級2：再放鬆第6～10期。
+    // 等級3：只有理論最低重複仍大於2支時，才把第4期也允許0～1支。
+    const firstThree = [
+      'FIRST_ZERO_BALANCED',
+      'FIRST_ZERO_BALANCED',
+      'FIRST_ZERO_BALANCED'
     ];
-    return { first: patterns.slice(), second: patterns.slice() };
+
+    let fourth = 'FIRST_ZERO_BALANCED';
+    let fifth = 'FIRST_ZERO_BALANCED';
+    let sixToEight = ['PASS_3_OR_4', 'PASS_3_OR_4', 'PASS_3_OR_4'];
+    let nineToTen = ['FIRST_ONE_RANDOM', 'FIRST_ONE_RANDOM'];
+
+    if (relaxLevel >= 1) {
+      fifth = 'FIVE_BALL_FIRST_ZERO_OR_ONE';
+    }
+
+    if (relaxLevel >= 2) {
+      sixToEight = [
+        'FIVE_BALL_PASS_OR_ONE_DOWN',
+        'FIVE_BALL_PASS_OR_ONE_DOWN',
+        'FIVE_BALL_PASS_OR_ONE_DOWN'
+      ];
+      nineToTen = ['FIRST_ZERO_TO_TWO_RANDOM', 'FIRST_ZERO_TO_TWO_RANDOM'];
+    }
+
+    if (relaxLevel >= 3) {
+      fourth = 'FIVE_BALL_FIRST_ZERO_OR_ONE';
+    }
+
+    const patterns = firstThree.concat([fourth, fifth], sixToEight, nineToTen);
+    return { first: patterns.slice(), second: patterns.slice(), relaxLevel };
   }
 
   // 保留舊函式名稱供其他程式碼相容；內容已改為型態規則。
@@ -11634,6 +11691,52 @@ ${settleRecord.analysisLines.join('\n')}`;
       let penalty = Math.min(p3, p4) * 420 + 140;
       if (c.some(v => v <= 0)) penalty += 1100;
       return penalty;
+    }
+
+    if (wanted === 'FIVE_BALL_FIRST_ZERO_OR_ONE') {
+      // 五顆球專用：第一柱允許0或1支，但仍明確優先0支。
+      // 第二、三柱合計承接其餘球數，分布越接近均衡越佳。
+      if (c[0] === 0 || c[0] === 1) {
+        const remaining = 5 - c[0];
+        const splitPenalty = Math.abs(c[1] - c[2]) * 45;
+        const firstPenalty = c[0] === 0 ? 0 : 220;
+        const totalPenalty = (c[1] + c[2] === remaining) ? 0 : 700;
+        return firstPenalty + splitPenalty + totalPenalty;
+      }
+      return Math.abs(c[0] - 1) * 1250 + 1000;
+    }
+
+    if (wanted === 'FIVE_BALL_PASS_OR_ONE_DOWN') {
+      // 五顆球專用：
+      // 最佳仍是三星過關（五球分三柱時只可能3-1-1或2-2-1）；
+      // 放鬆後也接受「只倒一柱、另外兩柱都有中」，但給予輕度扣分。
+      const positiveCount = c.filter(v => v > 0).length;
+      if (positiveCount === 3) return 0;
+      if (positiveCount === 2 && c.reduce((a, b) => a + b, 0) === 5) {
+        const zeroIndex = c.findIndex(v => v === 0);
+        // 第一柱倒的近似型態稍優於第二、三柱倒，但都可接受。
+        return zeroIndex === 0 ? 180 : 260;
+      }
+      return (3 - positiveCount) * 1100 + 700;
+    }
+
+    if (wanted === 'FIRST_ZERO_TO_TWO_RANDOM') {
+      // 五顆球專用：第9～10期第一柱由固定1支，放寬為0～2支。
+      if (c[0] >= 0 && c[0] <= 2) return Math.abs(c[0] - 1) * 90;
+      return Math.abs(c[0] - 1) * 900 + 500;
+    }
+
+    if (wanted === 'FIVE_BALL_FIRST_ZERO_SPLIT') {
+      // 五顆球專用：第5期仍要求第一柱0支，
+      // 但第二、三柱只要都有中即可，接受0-1-4、0-2-3、0-3-2、0-4-1。
+      if (c[0] === 0 && c[1] >= 1 && c[2] >= 1 && c[1] + c[2] === 5) {
+        return Math.abs(c[1] - c[2]) <= 1 ? 0 : 140;
+      }
+      let penalty = 0;
+      if (c[0] !== 0) penalty += Math.abs(c[0]) * 1500 + 1200;
+      if (c[1] <= 0) penalty += 1200;
+      if (c[2] <= 0) penalty += 1200;
+      return penalty + 300;
     }
 
     if (wanted === 'FIRST_TWO_RANDOM') {
@@ -11701,11 +11804,24 @@ ${settleRecord.analysisLines.join('\n')}`;
       });
       return { penalty, maxOverlap };
     };
+    // 每次重新精選建立一組很小的隨機偏好。
+    // 它不偷看T0、也不讀取比對區，只用來打散大量同分解，
+    // 避免每輪都收斂到相同的10支第一柱。
+    const diversityWeight = new Map();
+    basePool.forEach(n => diversityWeight.set(Number(n), rng()));
+
     const combinedPenalty = groups => {
       const targetPenalty = fixedTargetPillarPenalty(groups, historyDraws, mode, targetScores);
       const overlap = overlapPenalty(groups);
-      // 在維持十期目標型態下，顯著提高第一柱避重權重。
-      return { total: targetPenalty * 50000 + overlap.penalty, targetPenalty, maxOverlap: overlap.maxOverlap };
+      const first = (groups && groups[0]) || [];
+      const tieBreak = first.reduce((sum, n) => sum + (diversityWeight.get(Number(n)) || 0), 0);
+
+      // 規則分數仍占絕對主體；tieBreak只在規則近似或完全同分時打散結果。
+      return {
+        total: targetPenalty * 50000 + overlap.penalty + tieBreak,
+        targetPenalty,
+        maxOverlap: overlap.maxOverlap
+      };
     };
 
     let bestFlat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
@@ -11714,8 +11830,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     let bestPenalty = bestEval.total;
     if (bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3) return bestGroups;
 
-    const runs = 34;
-    const steps = 1800;
+    // T0自動重播時改用輕量搜尋，避免手機每輪卡住；
+    // 一般手動重新精選仍保留原本較深的搜尋。
+    const fastReplay = !!window.__t0FastReplayMode;
+    const runs = fastReplay ? 8 : 34;
+    const steps = fastReplay ? 420 : 1800;
     for (let run = 0; run < runs; run++) {
       let flat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
       let groups = fixedGroupsFromFlat(flat);
@@ -11973,19 +12092,27 @@ ${settleRecord.analysisLines.join('\n')}`;
         return { label, type: 'comparisonD', pair: [{ groups, label: 'D1', omitted, omittedInfo, type: 'comparisonD', source: 'default-10-10-19' }], createdAt: 'comparison-d-default', mode };
       }
       if (fixedIsFourPillarLabel(label)) {
-        let groups = fixedBuildFourPillarDownFromPool(sharedPool, rng, historyDraws, mode);
+        let groups;
+        if (window.__t0FastReplayMode && max === 39) {
+          // T0搜尋只需要A～C；E不參與0-3-2／0-2-3提取。
+          // 搜尋期間用快速9-10-10-10占位，省下大量無關運算。
+          const flat = fixedShuffleWithRng(sharedPool, rng).slice(0, 39);
+          groups = fixedFourPillarGroupsFromFlat(flat);
+        } else {
+          groups = fixedBuildFourPillarDownFromPool(sharedPool, rng, historyDraws, mode);
+        }
         if (max === 49) groups = fixedEnsureFourGroupsUseOnlyPool(groups, sharedPool, rng);
-        return { label, type: 'fourDown', pair: [{ groups, label: `${label}1`, omitted, omittedInfo, type: 'fourDown' }], createdAt: 'four-pillar-down10', mode };
+        return { label, type: 'fourDown', pair: [{ groups, label: `${label}1`, omitted, omittedInfo, type: 'fourDown' }], createdAt: window.__t0FastReplayMode ? 'four-pillar-fast-placeholder' : 'four-pillar-down10', mode };
       }
       if (label === 'A' || label === 'B' || label === 'C') {
-        // 每個字母組都從空白參考開始：A2只避A1、B2只避B1、C2只避C1；
-        // A/B/C彼此不交叉避重，且共用同一套隨機生成流程。
-        const targetPair = fixedBuildTargetPatternPair(label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo, []);
+        // 保持真正的手動模擬：重新精選時不偷看T0，也不受比對區內容反向干預。
+        // 每個字母組只維持原本組內的第一柱避重與隨機生成。
+        const targetPair = fixedBuildTargetPatternPair(
+          label, sharedPool, rng, historyDraws, mode, omitted, omittedInfo, []
+        );
         if (targetPair && targetPair.length === 2) {
-          targetPair.forEach(x => {
-            used.add(fixedGroupsKey(x.groups));
-          });
-          return { label, pair: targetPair, createdAt: 'abc-same-as-a-pairwise-random-v1', mode };
+          targetPair.forEach(x => used.add(fixedGroupsKey(x.groups)));
+          return { label, pair: targetPair, createdAt: 'abc-manual-replay-fast-v3', mode };
         }
       }
       while (pair.length < 2 && guard < 300) {
@@ -12997,6 +13124,60 @@ ${settleRecord.analysisLines.join('\n')}`;
     return { parsed, best };
   }
 
+  function t0CandidateDiversityStats(input) {
+    const groups = t0ManualParseCheckerGroups(input && input.value || '');
+    const union = new Set();
+    const frequency = new Map();
+
+    groups.forEach(first => {
+      first.forEach(n => {
+        union.add(Number(n));
+        frequency.set(Number(n), (frequency.get(Number(n)) || 0) + 1);
+      });
+    });
+
+    const counts = [...frequency.values()];
+    return {
+      groupCount: groups.length,
+      unionSize: union.size,
+      maxFrequency: counts.length ? Math.max(...counts) : 0,
+      minFrequency: counts.length ? Math.min(...counts) : 0
+    };
+  }
+
+  function t0FiveBallFeasibility(t0Draw, trainDraws, relaxLevel) {
+    const hardZeroDraws = [];
+
+    // T0提取條件永遠要求第一柱0支。
+    if (Array.isArray(t0Draw)) hardZeroDraws.push(t0Draw);
+
+    // T1～T3全程固定；T4只在等級3放鬆；T5只在等級0固定。
+    (trainDraws || []).slice(0, 3).forEach(draw => hardZeroDraws.push(draw));
+    if (relaxLevel < 3 && trainDraws && trainDraws[3]) hardZeroDraws.push(trainDraws[3]);
+    if (relaxLevel < 1 && trainDraws && trainDraws[4]) hardZeroDraws.push(trainDraws[4]);
+
+    const forbidden = new Set();
+    hardZeroDraws.forEach(draw => (draw || []).forEach(n => {
+      n = Number(n);
+      if (n >= 1 && n <= 39) forbidden.add(n);
+    }));
+
+    const safePool = [];
+    for (let n = 1; n <= 39; n++) {
+      if (!forbidden.has(n)) safePool.push(n);
+    }
+
+    // 這是依「硬性0支條件」推估的嚴格安全池下限。
+    // 軟性允許1支後，實際生成仍可能使用安全池外號碼，因此畫面標示為估算。
+    const theoreticalMin = Math.max(0, 20 - safePool.length);
+    return {
+      safePool,
+      safePoolSize: safePool.length,
+      forbiddenSize: forbidden.size,
+      theoreticalMin
+    };
+  }
+
   async function runT0AutoLowOverlapSearch() {
     if (t0AutoSearchRunning) return;
 
@@ -13061,6 +13242,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     t0AutoSearchRunning = true;
     t0AutoSearchStopRequested = false;
+    window.__t0FastReplayMode = true;
 
     if (startBtn) {
       startBtn.disabled = true;
@@ -13075,6 +13257,30 @@ ${settleRecord.analysisLines.join('\n')}`;
     try {
       for (let round = 1; round <= MAX_ROUNDS; round++) {
         if (t0AutoSearchStopRequested) break;
+
+        // 依照「先近後遠影響」重新安排：
+        // 1～5輪原始；6～10輪先放鬆第5期；
+        // 11～15輪再放鬆第6～10期；
+        // 16輪起僅在估算最低重複仍>2時，才輕微放鬆第4期。
+        const trainBeforeRemoval = originalRecords.slice(1).map(r => Array.isArray(r.nums) ? r.nums : []);
+        let relaxLevel = round <= 5 ? 0 : (round <= 10 ? 1 : 2);
+        let feasibility = t0FiveBallFeasibility(t0Draw, trainBeforeRemoval, relaxLevel);
+
+        if (round >= 16 && feasibility.theoreticalMin > 2) {
+          relaxLevel = 3;
+          feasibility = t0FiveBallFeasibility(t0Draw, trainBeforeRemoval, relaxLevel);
+        }
+
+        window.__t0FiveBallRelaxLevel = relaxLevel;
+        window.__t0CurrentDraw = t0Draw.slice();
+
+        const relaxLabel = relaxLevel === 0
+          ? '原始規則'
+          : relaxLevel === 1
+            ? '先放鬆第5期（第一柱0優先、可1支）'
+            : relaxLevel === 2
+              ? '再放鬆第6～10期'
+              : '估算無法達2支，輕微放鬆第4期';
 
         // ① 將 T0 視為未知：暫時自資料庫最上方移除。
         removeT0ForSimulation();
@@ -13100,13 +13306,16 @@ ${settleRecord.analysisLines.join('\n')}`;
 
         // ⑥ 以第一柱比對區現有全部立柱判斷最低重複。
         const pairInfo = t0ManualFindBestPairFromInput(input);
+        const diversityStats = t0CandidateDiversityStats(input);
         const best = pairInfo.best;
         const bestText = best
           ? `目前最低重複 ${best.overlap.length} 支（第${best.i + 1}組 vs 第${best.j + 1}組）`
           : '目前尚未形成兩組可比較立柱';
 
         t0AutoSetStatus(
-          `第 ${round}/${MAX_ROUNDS} 輪完整重播完成\n` +
+          `第 ${round}/${MAX_ROUNDS} 輪完整重播完成｜${relaxLabel}\n` +
+          `安全池上限：${feasibility.safePoolSize}支｜數學下限約${feasibility.theoreticalMin}支（不代表生成器必然用滿）\n` +
+          `目前合格第一柱實際聯集：${diversityStats.unionSize}支｜最高單號出現${diversityStats.maxFrequency}次\n` +
           `流程：刪除T0 → 原重新精選 → 還原T0 → 原天選雙柱 → 原提取功能\n` +
           `本輪符合 ${extractResult.matchedCount || 0} 組｜新增 ${extractResult.addedCount || 0} 組\n` +
           `累計符合 ${totalMatched} 組｜累計新增 ${totalAdded} 組｜比對區共 ${pairInfo.parsed.length} 組\n` +
@@ -13132,7 +13341,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         }
 
         // 讓手機完成一輪畫面更新後再進下一輪。
-        await new Promise(resolve => setTimeout(resolve, 30));
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
 
       const finalInfo = t0ManualFindBestPairFromInput(input);
@@ -13157,6 +13366,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       );
     } finally {
       ensureT0OnTop();
+      // 搜尋結束後恢復一般重新精選的原始規則。
+      window.__t0FiveBallRelaxLevel = 0;
+      window.__t0CurrentDraw = null;
+      window.__t0FastReplayMode = false;
 
       t0AutoSearchRunning = false;
       if (startBtn) {
@@ -14188,7 +14401,36 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 
   function getDisplayLimit() {
     const value = Number(displayLimitSelect ? displayLimitSelect.value : 3);
-    return value === 2 ? 2 : 3;
+    if (value === 2) return 2;
+    if (value === 4) return 4;
+    return 3;
+  }
+
+  function firstPillarHeadDistribution(numbers) {
+    const counts = [0, 0, 0, 0];
+    (numbers || []).forEach(value => {
+      const n = Number(value);
+      if (n >= 1 && n <= 9) counts[0]++;
+      else if (n >= 10 && n <= 19) counts[1]++;
+      else if (n >= 20 && n <= 29) counts[2]++;
+      else if (n >= 30 && n <= 39) counts[3]++;
+    });
+    return counts;
+  }
+
+  function isBalancedFirstPillarDistribution(numbers) {
+    const counts = firstPillarHeadDistribution(numbers);
+    if ((numbers || []).length !== 10) return false;
+
+    // 十支第一柱的平均頭數結構：
+    // 每個頭至少2支、最多3支，只接受2-2-3-3的任意排列。
+    return counts.every(v => v >= 2 && v <= 3) &&
+      counts.reduce((sum, v) => sum + v, 0) === 10;
+  }
+
+  function firstPillarHeadDistributionText(numbers) {
+    const counts = firstPillarHeadDistribution(numbers);
+    return `0頭${counts[0]}支・1頭${counts[1]}支・2頭${counts[2]}支・3頭${counts[3]}支`;
   }
 
   function analyze() {
@@ -14215,7 +14457,16 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
         const overlap = groups[j].first.filter(n => a.has(n)).sort((x, y) => x - y);
         maxOverlap = Math.max(maxOverlap, overlap.length);
         if (overlap.length > 3) hasFail = true;
-        comparisons.push({ a: i + 1, b: j + 1, overlap });
+        const balancedA = isBalancedFirstPillarDistribution(groups[i].first);
+        const balancedB = isBalancedFirstPillarDistribution(groups[j].first);
+        comparisons.push({
+          a: i + 1,
+          b: j + 1,
+          overlap,
+          balancedPair: balancedA && balancedB,
+          distA: firstPillarHeadDistributionText(groups[i].first),
+          distB: firstPillarHeadDistributionText(groups[j].first)
+        });
       }
     }
 
@@ -14225,7 +14476,13 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const headline = `✅ 共辨識 ${groups.length} 組；目前顯示重複 0～${displayLimit} 支的 ${visibleComparisons.length} 組比對結果。${hiddenCount ? `已隱藏 ${hiddenCount} 組重複 ${displayLimit + 1} 支以上的結果。` : ''}`;
     const details = visibleComparisons.map(item => {
       const nums = item.overlap.length ? `｜${fmt(item.overlap)}` : '｜無重複號碼';
-      return `<div class="first-pillar-pair pass-low"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums}</span></div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
+      const balancedClass = item.balancedPair ? ' balanced-head-pair' : '';
+      const balancedBadge = item.balancedPair
+        ? '<span class="balanced-head-badge">雙組頭數平均</span>'
+        : '';
+      const distributionInfo = `<div class="first-pillar-head-info">第${item.a}組：${item.distA}<br>第${item.b}組：${item.distB}</div>`;
+
+      return `<div class="first-pillar-pair pass-low${balancedClass}"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums} ${balancedBadge}</span>${distributionInfo}</div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
     }).join('');
     result.innerHTML = `<b>${headline}</b>${details || `<div class="first-pillar-pair pass-low">目前沒有重複 0～${displayLimit} 支的比對結果。</div>`}`;
   }
