@@ -13236,7 +13236,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       refreshAfterQuickDrawChange(mode, '');
     };
 
-    const MAX_ROUNDS = 30;
+    const MAX_ROUNDS = 100;
     let totalAdded = 0;
     let totalMatched = 0;
 
@@ -13259,14 +13259,15 @@ ${settleRecord.analysisLines.join('\n')}`;
         if (t0AutoSearchStopRequested) break;
 
         // 依照「先近後遠影響」重新安排：
-        // 1～5輪原始；6～10輪先放鬆第5期；
-        // 11～15輪再放鬆第6～10期；
-        // 16輪起僅在估算最低重複仍>2時，才輕微放鬆第4期。
+        // 依原本30輪的放鬆比例等比例調整為100輪：
+        // 1～17輪原始；18～33輪先放鬆第5期；
+        // 34～50輪再放鬆第6～10期；
+        // 51輪起僅在估算最低重複仍>2時，才輕微放鬆第4期。
         const trainBeforeRemoval = originalRecords.slice(1).map(r => Array.isArray(r.nums) ? r.nums : []);
-        let relaxLevel = round <= 5 ? 0 : (round <= 10 ? 1 : 2);
+        let relaxLevel = round <= 17 ? 0 : (round <= 33 ? 1 : 2);
         let feasibility = t0FiveBallFeasibility(t0Draw, trainBeforeRemoval, relaxLevel);
 
-        if (round >= 16 && feasibility.theoreticalMin > 2) {
+        if (round >= 51 && feasibility.theoreticalMin > 2) {
           relaxLevel = 3;
           feasibility = t0FiveBallFeasibility(t0Draw, trainBeforeRemoval, relaxLevel);
         }
@@ -14470,7 +14471,9 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       }
     }
 
-    const visibleComparisons = comparisons.filter(item => item.overlap.length <= displayLimit);
+    const visibleComparisons = comparisons
+      .filter(item => item.overlap.length <= displayLimit)
+      .sort((a, b) => Number(b.balancedPair) - Number(a.balancedPair));
     const hiddenCount = comparisons.length - visibleComparisons.length;
     result.classList.add('pass');
     const headline = `✅ 共辨識 ${groups.length} 組；目前顯示重複 0～${displayLimit} 支的 ${visibleComparisons.length} 組比對結果。${hiddenCount ? `已隱藏 ${hiddenCount} 組重複 ${displayLimit + 1} 支以上的結果。` : ''}`;
