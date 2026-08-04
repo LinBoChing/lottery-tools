@@ -1,8 +1,20 @@
 {
   "game": "dayday",
-  "updated_at": "2026-08-03T22:17:19+00:00",
-  "count": 4,
+  "updated_at": "2026-08-04T04:30:26+00:00",
+  "count": 5,
   "draws": [
+    {
+      "date": "2026/08/04",
+      "issue": "11958",
+      "nums": [
+        8,
+        16,
+        19,
+        24,
+        32
+      ],
+      "source": "https://www.calottery.com/en/draw-games/fantasy-5"
+    },
     {
       "date": "2026/08/03",
       "issue": "11957",
