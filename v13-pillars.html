@@ -528,6 +528,16 @@
 
     .weekly-calc-card { margin-bottom: 16px; }
     .weekly-note { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 10px; }
+    .auto-settlement-box { margin:10px 0 12px; padding:12px 14px; border:1px solid rgba(56,189,248,.48); border-radius:13px; background:linear-gradient(135deg,rgba(56,189,248,.10),rgba(34,197,94,.08)); color:#cbd5e1; font-size:13px; line-height:1.7; }
+    .auto-settlement-box b { color:#f8fafc; }
+    .auto-settlement-box.ok { border-color:rgba(34,197,94,.58); color:#bbf7d0; }
+    .auto-settlement-box.warn { border-color:rgba(245,158,11,.58); color:#fde68a; }
+    .auto-stake-control { display:flex; align-items:end; gap:10px; flex-wrap:wrap; margin:10px 0 4px; padding:11px 12px; border:1px solid rgba(245,158,11,.46); border-radius:13px; background:rgba(245,158,11,.08); }
+    .auto-stake-field { flex:1; min-width:160px; }
+    .auto-stake-label { color:#fde68a; font-size:13px; font-weight:900; margin-bottom:6px; }
+    .auto-stake-input { width:100%; min-height:44px; background:#020617; color:#f8fafc; border:1px solid rgba(245,158,11,.58); border-radius:11px; padding:10px 12px; font-size:17px; font-weight:900; text-align:center; }
+    .auto-stake-note { flex:2; min-width:240px; color:#cbd5e1; font-size:12px; line-height:1.6; }
+    @media(max-width:768px){ .auto-stake-control{align-items:stretch}.auto-stake-field,.auto-stake-note{min-width:100%;} }
     .weekly-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; }
     .weekly-table { width: 100%; border-collapse: collapse; background: #020617; font-size: 15px; }
     .weekly-table th, .weekly-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: center; white-space: nowrap; }
@@ -1488,6 +1498,14 @@
     <div class="card weekly-calc-card">
       <div class="section-title">每日結算損益表</div>
       <div class="weekly-note">改成一天一結算格式，直接填當天各項收入/損益，複製到 LINE 會更清楚。贏錢填正數，輸錢填負數。</div>
+      <div class="auto-stake-control">
+        <div class="auto-stake-field">
+          <div class="auto-stake-label">今日下注金額（元）</div>
+          <input id="autoSettlementStakeInput" class="auto-stake-input" type="number" inputmode="decimal" min="0.01" step="0.01" value="10">
+        </div>
+        <div class="auto-stake-note">預設 10 元。每次複製立柱時，會把當下金額一起保存；之後再改金額，不會影響已登記的組別。成本與三星獎金都按「下注金額 ÷ 10」同比例計算。</div>
+      </div>
+      <div id="autoSettlementStatus" class="auto-settlement-box">自動結算：尚未登記今日下注。複製 10-14-15 或 10-10-19 立柱後，系統會記住；新增開獎號碼時自動結算並寫入本表。</div>
       <div class="weekly-summary-grid">
         <div class="weekly-summary-box">
           <div class="weekly-summary-title" id="weeklyTodayMorningLabel">今日天天樂損益</div>
@@ -2217,6 +2235,171 @@
     saveWeeklyCalcPayload(payload);
   }
 
+  const AUTO_BET_STORAGE_KEY = 'pillar_auto_bets_v1';
+  const AUTO_SETTLED_STORAGE_KEY = 'pillar_auto_settled_v1';
+  const AUTO_STAKE_STORAGE_KEY = 'pillar_auto_stake_v1';
+  const AUTO_DEFAULT_STAKE = 10;
+  const AUTO_PRIZE_PER_3STAR = 5700;
+  const AUTO_GROUP_COSTS = { '10-14-15': 13125, '10-10-19': 11875 };
+
+  function autoTodayKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function autoNormalizeGroups(groups) {
+    return (groups || []).slice(0, 3).map(g => [...new Set((g || []).map(Number).filter(Number.isFinite))].sort((a,b)=>a-b));
+  }
+
+  function autoGroupType(groups) {
+    const normalized = autoNormalizeGroups(groups);
+    const key = normalized.map(g => g.length).join('-');
+    return AUTO_GROUP_COSTS[key] ? key : '';
+  }
+
+  function autoReadJson(key, fallback) {
+    try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? fallback : v; } catch (e) { return fallback; }
+  }
+
+  function autoWriteJson(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  function autoCurrentMode() {
+    return (document.getElementById('gameMode') || {}).value || '539';
+  }
+
+  function autoNormalizeStake(value) {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : AUTO_DEFAULT_STAKE;
+  }
+
+  function autoCurrentStake() {
+    const input = document.getElementById('autoSettlementStakeInput');
+    return autoNormalizeStake(input ? input.value : localStorage.getItem(AUTO_STAKE_STORAGE_KEY));
+  }
+
+  function autoInitStakeControl() {
+    const input = document.getElementById('autoSettlementStakeInput');
+    if (!input) return;
+    input.value = String(autoNormalizeStake(localStorage.getItem(AUTO_STAKE_STORAGE_KEY) || AUTO_DEFAULT_STAKE));
+    if (input.dataset.autoStakeReady === '1') return;
+    input.dataset.autoStakeReady = '1';
+    const save = () => {
+      const stake = autoNormalizeStake(input.value);
+      input.value = String(stake);
+      try { localStorage.setItem(AUTO_STAKE_STORAGE_KEY, String(stake)); } catch (e) {}
+      autoRenderSettlementStatus();
+    };
+    input.addEventListener('change', save);
+    input.addEventListener('blur', save);
+  }
+
+  function autoBetBucketKey(mode, dateKey = autoTodayKey()) { return `${dateKey}|${mode}`; }
+
+  function autoRenderSettlementStatus(message, cls) {
+    const box = document.getElementById('autoSettlementStatus');
+    if (!box) return;
+    if (message) {
+      box.innerHTML = message;
+      box.className = `auto-settlement-box ${cls || ''}`.trim();
+      return;
+    }
+    const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
+    const mode = autoCurrentMode();
+    const bets = store[autoBetBucketKey(mode)] || [];
+    if (!bets.length) {
+      box.innerHTML = `自動結算：<b>${gameLabel ? gameLabel(mode) : mode}</b> 今日尚未登記下注。複製 10-14-15 或 10-10-19 立柱後會自動記住。`;
+      box.className = 'auto-settlement-box';
+      return;
+    }
+    const totalCost = bets.reduce((sum,b)=>sum + Number(b.cost || 0), 0);
+    const types = bets.map(b=>`${b.type}／${autoNormalizeStake(b.stake)}元`).join('、');
+    box.innerHTML = `自動結算：今日 <b>${gameLabel ? gameLabel(mode) : mode}</b> 已登記 <b>${bets.length} 組</b>（${types}），總成本 <b>${formatMoneyValue(totalCost)}</b> 元；等待輸入開獎號碼。`;
+    box.className = 'auto-settlement-box warn';
+  }
+
+  window.recordAutoSettlementBet = function(groups, label = '') {
+    const normalized = autoNormalizeGroups(groups);
+    const type = autoGroupType(normalized);
+    if (!type) return false;
+    const mode = autoCurrentMode();
+    const stake = autoCurrentStake();
+    const multiplier = stake / AUTO_DEFAULT_STAKE;
+    const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
+    const key = autoBetBucketKey(mode);
+    const list = Array.isArray(store[key]) ? store[key] : [];
+    list.push({
+      id: `bet_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      label: label || `第${list.length + 1}組`,
+      type,
+      groups: normalized,
+      cost: AUTO_GROUP_COSTS[type] * multiplier,
+      baseCost: AUTO_GROUP_COSTS[type],
+      stake,
+      copiedAt: new Date().toISOString()
+    });
+    store[key] = list;
+    autoWriteJson(AUTO_BET_STORAGE_KEY, store);
+    autoRenderSettlementStatus();
+    return true;
+  };
+
+  function autoWeeklyFieldForMode(mode) {
+    return mode === 'dayday' ? 'morning' : mode === '539' ? 'night' : mode === 'blt' ? 'blt' : mode === 'six' ? 'six' : '';
+  }
+
+  window.autoSettlePillarBets = function(mode, drawNums, drawDate = '') {
+    try {
+      const draw = [...new Set((drawNums || []).map(Number).filter(Number.isFinite))];
+      if (!draw.length) return null;
+      const dateKey = autoTodayKey();
+      const bucketKey = autoBetBucketKey(mode, dateKey);
+      const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
+      const bets = Array.isArray(store[bucketKey]) ? store[bucketKey] : [];
+      if (!bets.length) return null;
+      const drawKey = `${mode}|${draw.slice().sort((a,b)=>a-b).join('-')}|${drawDate || dateKey}`;
+      const settled = autoReadJson(AUTO_SETTLED_STORAGE_KEY, {});
+      if (settled[drawKey]) return settled[drawKey];
+      const drawSet = new Set(draw);
+      const details = bets.map((bet, idx) => {
+        const hits = (bet.groups || []).slice(0,3).map(g => (g || []).filter(n => drawSet.has(Number(n))).length);
+        const threeStarHits = hits.length === 3 ? hits[0] * hits[1] * hits[2] : 0;
+        const stake = autoNormalizeStake(bet.stake || AUTO_DEFAULT_STAKE);
+        const multiplier = stake / AUTO_DEFAULT_STAKE;
+        const prize = threeStarHits * AUTO_PRIZE_PER_3STAR * multiplier;
+        const cost = Number.isFinite(Number(bet.cost)) ? Number(bet.cost) : Number(AUTO_GROUP_COSTS[bet.type] || 0) * multiplier;
+        return { label: bet.label || `第${idx+1}組`, type: bet.type, stake, hits, threeStarHits, prize, cost, profit: prize - cost };
+      });
+      const totalPrize = details.reduce((s,x)=>s+x.prize,0);
+      const totalCost = details.reduce((s,x)=>s+x.cost,0);
+      const profit = totalPrize - totalCost;
+      const field = autoWeeklyFieldForMode(mode);
+      if (field) {
+        const data = loadWeeklyCalcData();
+        const todayIdx = getTodayWeeklyIndex();
+        data[todayIdx][field] = String(profit);
+        saveWeeklyCalcData(data);
+        updateWeeklyCalcTotals();
+        try { recordProfitHistorySnapshot(); } catch (e) {}
+      }
+      const result = { drawKey, mode, draw, drawDate, details, totalPrize, totalCost, profit, settledAt: new Date().toISOString() };
+      settled[drawKey] = result;
+      autoWriteJson(AUTO_SETTLED_STORAGE_KEY, settled);
+      delete store[bucketKey];
+      autoWriteJson(AUTO_BET_STORAGE_KEY, store);
+      const detailText = details.map(x => `${x.label} ${x.type}（${x.stake}元）：${x.hits.join('+')}＝${x.threeStarHits}碰`).join('；');
+      autoRenderSettlementStatus(`已自動結算 <b>${gameLabel ? gameLabel(mode) : mode}</b>：${detailText}<br>獎金 <b>${formatMoneyValue(totalPrize)}</b>－成本 <b>${formatMoneyValue(totalCost)}</b>＝損益 <b>${formatMoneyValue(profit)}</b> 元，已寫入每日結算損益。`, profit >= 0 ? 'ok' : 'warn');
+      return result;
+    } catch (e) {
+      console.warn('auto settlement failed', e);
+      return null;
+    }
+  };
+
   function renderWeeklyCalcTable() {
     if (!weeklyCalcBody) return;
     const data = loadWeeklyCalcData();
@@ -2241,6 +2424,8 @@
     if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}。`;
     applyWeeklyViewMode();
     updateWeeklyCalcTotals();
+    try { autoInitStakeControl(); } catch (e) {}
+    try { autoRenderSettlementStatus(); } catch (e) {}
   }
 
   function applyWeeklyViewMode() {
@@ -7906,7 +8091,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
-  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); addRecordToDb(nums, newDrawDate.value, modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
+  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); if (typeof window.autoSettlePillarBets === 'function') window.autoSettlePillarBets(modeBeforeAdd, nums, newDrawDate.value); addRecordToDb(nums, newDrawDate.value, modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
 
   if (copyLatestXDrawsBtn) copyLatestXDrawsBtn.addEventListener('click', copyLatestXDraws);
@@ -12818,6 +13003,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       ? groups.map(g => (g || []).map(pad2).join(',')).join('+')
       : exportText(groups);
     await copyTextSmart(text, `第 ${index + 1} 組已複製`);
+    if (typeof window.recordAutoSettlementBet === 'function') window.recordAutoSettlementBet(groups, `${labelPrefix || ''}第${index + 1}組`);
   }
 
   function addGroupToFirstPillarCheck(items, rawIndex) {
@@ -14591,6 +14777,11 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       const text = [firstGroupText, secondGroupText, thirdGroupText].filter(Boolean).join('\n\n');
       try {
         await copyText(text);
+        if (typeof window.recordAutoSettlementBet === 'function') {
+          window.recordAutoSettlementBet(groups[a]?.pillars || [], `比對第${a + 1}組`);
+          window.recordAutoSettlementBet(groups[b]?.pillars || [], `比對第${b + 1}組`);
+          window.recordAutoSettlementBet(dGroups, 'D組');
+        }
         copyDBtn.textContent = '✓ 已複製三組立柱';
         copyDBtn.classList.add('copied');
         setTimeout(() => {
@@ -14621,6 +14812,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       }
       try {
         await copyText(dGroups.map(fmtComma).join('+'));
+        if (typeof window.recordAutoSettlementBet === 'function') window.recordAutoSettlementBet(dGroups, 'D組');
         applyBtn.textContent = '✓ 已套用並複製D組';
         applyBtn.classList.add('copied');
         setTimeout(() => {
@@ -14642,6 +14834,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const originalText = btn.textContent;
     try {
       await copyText(group.raw);
+      if (typeof window.recordAutoSettlementBet === 'function') window.recordAutoSettlementBet(group.pillars || [], `比對第${index + 1}組`);
       btn.textContent = `✓ 已複製第${index + 1}組`;
       btn.classList.add('copied');
       setTimeout(() => {
@@ -14684,6 +14877,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const before=readList(item.mode);
     const exists=before.some(r=>sameNums(r.nums,item.nums));
     if(exists)return {added:false,before:before.length,after:before.length};
+    try{if(typeof window.autoSettlePillarBets==='function')window.autoSettlePillarBets(item.mode,item.nums,item.date||item.issue||'');}catch(e){}
     const record={id:'d_auto_'+Date.now()+'_'+item.mode,date:String(item.date||item.issue||''),nums:item.nums.map(Number),createdAt:Date.now()};
     before.unshift(record);
     localStorage.setItem(DB_PREFIX+item.mode,JSON.stringify(before));
