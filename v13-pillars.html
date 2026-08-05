@@ -1484,6 +1484,8 @@
 @media(max-width:768px){
   .t0-auto-search-actions{grid-template-columns:1fr;}
 }
+.auto-settlement-actions{display:flex;justify-content:flex-end;margin:9px 0 2px;}
+.auto-settlement-actions .btn{width:auto;padding:9px 12px;font-size:13px;}
 
 </style>
 </head>
@@ -1506,6 +1508,9 @@
         <div class="auto-stake-note">預設 10 元。每次複製立柱時，會把當下金額一起保存；之後再改金額，不會影響已登記的組別。成本與三星獎金都按「下注金額 ÷ 10」同比例計算。</div>
       </div>
       <div id="autoSettlementStatus" class="auto-settlement-box">自動結算：尚未登記今日下注。複製 10-14-15 或 10-10-19 立柱後，系統會記住；新增開獎號碼時自動結算並寫入本表。</div>
+      <div class="auto-settlement-actions">
+        <button class="btn btn-danger" id="clearTodayAutoBetsBtn" type="button">清除今日下注號碼</button>
+      </div>
       <div class="weekly-summary-grid">
         <div class="weekly-summary-box">
           <div class="weekly-summary-title" id="weeklyTodayMorningLabel">今日天天樂損益</div>
@@ -1623,7 +1628,7 @@
             <div class="auto-draw-row">
               <div>
                 <div class="field-label" style="color:#7dd3fc;margin-bottom:3px;">自動取得最新開獎號碼</div>
-                <div class="auto-draw-status" id="autoDrawStatus">固定排程：天天樂每天 09:50 首次檢查，若無最新期則每 5 分鐘重查，最多重複 28 次（至 12:10）；539 每天 20:40 檢查。</div>
+                <div class="auto-draw-status" id="autoDrawStatus">固定排程：天天樂每天 09:50 首次檢查，若無最新期則每 5 分鐘重查，最多重複 28 次（至 12:10）；539 每天 20:35 首次檢查，之後每 2 分鐘檢查，共 10 次（至 20:53）。</div>
               </div>
               <button class="btn btn-secondary" id="autoUpdateDrawBtn" type="button" onclick="window.autoDrawStandalone(event)">更新539＋天天樂</button>
             </div>
@@ -2322,6 +2327,10 @@
     box.className = 'auto-settlement-box warn';
   }
 
+  function autoBetSignature(groups) {
+    return autoNormalizeGroups(groups).map(g => g.join(',')).join('+');
+  }
+
   window.recordAutoSettlementBet = function(groups, label = '') {
     const normalized = autoNormalizeGroups(groups);
     const type = autoGroupType(normalized);
@@ -2332,11 +2341,18 @@
     const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
     const key = autoBetBucketKey(mode);
     const list = Array.isArray(store[key]) ? store[key] : [];
+    const signature = autoBetSignature(normalized);
+    const duplicated = list.some(b => (b.signature || autoBetSignature(b.groups || [])) === signature);
+    if (duplicated) {
+      autoRenderSettlementStatus(`重複複製已忽略：<b>${gameLabel ? gameLabel(mode) : mode}</b> 這組立柱今天已登記，不會重複計入成本。`, 'warn');
+      return false;
+    }
     list.push({
       id: `bet_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       label: label || `第${list.length + 1}組`,
       type,
       groups: normalized,
+      signature,
       cost: AUTO_GROUP_COSTS[type] * multiplier,
       baseCost: AUTO_GROUP_COSTS[type],
       stake,
@@ -2345,6 +2361,22 @@
     store[key] = list;
     autoWriteJson(AUTO_BET_STORAGE_KEY, store);
     autoRenderSettlementStatus();
+    return true;
+  };
+
+  window.clearTodayAutoSettlementBets = function() {
+    const mode = autoCurrentMode();
+    const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
+    const key = autoBetBucketKey(mode);
+    const list = Array.isArray(store[key]) ? store[key] : [];
+    if (!list.length) {
+      autoRenderSettlementStatus(`自動結算：<b>${gameLabel ? gameLabel(mode) : mode}</b> 今日沒有可清除的下注號碼。`, '');
+      return false;
+    }
+    if (!confirm(`確定清除今日 ${gameLabel ? gameLabel(mode) : mode} 已登記的 ${list.length} 組下注號碼？\n清除後不會自動結算這些組別。`)) return false;
+    delete store[key];
+    autoWriteJson(AUTO_BET_STORAGE_KEY, store);
+    autoRenderSettlementStatus(`已清除今日 <b>${gameLabel ? gameLabel(mode) : mode}</b> 的 ${list.length} 組下注號碼。`, 'ok');
     return true;
   };
 
@@ -2399,6 +2431,9 @@
       return null;
     }
   };
+
+  const clearTodayAutoBetsBtn = document.getElementById('clearTodayAutoBetsBtn');
+  if (clearTodayAutoBetsBtn) clearTodayAutoBetsBtn.addEventListener('click', () => window.clearTodayAutoSettlementBets());
 
   function renderWeeklyCalcTable() {
     if (!weeklyCalcBody) return;
@@ -14981,10 +15016,10 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
   // 固定自動檢查排程（依裝置本地時間）
   const AUTO_SCHEDULES={
     dayday:{hour:9,minute:50,label:'天天樂',retryMinutes:5,maxRetries:28},
-    '539':{hour:20,minute:40,label:'539',retryMinutes:0,maxRetries:0}
+    '539':{hour:20,minute:35,label:'539',retryMinutes:2,maxRetries:9}
   };
-  const AUTO_SCHEDULE_LAST_PREFIX='pillar_auto_schedule_last_v2_';
-  const AUTO_SCHEDULE_STATE_PREFIX='pillar_auto_schedule_state_v2_';
+  const AUTO_SCHEDULE_LAST_PREFIX='pillar_auto_schedule_last_v3_';
+  const AUTO_SCHEDULE_STATE_PREFIX='pillar_auto_schedule_state_v3_';
   function localDateKey(d=new Date()){
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   }
