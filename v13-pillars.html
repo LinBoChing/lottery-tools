@@ -1623,7 +1623,7 @@
             <div class="auto-draw-row">
               <div>
                 <div class="field-label" style="color:#7dd3fc;margin-bottom:3px;">自動取得最新開獎號碼</div>
-                <div class="auto-draw-status" id="autoDrawStatus">從本站 latest-draws.json 讀取；由 GitHub Actions 在背景更新，不再由手機直接抓外站。</div>
+                <div class="auto-draw-status" id="autoDrawStatus">固定排程：天天樂每天 10:10、539 每天 20:40（依裝置時間）。網站開著會到點檢查；錯過時間後再開啟會補查。</div>
               </div>
               <button class="btn btn-secondary" id="autoUpdateDrawBtn" type="button" onclick="window.autoDrawStandalone(event)">更新539＋天天樂</button>
             </div>
@@ -14939,32 +14939,65 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     }
     throw new Error('找不到可用的 latest-draws.json；'+tried.join('；'));
   }
-  window.autoDrawStandalone=async function(ev){
+  let scheduledAutoDrawBusy=false;
+  window.autoDrawStandalone=async function(ev,requestedMode='all'){
     if(ev&&ev.preventDefault)ev.preventDefault();
-    if(!btn)return false;
-    btn.disabled=true;btn.textContent='正在讀取…';show('正在讀取本站 latest-draws.json…','busy');
+    if(!btn||scheduledAutoDrawBusy)return false;
+    scheduledAutoDrawBusy=true;
+    btn.disabled=true;btn.textContent='正在讀取…';
+    const targetLabel=requestedMode==='dayday'?'天天樂':requestedMode==='539'?'539':'539＋天天樂';
+    show('正在依排程檢查 '+targetLabel+' 最新開獎…','busy');
     try{
       const data=await loadFeed();
-      const rows=[['539',data.games['539']],['天天樂',data.games.dayday]];
+      const allRows=[['539',data.games['539']],['天天樂',data.games.dayday]];
+      const rows=requestedMode==='all'?allRows:allRows.filter(([name])=>(requestedMode==='539'&&name==='539')||(requestedMode==='dayday'&&name==='天天樂'));
       const messages=[];let success=0;
       for(const [name,item0] of rows){
         try{
           if(!item0)throw new Error('JSON內沒有此彩種');
           const item={...item0,mode:name==='539'?'539':'dayday'};
           const w=insert(item);success++;
-          messages.push(name+(w.added?'已寫入':'已是最新')+'：'+(item.date||item.issue||'')+'｜'+fmt(item.nums)+'｜資料庫 '+w.before+'→'+w.after+' 筆');
+          messages.push(name+(w.added?'已寫入並觸發結算':'已是最新')+'：'+(item.date||item.issue||'')+'｜'+fmt(item.nums)+'｜資料庫 '+w.before+'→'+w.after+' 筆');
         }catch(e){messages.push(name+'失敗：'+(e.message||e));}
       }
       refreshUi();
       const updated=data.updated_at?('\n資料檔更新：'+data.updated_at):'';
       const feed=data.__feedUrl?('\n讀取位置：'+data.__feedUrl):'';
       show(messages.join('\n')+updated+feed,success?'ok':'err');
-    }catch(e){show('更新失敗：'+(e.message||e)+'。請先在 GitHub Actions 執行「Update lottery results」。','err');}
-    finally{btn.disabled=false;btn.textContent='更新539＋天天樂';}
-    return false;
+      return success>0;
+    }catch(e){show(targetLabel+' 更新失敗：'+(e.message||e)+'。請先在 GitHub Actions 執行「Update lottery results」。','err');return false;}
+    finally{scheduledAutoDrawBusy=false;btn.disabled=false;btn.textContent='更新539＋天天樂';}
   };
-  if(btn)btn.onclick=window.autoDrawStandalone;
-  if(checkbox){const k='pillar_auto_draw_on_open_v1';const saved=localStorage.getItem(k);checkbox.checked=saved===null?true:saved==='1';checkbox.onchange=()=>localStorage.setItem(k,checkbox.checked?'1':'0');if(checkbox.checked)setTimeout(()=>window.autoDrawStandalone(),1200);}
+  if(btn)btn.onclick=(ev)=>window.autoDrawStandalone(ev,'all');
+  if(checkbox){const k='pillar_auto_draw_on_open_v1';const saved=localStorage.getItem(k);checkbox.checked=saved===null?true:saved==='1';checkbox.onchange=()=>localStorage.setItem(k,checkbox.checked?'1':'0');if(checkbox.checked)setTimeout(()=>window.autoDrawStandalone(null,'all'),1200);}
+
+  // 固定自動檢查排程（依裝置本地時間）
+  const AUTO_SCHEDULES={
+    dayday:{hour:10,minute:10,label:'天天樂'},
+    '539':{hour:20,minute:40,label:'539'}
+  };
+  const AUTO_SCHEDULE_LAST_PREFIX='pillar_auto_schedule_last_v1_';
+  function localDateKey(d=new Date()){
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function isScheduleDue(mode,now=new Date()){
+    const cfg=AUTO_SCHEDULES[mode];
+    if(!cfg)return false;
+    const scheduled=new Date(now.getFullYear(),now.getMonth(),now.getDate(),cfg.hour,cfg.minute,0,0);
+    return now>=scheduled&&localStorage.getItem(AUTO_SCHEDULE_LAST_PREFIX+mode)!==localDateKey(now);
+  }
+  async function runScheduledMode(mode){
+    if(!isScheduleDue(mode)||scheduledAutoDrawBusy)return;
+    // 先標記今日已執行，避免網路失敗時每分鐘連續重複轟炸；手動按鈕仍可再次檢查。
+    localStorage.setItem(AUTO_SCHEDULE_LAST_PREFIX+mode,localDateKey());
+    await window.autoDrawStandalone(null,mode);
+  }
+  function checkFixedAutoDrawSchedules(){
+    runScheduledMode('dayday');
+    setTimeout(()=>runScheduledMode('539'),1500);
+  }
+  setTimeout(checkFixedAutoDrawSchedules,2500);
+  setInterval(checkFixedAutoDrawSchedules,30000);
 })();
 </script>
 
