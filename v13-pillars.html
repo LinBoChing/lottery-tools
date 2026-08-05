@@ -1623,7 +1623,7 @@
             <div class="auto-draw-row">
               <div>
                 <div class="field-label" style="color:#7dd3fc;margin-bottom:3px;">自動取得最新開獎號碼</div>
-                <div class="auto-draw-status" id="autoDrawStatus">固定排程：天天樂每天 10:10、539 每天 20:40（依裝置時間）。網站開著會到點檢查；錯過時間後再開啟會補查。</div>
+                <div class="auto-draw-status" id="autoDrawStatus">固定排程：天天樂每天 09:50 首次檢查，若無最新期則每 5 分鐘重查，最多重複 28 次（至 12:10）；539 每天 20:40 檢查。</div>
               </div>
               <button class="btn btn-secondary" id="autoUpdateDrawBtn" type="button" onclick="window.autoDrawStandalone(event)">更新539＋天天樂</button>
             </div>
@@ -14964,8 +14964,15 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       const updated=data.updated_at?('\n資料檔更新：'+data.updated_at):'';
       const feed=data.__feedUrl?('\n讀取位置：'+data.__feedUrl):'';
       show(messages.join('\n')+updated+feed,success?'ok':'err');
-      return success>0;
-    }catch(e){show(targetLabel+' 更新失敗：'+(e.message||e)+'。請先在 GitHub Actions 執行「Update lottery results」。','err');return false;}
+      const addedByMode={};
+      for(const [name,item0] of rows){
+        if(!item0)continue;
+        const mode=name==='539'?'539':'dayday';
+        const list=readList(mode);
+        addedByMode[mode]=list.some(r=>sameNums(r.nums,item0.nums));
+      }
+      return {ok:success>0,addedByMode,data,messages};
+    }catch(e){show(targetLabel+' 更新失敗：'+(e.message||e)+'。請先在 GitHub Actions 執行「Update lottery results」。','err');return {ok:false,addedByMode:{},error:e};}
     finally{scheduledAutoDrawBusy=false;btn.disabled=false;btn.textContent='更新539＋天天樂';}
   };
   if(btn)btn.onclick=(ev)=>window.autoDrawStandalone(ev,'all');
@@ -14973,24 +14980,85 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 
   // 固定自動檢查排程（依裝置本地時間）
   const AUTO_SCHEDULES={
-    dayday:{hour:10,minute:10,label:'天天樂'},
-    '539':{hour:20,minute:40,label:'539'}
+    dayday:{hour:9,minute:50,label:'天天樂',retryMinutes:5,maxRetries:28},
+    '539':{hour:20,minute:40,label:'539',retryMinutes:0,maxRetries:0}
   };
-  const AUTO_SCHEDULE_LAST_PREFIX='pillar_auto_schedule_last_v1_';
+  const AUTO_SCHEDULE_LAST_PREFIX='pillar_auto_schedule_last_v2_';
+  const AUTO_SCHEDULE_STATE_PREFIX='pillar_auto_schedule_state_v2_';
   function localDateKey(d=new Date()){
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   }
+  function normalizeDateKey(v){
+    const m=String(v||'').match(/(20\d{2})[^0-9]?(\d{1,2})[^0-9]?(\d{1,2})/);
+    return m?m[1]+'-'+String(Number(m[2])).padStart(2,'0')+'-'+String(Number(m[3])).padStart(2,'0'):'';
+  }
+  function hasTodayDraw(mode,now=new Date()){
+    const today=localDateKey(now);
+    return readList(mode).some(r=>normalizeDateKey(r.date)===today);
+  }
+  function loadScheduleState(mode,now=new Date()){
+    const key=AUTO_SCHEDULE_STATE_PREFIX+mode;
+    try{
+      const state=JSON.parse(localStorage.getItem(key)||'null');
+      if(state&&state.date===localDateKey(now))return state;
+    }catch(e){}
+    return {date:localDateKey(now),attempts:0,nextAt:0,complete:false};
+  }
+  function saveScheduleState(mode,state){
+    localStorage.setItem(AUTO_SCHEDULE_STATE_PREFIX+mode,JSON.stringify(state));
+  }
+  function scheduledTime(mode,now=new Date()){
+    const cfg=AUTO_SCHEDULES[mode];
+    return new Date(now.getFullYear(),now.getMonth(),now.getDate(),cfg.hour,cfg.minute,0,0).getTime();
+  }
   function isScheduleDue(mode,now=new Date()){
     const cfg=AUTO_SCHEDULES[mode];
-    if(!cfg)return false;
-    const scheduled=new Date(now.getFullYear(),now.getMonth(),now.getDate(),cfg.hour,cfg.minute,0,0);
-    return now>=scheduled&&localStorage.getItem(AUTO_SCHEDULE_LAST_PREFIX+mode)!==localDateKey(now);
+    if(!cfg||now.getTime()<scheduledTime(mode,now))return false;
+    if(localStorage.getItem(AUTO_SCHEDULE_LAST_PREFIX+mode)===localDateKey(now))return false;
+    const state=loadScheduleState(mode,now);
+    if(state.complete)return false;
+    const maxAttempts=1+(cfg.maxRetries||0);
+    return state.attempts<maxAttempts&&now.getTime()>=(state.nextAt||scheduledTime(mode,now));
   }
   async function runScheduledMode(mode){
-    if(!isScheduleDue(mode)||scheduledAutoDrawBusy)return;
-    // 先標記今日已執行，避免網路失敗時每分鐘連續重複轟炸；手動按鈕仍可再次檢查。
-    localStorage.setItem(AUTO_SCHEDULE_LAST_PREFIX+mode,localDateKey());
-    await window.autoDrawStandalone(null,mode);
+    const now=new Date();
+    if(!isScheduleDue(mode,now)||scheduledAutoDrawBusy)return;
+    const cfg=AUTO_SCHEDULES[mode];
+    const state=loadScheduleState(mode,now);
+    state.attempts+=1;
+    state.nextAt=Date.now()+Math.max(0,cfg.retryMinutes||0)*60000;
+    saveScheduleState(mode,state);
+
+    const maxAttempts=1+(cfg.maxRetries||0);
+    show(cfg.label+'排程檢查第 '+state.attempts+'/'+maxAttempts+' 次…','busy');
+    const result=await window.autoDrawStandalone(null,mode);
+
+    // 新一期已存在於資料庫（本次新增，或開啟網站時先行補入）才視為完成。
+    const feedItem=result&&result.data&&result.data.games
+      ? (mode==='dayday'?result.data.games.dayday:result.data.games['539'])
+      : null;
+    const latestIsInDb=!!(feedItem&&readList(mode).some(r=>sameNums(r.nums,feedItem.nums)));
+    const todayIsInDb=hasTodayDraw(mode,new Date());
+    const completed=latestIsInDb&&todayIsInDb;
+
+    if(completed){
+      state.complete=true;
+      saveScheduleState(mode,state);
+      localStorage.setItem(AUTO_SCHEDULE_LAST_PREFIX+mode,localDateKey());
+      show(cfg.label+'已取得今日最新一期，排程完成。\n'+((result&&result.messages)||[]).join('\n'),'ok');
+      return;
+    }
+
+    if(state.attempts>=maxAttempts){
+      state.complete=true;
+      saveScheduleState(mode,state);
+      localStorage.setItem(AUTO_SCHEDULE_LAST_PREFIX+mode,localDateKey());
+      show(cfg.label+'已完成 '+maxAttempts+' 次檢查，仍未取得今日最新一期。今天不再自動重試，仍可手動按更新。','err');
+      return;
+    }
+
+    const next=new Date(state.nextAt);
+    show(cfg.label+'目前仍無今日最新期；已完成第 '+state.attempts+'/'+maxAttempts+' 次檢查。\n下次重查：'+String(next.getHours()).padStart(2,'0')+':'+String(next.getMinutes()).padStart(2,'0'),'busy');
   }
   function checkFixedAutoDrawSchedules(){
     runScheduledMode('dayday');
