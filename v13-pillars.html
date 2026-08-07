@@ -2246,14 +2246,19 @@
   const AUTO_DEFAULT_STAKE = 10;
   const AUTO_PRIZE_PER_3STAR = 5700;
   const AUTO_GROUP_COSTS = { '10-14-15': 13125, '10-10-19': 11875 };
-  // 539 退水：實際成本為原成本的 99.92%（退水 0.08%）。
-  // 天天樂維持原算法，不套用此退水。
-  const AUTO_539_COST_RATE = 0.9992;
+  // 539 退水只在「有中三星獎金」時反映於淨獲利；倒牌仍輸原本完整成本。
+  // 天天樂維持原算法，不套用此調整。
+  const AUTO_539_WIN_COST_RATE = 0.9992;
 
-  function autoSettlementCost(type, stake, mode) {
+  function autoBaseSettlementCost(type, stake) {
     const multiplier = autoNormalizeStake(stake) / AUTO_DEFAULT_STAKE;
-    const baseCost = Number(AUTO_GROUP_COSTS[type] || 0) * multiplier;
-    return mode === '539' ? Math.round(baseCost * AUTO_539_COST_RATE * 100) / 100 : baseCost;
+    return Number(AUTO_GROUP_COSTS[type] || 0) * multiplier;
+  }
+
+  function autoSettlementCost(type, stake, mode, hasPrize = false) {
+    const baseCost = autoBaseSettlementCost(type, stake);
+    if (mode === '539' && hasPrize) return Math.round(baseCost * AUTO_539_WIN_COST_RATE * 100) / 100;
+    return baseCost;
   }
 
   function autoTodayKey() {
@@ -2362,7 +2367,7 @@
       type,
       groups: normalized,
       signature,
-      cost: autoSettlementCost(type, stake, mode),
+      cost: autoSettlementCost(type, stake, mode, false),
       baseCost: AUTO_GROUP_COSTS[type],
       stake,
       copiedAt: new Date().toISOString()
@@ -2412,8 +2417,8 @@
         const stake = autoNormalizeStake(bet.stake || AUTO_DEFAULT_STAKE);
         const multiplier = stake / AUTO_DEFAULT_STAKE;
         const prize = threeStarHits * AUTO_PRIZE_PER_3STAR * multiplier;
-        // 539 結算時依退水後成本即時計算，連修改前已登記的舊下注也能得到正確結果；天天樂維持原成本。
-        const cost = autoSettlementCost(bet.type, stake, mode);
+        // 539：有中獎時才套用退水後成本；若倒牌（三星獎金為0），仍扣原本完整成本。天天樂完全維持原算法。
+        const cost = autoSettlementCost(bet.type, stake, mode, prize > 0);
         return { label: bet.label || `第${idx+1}組`, type: bet.type, stake, hits, threeStarHits, prize, cost, profit: prize - cost };
       });
       const totalPrize = details.reduce((s,x)=>s+x.prize,0);
