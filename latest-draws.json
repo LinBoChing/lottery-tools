@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-07T01:02:21+00:00",
+  "updated_at": "2026-08-07T04:03:32+00:00",
   "games": {
     "539": {
       "date": "2026/08/06",
@@ -14,14 +14,14 @@
       "source": "https://www.pilio.idv.tw/lto539/list.asp"
     },
     "dayday": {
-      "date": "2026/08/06",
-      "issue": "11960",
+      "date": "2026/08/07",
+      "issue": "11961",
       "nums": [
-        4,
-        10,
-        35,
-        37,
-        39
+        8,
+        17,
+        28,
+        32,
+        34
       ],
       "source": "https://www.calottery.com/en/draw-games/fantasy-5"
     }
