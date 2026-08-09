@@ -1,38 +1,86 @@
 #!/usr/bin/env python3
-import json, re
-from datetime import datetime, timedelta, timezone
+
+import json
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
+
 from bs4 import BeautifulSoup
 
-OUT = Path("latest-draws.json")
-HIST = {
+
+# ============================================================
+# 固定檔案
+# ============================================================
+
+OUTPUT_FILE = Path("latest-draws.json")
+
+HISTORY_FILES = {
     "539": Path("history-539.json"),
-    "dayday": Path("history-dayday.json")
+    "dayday": Path("history-dayday.json"),
 }
+
+MAX_HISTORY_DRAWS = 500
+
+
+# ============================================================
+# 唯一資料來源
+# ============================================================
+
+# 今彩539：唯一來源
+URL_539 = "https://www.lotto-8.com/listlto539bbk.asp"
+
+# 加州天天樂：唯一來源
+URL_DAYDAY = "https://sc888.net/index.php?s=/LotteryFan/index"
+
 
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) "
-    "AppleWebKit/537.36 Chrome/131 Safari/537.36"
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0 Safari/537.36"
 )
 
 
-def fetch(url):
-    req = Request(url, headers={
-        "User-Agent": UA,
-        "Accept": "text/html,application/xhtml+xml,application/json,*/*",
-        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-    })
+# ============================================================
+# 基本抓取
+# ============================================================
 
-    with urlopen(req, timeout=40) as r:
-        raw = r.read()
-        enc = r.headers.get_content_charset() or "utf-8"
-        return raw.decode(enc, errors="ignore")
+def fetch(url: str) -> str:
+    req = Request(
+        url,
+        headers={
+            "User-Agent": UA,
+            "Accept": "text/html,application/xhtml+xml,*/*",
+            "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        },
+    )
+
+    with urlopen(req, timeout=35) as response:
+        status = getattr(response, "status", 200)
+
+        if status != 200:
+            raise RuntimeError(f"HTTP {status}: {url}")
+
+        raw = response.read()
+
+        charset = (
+            response.headers.get_content_charset()
+            or "utf-8"
+        )
+
+        try:
+            return raw.decode(charset, errors="ignore")
+        except LookupError:
+            return raw.decode("utf-8", errors="ignore")
 
 
-def valid(nums):
+# ============================================================
+# 共用驗證
+# ============================================================
+
+def valid_nums(nums) -> bool:
     return (
         isinstance(nums, list)
         and len(nums) == 5
@@ -45,762 +93,727 @@ def valid(nums):
     )
 
 
-def norm_date(s):
-    s = re.sub(r"\s+", " ", str(s)).strip()
-
-    for f in (
+def validate_recent_date(date_text: str) -> None:
+    parsed = datetime.strptime(
+        date_text,
         "%Y/%m/%d",
-        "%Y-%m-%d",
-        "%m/%d/%Y",
-        "%B %d, %Y",
-        "%b %d, %Y",
-    ):
-        try:
-            return datetime.strptime(
-                s, f
-            ).strftime("%Y/%m/%d")
-        except ValueError:
-            pass
-
-    m = re.search(
-        r"(20\d{2})[/-](\d{1,2})[/-](\d{1,2})",
-        s
     )
 
-    if m:
-        y, mo, d = map(int, m.groups())
-        return f"{y:04d}/{mo:02d}/{d:02d}"
-
-    m = re.search(
-        r"([A-Za-z]+)\s+(\d{1,2}),?\s+(20\d{2})",
-        s
-    )
-
-    if m:
-        mon, d, y = m.groups()
-
-        for f in (
-            "%B %d %Y",
-            "%b %d %Y"
-        ):
-            try:
-                return datetime.strptime(
-                    f"{mon} {d} {y}", f
-                ).strftime("%Y/%m/%d")
-            except ValueError:
-                pass
-
-    raise RuntimeError(
-        f"無法辨識日期：{s}"
-    )
+    if parsed.year < 2020:
+        raise RuntimeError(
+            f"日期年份異常：{date_text}"
+        )
 
 
-def five_comma(text):
-    m = re.search(
-        r"(?<!\d)(0?[1-9]|[12]\d|3[0-9])\s*[,，]\s*"
-        r"(0?[1-9]|[12]\d|3[0-9])\s*[,，]\s*"
-        r"(0?[1-9]|[12]\d|3[0-9])\s*[,，]\s*"
-        r"(0?[1-9]|[12]\d|3[0-9])\s*[,，]\s*"
-        r"(0?[1-9]|[12]\d|3[0-9])(?!\d)",
-        text
-    )
+def valid_game(game) -> bool:
 
-    nums = (
-        [int(x) for x in m.groups()]
-        if m else []
-    )
+    if not isinstance(game, dict):
+        return False
 
-    return nums if valid(nums) else []
+    date = str(
+        game.get("date", "")
+    ).strip()
+
+    nums = game.get("nums")
+
+    if not date:
+        return False
+
+    if not valid_nums(nums):
+        return False
+
+    try:
+        validate_recent_date(date)
+    except Exception:
+        return False
+
+    return True
 
 
-# =========================================================
+# ============================================================
 # 539
-# =========================================================
+# lotto-8.com 唯一來源
+# ============================================================
 
-def pilio_date(text):
-    m = re.search(
-        r"(?<!\d)(\d{1,2})/(\d{1,2})\s+"
-        r"(\d{2})(?:\([^)]*\))?",
-        text
-    )
+def fetch_539() -> dict:
 
-    if m:
-        mo, d, yy = map(int, m.groups())
+    html = fetch(URL_539)
 
-        return (
-            f"{2000 + yy:04d}/"
-            f"{mo:02d}/{d:02d}"
-        )
-
-    m = re.search(
-        r"(20\d{2})[/-]"
-        r"(\d{1,2})[/-](\d{1,2})",
-        text
-    )
-
-    if m:
-        y, mo, d = map(int, m.groups())
-        return f"{y:04d}/{mo:02d}/{d:02d}"
-
-    m = re.search(
-        r"(?<!\d)(1\d{2})[/-]"
-        r"(\d{1,2})[/-](\d{1,2})(?!\d)",
-        text
-    )
-
-    if m:
-        y, mo, d = map(int, m.groups())
-
-        return (
-            f"{1911 + y:04d}/"
-            f"{mo:02d}/{d:02d}"
-        )
-
-    raise RuntimeError(
-        "Pilio 找不到日期"
-    )
-
-
-def parse_pilio(url):
     soup = BeautifulSoup(
-        fetch(url), "lxml"
+        html,
+        "lxml",
     )
 
-    rows = []
+    candidates = []
+
+    # --------------------------------------------------------
+    # 先從表格逐列找
+    # --------------------------------------------------------
 
     for tr in soup.find_all("tr"):
 
-        text = " | ".join(
+        cells = [
             re.sub(
                 r"\s+",
                 " ",
-                c.get_text(" ", strip=True)
+                cell.get_text(
+                    " ",
+                    strip=True,
+                ),
             )
-            for c in tr.find_all(
+            for cell in tr.find_all(
                 ["td", "th"]
             )
-        )
+        ]
 
-        nums = five_comma(text)
-
-        if not valid(nums):
+        if not cells:
             continue
 
+        line = " | ".join(cells)
+
+        # ----------------------------------------------------
+        # 日期格式：
+        # 2026 08/08
+        # 或
+        # 2026 08/08 (六)
+        # ----------------------------------------------------
+
+        date_match = re.search(
+            r"\b(20\d{2})\s+"
+            r"(\d{1,2})/"
+            r"(\d{1,2})\b",
+            line,
+        )
+
+        if not date_match:
+            continue
+
+        year = int(
+            date_match.group(1)
+        )
+
+        month = int(
+            date_match.group(2)
+        )
+
+        day = int(
+            date_match.group(3)
+        )
+
+        date = (
+            f"{year:04d}/"
+            f"{month:02d}/"
+            f"{day:02d}"
+        )
+
         try:
-            date = pilio_date(text)
+            validate_recent_date(date)
         except Exception:
             continue
 
-        rows.append({
-            "date": date,
-            "issue": "",
-            "nums": sorted(nums),
-            "source": url,
-        })
+        # ----------------------------------------------------
+        # 找五個開獎號碼
+        # lotto-8 格式：
+        # 05, 11, 24, 31, 32
+        # ----------------------------------------------------
 
-    if not rows:
-        raise RuntimeError(
-            "找不到539開獎列"
-        )
-
-    rows.sort(
-        key=lambda x: x["date"],
-        reverse=True
-    )
-
-    return rows[0]
-
-
-def fetch_539():
-    urls = [
-        "https://www.pilio.idv.tw/lto539/list.asp",
-        "https://www.pilio.idv.tw/lto539/drawlist/drawlist.asp?orderby=new",
-    ]
-
-    good = []
-    errors = []
-
-    for url in urls:
-        try:
-            r = parse_pilio(url)
-
-            good.append(r)
-
-            print(
-                "539來源成功:",
-                r["date"],
-                r["nums"],
-                url
-            )
-
-        except Exception as e:
-            errors.append(
-                f"{url}: {e}"
-            )
-
-            print(
-                "539來源失敗:",
-                url,
-                e
-            )
-
-    if not good:
-        raise RuntimeError(
-            "539全部來源失敗；"
-            + " | ".join(errors)
-        )
-
-    good.sort(
-        key=lambda x: x["date"],
-        reverse=True
-    )
-
-    return good[0]
-
-
-# =========================================================
-# 天天樂 Fantasy 5
-# =========================================================
-
-def balls(node):
-    vals = []
-
-    selectors = (
-        ".ball",
-        "[class*='ball']",
-        "[class*='winning-number']",
-        "[class*='draw-number']",
-        "[data-testid*='ball']",
-        "[aria-label*='ball']",
-    )
-
-    for sel in selectors:
-        for x in node.select(sel):
-
-            t = x.get_text(
-                " ",
-                strip=True
-            )
-
-            if re.fullmatch(
-                r"0?[1-9]|[12]\d|3[0-9]",
-                t
-            ):
-                n = int(t)
-
-                if n not in vals:
-                    vals.append(n)
-
-    return vals
-
-
-def parse_calottery():
-    url = (
-        "https://www.calottery.com/"
-        "en/draw-games/fantasy-5"
-    )
-
-    soup = BeautifulSoup(
-        fetch(url),
-        "lxml"
-    )
-
-    labels = soup.find_all(
-        string=lambda x: (
-            isinstance(x, str)
-            and "winning numbers"
-            in x.lower()
-        )
-    )
-
-    box = None
-
-    for label in labels:
-
-        node = label.parent
-
-        for _ in range(8):
-
-            if node is None:
-                break
-
-            text = re.sub(
-                r"\s+",
-                " ",
-                node.get_text(
-                    " ",
-                    strip=True
-                )
-            )
-
-            has_issue = re.search(
-                r"Draw\s*#\s*\d+",
-                text,
-                re.I
-            )
-
-            has_date = re.search(
-                r"(?:MON|TUE|WED|THU|FRI|SAT|SUN)"
-                r"/[A-Z]{3}\s+\d{1,2},\s+20\d{2}",
-                text,
-                re.I
-            )
-
-            if has_issue and has_date:
-                box = node
-                break
-
-            node = node.parent
-
-        if box is not None:
-            break
-
-    if box is None:
-        raise RuntimeError(
-            "官方頁找不到 Winning Numbers"
-        )
-
-    text = re.sub(
-        r"\s+",
-        " ",
-        box.get_text(
-            " ",
-            strip=True
-        )
-    )
-
-    dm = re.search(
-        r"(?:MON|TUE|WED|THU|FRI|SAT|SUN)"
-        r"/([A-Z]{3})\s+"
-        r"(\d{1,2}),\s+(20\d{2})",
-        text,
-        re.I
-    )
-
-    im = re.search(
-        r"Draw\s*#\s*(\d+)",
-        text,
-        re.I
-    )
-
-    if not dm or not im:
-        raise RuntimeError(
-            "官方頁找不到日期或期號"
-        )
-
-    mon, d, y = dm.groups()
-
-    ca = datetime.strptime(
-        f"{mon.title()} {d} {y}",
-        "%b %d %Y"
-    )
-
-    date = (
-        ca + timedelta(days=1)
-    ).strftime("%Y/%m/%d")
-
-    vals = balls(box)
-
-    nums = []
-
-    for i in range(
-        max(0, len(vals) - 4)
-    ):
-        c = vals[i:i + 5]
-
-        if valid(c):
-            nums = c
-            break
-
-    if not valid(nums):
-
-        after = text[im.end():]
-
-        vals = []
-
-        for v in re.findall(
+        nums_match = re.search(
             r"(?<!\d)"
             r"(0?[1-9]|[12]\d|3[0-9])"
+            r"\s*[,，]\s*"
+            r"(0?[1-9]|[12]\d|3[0-9])"
+            r"\s*[,，]\s*"
+            r"(0?[1-9]|[12]\d|3[0-9])"
+            r"\s*[,，]\s*"
+            r"(0?[1-9]|[12]\d|3[0-9])"
+            r"\s*[,，]\s*"
+            r"(0?[1-9]|[12]\d|3[0-9])"
             r"(?!\d)",
-            after
-        ):
-            n = int(v)
-
-            if n not in vals:
-                vals.append(n)
-
-        for i in range(
-            len(vals) - 5,
-            -1,
-            -1
-        ):
-            c = vals[i:i + 5]
-
-            if valid(c):
-                nums = c
-                break
-
-    if not valid(nums):
-        raise RuntimeError(
-            "官方頁球號解析失敗"
+            line,
         )
 
-    return {
-        "date": date,
-        "issue": im.group(1),
-        "nums": sorted(nums),
-        "source": url,
-    }
-
-
-def parse_lotteryusa():
-    url = (
-        "https://www.lotteryusa.com/"
-        "california/fantasy-5/year"
-    )
-
-    soup = BeautifulSoup(
-        fetch(url),
-        "lxml"
-    )
-
-    found = []
-
-    for node in soup.find_all(
-        [
-            "tr",
-            "article",
-            "li",
-            "section",
-            "div",
-        ]
-    ):
-
-        text = re.sub(
-            r"\s+",
-            " ",
-            node.get_text(
-                " ",
-                strip=True
-            )
-        )
-
-        dm = re.search(
-            r"(Monday|Tuesday|Wednesday|"
-            r"Thursday|Friday|Saturday|Sunday)"
-            r",?\s+"
-            r"([A-Za-z]+\s+\d{1,2},\s+20\d{2})",
-            text,
-            re.I
-        )
-
-        if not dm:
+        if not nums_match:
             continue
 
-        vals = balls(node)
+        nums = [
+            int(x)
+            for x in nums_match.groups()
+        ]
 
-        for i in range(
-            max(0, len(vals) - 4)
-        ):
+        if not valid_nums(nums):
+            continue
 
-            c = vals[i:i + 5]
-
-            if valid(c):
-
-                ca = datetime.strptime(
-                    norm_date(
-                        dm.group(2)
-                    ),
-                    "%Y/%m/%d"
-                )
-
-                date = (
-                    ca + timedelta(days=1)
-                ).strftime(
-                    "%Y/%m/%d"
-                )
-
-                found.append({
-                    "date": date,
-                    "issue": "",
-                    "nums": sorted(c),
-                    "source": url,
-                })
-
-                break
-
-    if not found:
-        raise RuntimeError(
-            "LotteryUSA 找不到資料"
+        candidates.append(
+            {
+                "date": date,
+                "issue": "",
+                "nums": sorted(nums),
+                "source": URL_539,
+            }
         )
 
-    found.sort(
-        key=lambda x: x["date"],
-        reverse=True
+    # --------------------------------------------------------
+    # 找不到就失敗
+    # 不使用任何其他網站
+    # --------------------------------------------------------
+
+    if not candidates:
+        raise RuntimeError(
+            "lotto-8 找不到539最新開獎資料"
+        )
+
+    # 日期最新的放前面
+    candidates.sort(
+        key=lambda x: datetime.strptime(
+            x["date"],
+            "%Y/%m/%d",
+        ),
+        reverse=True,
     )
 
-    return found[0]
+    latest = candidates[0]
+
+    print(
+        "539來源：lotto-8.com"
+    )
+
+    print(
+        "539抓取結果："
+        f"{latest['date']}｜"
+        + " ".join(
+            f"{n:02d}"
+            for n in latest["nums"]
+        )
+    )
+
+    return latest
 
 
-def fetch_dayday():
-    good = []
-    errors = []
+# ============================================================
+# 天天樂
+# SC888 唯一來源
+# ============================================================
 
-    for fn in (
-        parse_calottery,
-        parse_lotteryusa
-    ):
+def fetch_dayday() -> dict:
+
+    html = fetch(URL_DAYDAY)
+
+    soup = BeautifulSoup(
+        html,
+        "lxml",
+    )
+
+    candidates = []
+
+    # --------------------------------------------------------
+    # SC888 表格格式：
+    #
+    # 第 11963 期2026-08-09 星期日
+    # 05 11 14 27 33
+    # --------------------------------------------------------
+
+    for tr in soup.find_all("tr"):
+
+        cells = [
+            re.sub(
+                r"\s+",
+                " ",
+                cell.get_text(
+                    " ",
+                    strip=True,
+                ),
+            )
+            for cell in tr.find_all(
+                ["td", "th"]
+            )
+        ]
+
+        if len(cells) < 2:
+            continue
+
+        line = " | ".join(cells)
+
+        # ----------------------------------------------------
+        # 期號
+        # ----------------------------------------------------
+
+        issue_match = re.search(
+            r"第\s*(\d+)\s*期",
+            line,
+        )
+
+        if not issue_match:
+            continue
+
+        issue = issue_match.group(1)
+
+        # ----------------------------------------------------
+        # 日期
+        # ----------------------------------------------------
+
+        date_match = re.search(
+            r"(20\d{2})[-/]"
+            r"(\d{1,2})[-/]"
+            r"(\d{1,2})",
+            line,
+        )
+
+        if not date_match:
+            continue
+
+        year = int(
+            date_match.group(1)
+        )
+
+        month = int(
+            date_match.group(2)
+        )
+
+        day = int(
+            date_match.group(3)
+        )
+
+        date = (
+            f"{year:04d}/"
+            f"{month:02d}/"
+            f"{day:02d}"
+        )
 
         try:
-            r = fn()
+            validate_recent_date(date)
+        except Exception:
+            continue
 
-            if not valid(r["nums"]):
-                raise RuntimeError(
-                    "球號驗證失敗"
+        # ----------------------------------------------------
+        # 第二欄通常就是5個球號
+        # ----------------------------------------------------
+
+        nums = []
+
+        for cell in cells[1:]:
+
+            values = [
+                int(v)
+                for v in re.findall(
+                    r"(?<!\d)"
+                    r"(0?[1-9]|[12]\d|3[0-9])"
+                    r"(?!\d)",
+                    cell,
                 )
+            ]
 
-            good.append(r)
+            # 完整五個號碼的欄位
+            if (
+                len(values) == 5
+                and valid_nums(values)
+            ):
+                nums = values
+                break
 
-            print(
-                "天天樂來源成功:",
-                r["date"],
-                r["nums"],
-                r["source"]
-            )
+        if not valid_nums(nums):
+            continue
 
-        except Exception as e:
-
-            errors.append(
-                f"{fn.__name__}: {e}"
-            )
-
-            print(
-                "天天樂來源失敗:",
-                fn.__name__,
-                e
-            )
-
-    if not good:
-        raise RuntimeError(
-            "天天樂全部來源失敗；"
-            + " | ".join(errors)
+        candidates.append(
+            {
+                "date": date,
+                "issue": issue,
+                "nums": sorted(nums),
+                "source": URL_DAYDAY,
+            }
         )
 
-    good.sort(
-        key=lambda x: x["date"],
-        reverse=True
+    # --------------------------------------------------------
+    # 找不到就失敗
+    # 不使用加州官方
+    # 不使用 LotteryUSA
+    # --------------------------------------------------------
+
+    if not candidates:
+        raise RuntimeError(
+            "SC888 找不到天天樂最新開獎資料"
+        )
+
+    # --------------------------------------------------------
+    # 優先用期號判斷最新
+    # --------------------------------------------------------
+
+    candidates.sort(
+        key=lambda x: int(
+            x["issue"]
+        ),
+        reverse=True,
     )
 
-    return good[0]
+    latest = candidates[0]
+
+    print(
+        "天天樂來源：SC888"
+    )
+
+    print(
+        "天天樂抓取結果："
+        f"第{latest['issue']}期｜"
+        f"{latest['date']}｜"
+        + " ".join(
+            f"{n:02d}"
+            for n in latest["nums"]
+        )
+    )
+
+    return latest
 
 
-# =========================================================
-# JSON / 歷史資料
-# =========================================================
+# ============================================================
+# 舊 latest-draws.json
+# ============================================================
 
-def load_json(path, default):
+def load_old() -> dict:
+
+    if not OUTPUT_FILE.exists():
+        return {}
+
     try:
-        if not path.exists():
-            return default
-
         return json.loads(
+            OUTPUT_FILE.read_text(
+                encoding="utf-8"
+            )
+        )
+
+    except Exception:
+        return {}
+
+
+# ============================================================
+# 歷史資料
+# ============================================================
+
+def load_history(key: str) -> dict:
+
+    path = HISTORY_FILES[key]
+
+    if not path.exists():
+        return {
+            "game": key,
+            "updated_at": "",
+            "draws": [],
+        }
+
+    try:
+        data = json.loads(
             path.read_text(
                 encoding="utf-8"
             )
         )
 
     except Exception:
-        return default
 
-
-def game_ok(g):
-    return (
-        isinstance(g, dict)
-        and bool(g.get("date"))
-        and valid(g.get("nums"))
-    )
-
-
-def newer(new, old):
-    if not game_ok(old):
-        return new
-
-    if new["date"] >= old["date"]:
-        return new
-
-    return old
-
-
-def identity(key, d):
-    issue = str(
-        d.get("issue", "")
-    ).strip()
-
-    if key == "dayday" and issue:
-        return (
-            "issue",
-            issue
-        )
-
-    return (
-        "date_nums",
-        d.get("date", ""),
-        tuple(
-            d.get("nums", [])
-        )
-    )
-
-
-def update_history(
-    key,
-    latest,
-    updated_at
-):
-    data = load_json(
-        HIST[key],
-        {"draws": []}
-    )
+        return {
+            "game": key,
+            "updated_at": "",
+            "draws": [],
+        }
 
     if isinstance(data, list):
+
         draws = data
-    else:
+
+    elif isinstance(data, dict):
+
         draws = data.get(
             "draws",
-            []
+            [],
         )
 
+    else:
+
+        draws = []
+
+    if not isinstance(draws, list):
+        draws = []
+
+    valid_draws = []
+
+    for draw in draws:
+
+        if valid_game(draw):
+            valid_draws.append(draw)
+
+    return {
+        "game": key,
+        "updated_at": (
+            str(
+                data.get(
+                    "updated_at",
+                    "",
+                )
+            )
+            if isinstance(data, dict)
+            else ""
+        ),
+        "draws": valid_draws,
+    }
+
+
+# ============================================================
+# 防止重複
+# ============================================================
+
+def draw_identity(
+    key: str,
+    draw: dict,
+):
+
+    issue = str(
+        draw.get(
+            "issue",
+            "",
+        )
+    ).strip()
+
+    # 天天樂用期號去重
+    if key == "dayday" and issue:
+
+        return (
+            "issue",
+            issue,
+        )
+
+    # 539用日期+號碼去重
+    return (
+        "date_nums",
+        str(
+            draw.get(
+                "date",
+                "",
+            )
+        ).strip(),
+        tuple(
+            draw.get(
+                "nums",
+                [],
+            )
+        ),
+    )
+
+
+# ============================================================
+# 更新歷史資料
+# ============================================================
+
+def update_history(
+    key: str,
+    latest: dict,
+    updated_at: str,
+) -> None:
+
+    history = load_history(key)
+
+    existing = history.get(
+        "draws",
+        [],
+    )
+
     merged = [latest]
+
     seen = {
-        identity(
+        draw_identity(
             key,
-            latest
+            latest,
         )
     }
 
-    for d in draws:
+    for draw in existing:
 
-        if not game_ok(d):
+        identity = draw_identity(
+            key,
+            draw,
+        )
+
+        if identity in seen:
             continue
 
-        ident = identity(
-            key,
-            d
-        )
+        seen.add(identity)
 
-        if ident not in seen:
+        merged.append(draw)
 
-            seen.add(ident)
-            merged.append(d)
+    # --------------------------------------------------------
+    # 日期最新排前
+    # 同日期天天樂期號較大排前
+    # --------------------------------------------------------
 
-    def sorter(d):
+    def sort_key(draw):
 
-        issue = str(
-            d.get(
-                "issue",
-                ""
+        try:
+
+            date_value = datetime.strptime(
+                str(
+                    draw.get(
+                        "date",
+                        "",
+                    )
+                ),
+                "%Y/%m/%d",
             )
-        )
 
-        issue_num = (
-            int(issue)
-            if issue.isdigit()
+        except Exception:
+
+            date_value = datetime.min
+
+        issue_text = str(
+            draw.get(
+                "issue",
+                "",
+            )
+        ).strip()
+
+        issue_value = (
+            int(issue_text)
+            if issue_text.isdigit()
             else 0
         )
 
         return (
-            d.get(
-                "date",
-                ""
-            ),
-            issue_num
+            date_value,
+            issue_value,
         )
 
     merged.sort(
-        key=sorter,
-        reverse=True
+        key=sort_key,
+        reverse=True,
     )
 
-    merged = merged[:500]
+    merged = merged[
+        :MAX_HISTORY_DRAWS
+    ]
 
-    result = {
+    output = {
         "game": key,
         "updated_at": updated_at,
         "count": len(merged),
         "draws": merged,
     }
 
-    HIST[key].write_text(
+    HISTORY_FILES[key].write_text(
         json.dumps(
-            result,
+            output,
             ensure_ascii=False,
-            indent=2
-        ) + "\n",
-        encoding="utf-8"
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
     )
 
 
-# =========================================================
+# ============================================================
 # 主程式
-# =========================================================
+# ============================================================
 
 def main():
 
-    old = load_json(
-        OUT,
-        {}
+    print(
+        "======================================"
     )
 
-    old_games = (
-        old.get(
-            "games",
-            {}
-        )
-        if isinstance(old, dict)
-        else {}
+    print(
+        "開始更新開獎號碼"
+    )
+
+    print(
+        "539唯一來源：lotto-8.com"
+    )
+
+    print(
+        "天天樂唯一來源：SC888"
+    )
+
+    print(
+        "======================================"
+    )
+
+    old = load_old()
+
+    old_games = old.get(
+        "games",
+        {},
     )
 
     games = {}
+
     warnings = []
 
-    for key, getter in (
-        ("539", fetch_539),
-        ("dayday", fetch_dayday),
-    ):
+    getters = (
+        (
+            "539",
+            fetch_539,
+        ),
+        (
+            "dayday",
+            fetch_dayday,
+        ),
+    )
+
+    for key, getter in getters:
 
         try:
-            fetched = getter()
 
-            games[key] = newer(
-                fetched,
-                old_games.get(key)
-            )
+            result = getter()
 
-        except Exception as e:
+            if not valid_game(result):
 
-            warnings.append(
-                f"{key}: {e}"
-            )
-
-            if game_ok(
-                old_games.get(key)
-            ):
-
-                games[key] = (
-                    old_games[key]
+                raise RuntimeError(
+                    "最終資料驗證失敗"
                 )
 
+            games[key] = result
+
+        except Exception as exc:
+
+            warning = (
+                f"{key}: {exc}"
+            )
+
+            warnings.append(
+                warning
+            )
+
+            print(
+                "WARNING:",
+                warning,
+            )
+
+            # -----------------------------------------------
+            # 唯一來源失敗：
+            # 不抓其他網站。
+            # 只保留上次成功資料。
+            # -----------------------------------------------
+
+            old_game = old_games.get(
+                key
+            )
+
+            if valid_game(old_game):
+
+                games[key] = old_game
+
                 print(
-                    key,
-                    "抓取失敗，保留舊資料"
+                    f"{key}來源尚未更新或抓取失敗，"
+                    "保留原本最新資料"
                 )
 
             else:
-                raise
 
-    updated_at = datetime.now(
-        timezone.utc
-    ).isoformat(
-        timespec="seconds"
+                raise SystemExit(
+                    f"{key}抓取失敗，"
+                    "而且沒有舊資料可以保留"
+                )
+
+    # UTC時間
+    updated_at = (
+        datetime.now(
+            timezone.utc
+        ).isoformat(
+            timespec="seconds"
+        )
     )
 
     output = {
@@ -809,28 +822,50 @@ def main():
         "warnings": warnings,
     }
 
-    OUT.write_text(
+    # --------------------------------------------------------
+    # latest-draws.json
+    # --------------------------------------------------------
+
+    OUTPUT_FILE.write_text(
         json.dumps(
             output,
             ensure_ascii=False,
-            indent=2
-        ) + "\n",
-        encoding="utf-8"
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
     )
 
-    for key, g in games.items():
+    # --------------------------------------------------------
+    # 歷史資料
+    # --------------------------------------------------------
+
+    for key, game in games.items():
 
         update_history(
             key,
-            g,
-            updated_at
+            game,
+            updated_at,
         )
+
+        print(
+            f"{key}歷史資料已更新："
+            f"{HISTORY_FILES[key]}"
+        )
+
+    print(
+        "======================================"
+    )
+
+    print(
+        "本次更新完成"
+    )
 
     print(
         json.dumps(
             output,
             ensure_ascii=False,
-            indent=2
+            indent=2,
         )
     )
 
