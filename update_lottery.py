@@ -2,7 +2,8 @@
 
 import json
 import re
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -10,7 +11,7 @@ from bs4 import BeautifulSoup
 
 
 # ============================================================
-# 固定檔案
+# 基本設定
 # ============================================================
 
 OUTPUT_FILE = Path("latest-draws.json")
@@ -22,17 +23,13 @@ HISTORY_FILES = {
 
 MAX_HISTORY_DRAWS = 500
 
-
-# ============================================================
-# 唯一資料來源
-# ============================================================
-
-# 今彩539：唯一來源
 URL_539 = "https://www.lotto-8.com/listlto539bbk.asp"
-
-# 加州天天樂：唯一來源
 URL_DAYDAY = "https://sc888.net/index.php?s=/LotteryFan/index"
 
+POLL_SECONDS = 30
+MAX_POLL_MINUTES = 30
+
+TW_TZ = timezone(timedelta(hours=8))
 
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) "
@@ -42,7 +39,7 @@ UA = (
 
 
 # ============================================================
-# 基本抓取
+# 網頁抓取
 # ============================================================
 
 def fetch(url: str) -> str:
@@ -58,17 +55,9 @@ def fetch(url: str) -> str:
     )
 
     with urlopen(req, timeout=35) as response:
-        status = getattr(response, "status", 200)
-
-        if status != 200:
-            raise RuntimeError(f"HTTP {status}: {url}")
-
         raw = response.read()
 
-        charset = (
-            response.headers.get_content_charset()
-            or "utf-8"
-        )
+        charset = response.headers.get_content_charset() or "utf-8"
 
         try:
             return raw.decode(charset, errors="ignore")
@@ -77,10 +66,10 @@ def fetch(url: str) -> str:
 
 
 # ============================================================
-# 共用驗證
+# 驗證
 # ============================================================
 
-def valid_nums(nums) -> bool:
+def valid_nums(nums):
     return (
         isinstance(nums, list)
         and len(nums) == 5
@@ -93,37 +82,18 @@ def valid_nums(nums) -> bool:
     )
 
 
-def validate_recent_date(date_text: str) -> None:
-    parsed = datetime.strptime(
-        date_text,
-        "%Y/%m/%d",
-    )
-
-    if parsed.year < 2020:
-        raise RuntimeError(
-            f"日期年份異常：{date_text}"
-        )
-
-
-def valid_game(game) -> bool:
-
+def valid_game(game):
     if not isinstance(game, dict):
         return False
 
-    date = str(
-        game.get("date", "")
-    ).strip()
-
+    date = str(game.get("date", "")).strip()
     nums = game.get("nums")
 
-    if not date:
-        return False
-
-    if not valid_nums(nums):
+    if not date or not valid_nums(nums):
         return False
 
     try:
-        validate_recent_date(date)
+        datetime.strptime(date, "%Y/%m/%d")
     except Exception:
         return False
 
@@ -132,38 +102,23 @@ def valid_game(game) -> bool:
 
 # ============================================================
 # 539
-# lotto-8.com 唯一來源
+# 唯一來源 lotto-8.com
 # ============================================================
 
-def fetch_539() -> dict:
-
+def fetch_539():
     html = fetch(URL_539)
-
-    soup = BeautifulSoup(
-        html,
-        "lxml",
-    )
+    soup = BeautifulSoup(html, "lxml")
 
     candidates = []
 
-    # --------------------------------------------------------
-    # 先從表格逐列找
-    # --------------------------------------------------------
-
     for tr in soup.find_all("tr"):
-
         cells = [
             re.sub(
                 r"\s+",
                 " ",
-                cell.get_text(
-                    " ",
-                    strip=True,
-                ),
+                cell.get_text(" ", strip=True),
             )
-            for cell in tr.find_all(
-                ["td", "th"]
-            )
+            for cell in tr.find_all(["td", "th"])
         ]
 
         if not cells:
@@ -171,62 +126,24 @@ def fetch_539() -> dict:
 
         line = " | ".join(cells)
 
-        # ----------------------------------------------------
-        # 日期格式：
-        # 2026 08/08
-        # 或
-        # 2026 08/08 (六)
-        # ----------------------------------------------------
-
         date_match = re.search(
-            r"\b(20\d{2})\s+"
-            r"(\d{1,2})/"
-            r"(\d{1,2})\b",
+            r"\b(20\d{2})\s+(\d{1,2})/(\d{1,2})\b",
             line,
         )
 
         if not date_match:
             continue
 
-        year = int(
-            date_match.group(1)
-        )
+        year, month, day = map(int, date_match.groups())
 
-        month = int(
-            date_match.group(2)
-        )
-
-        day = int(
-            date_match.group(3)
-        )
-
-        date = (
-            f"{year:04d}/"
-            f"{month:02d}/"
-            f"{day:02d}"
-        )
-
-        try:
-            validate_recent_date(date)
-        except Exception:
-            continue
-
-        # ----------------------------------------------------
-        # 找五個開獎號碼
-        # lotto-8 格式：
-        # 05, 11, 24, 31, 32
-        # ----------------------------------------------------
+        date = f"{year:04d}/{month:02d}/{day:02d}"
 
         nums_match = re.search(
             r"(?<!\d)"
-            r"(0?[1-9]|[12]\d|3[0-9])"
-            r"\s*[,，]\s*"
-            r"(0?[1-9]|[12]\d|3[0-9])"
-            r"\s*[,，]\s*"
-            r"(0?[1-9]|[12]\d|3[0-9])"
-            r"\s*[,，]\s*"
-            r"(0?[1-9]|[12]\d|3[0-9])"
-            r"\s*[,，]\s*"
+            r"(0?[1-9]|[12]\d|3[0-9])\s*[,，]\s*"
+            r"(0?[1-9]|[12]\d|3[0-9])\s*[,，]\s*"
+            r"(0?[1-9]|[12]\d|3[0-9])\s*[,，]\s*"
+            r"(0?[1-9]|[12]\d|3[0-9])\s*[,，]\s*"
             r"(0?[1-9]|[12]\d|3[0-9])"
             r"(?!\d)",
             line,
@@ -235,34 +152,21 @@ def fetch_539() -> dict:
         if not nums_match:
             continue
 
-        nums = [
-            int(x)
-            for x in nums_match.groups()
-        ]
+        nums = [int(x) for x in nums_match.groups()]
 
         if not valid_nums(nums):
             continue
 
-        candidates.append(
-            {
-                "date": date,
-                "issue": "",
-                "nums": sorted(nums),
-                "source": URL_539,
-            }
-        )
-
-    # --------------------------------------------------------
-    # 找不到就失敗
-    # 不使用任何其他網站
-    # --------------------------------------------------------
+        candidates.append({
+            "date": date,
+            "issue": "",
+            "nums": sorted(nums),
+            "source": URL_539,
+        })
 
     if not candidates:
-        raise RuntimeError(
-            "lotto-8 找不到539最新開獎資料"
-        )
+        raise RuntimeError("lotto-8 找不到539資料")
 
-    # 日期最新的放前面
     candidates.sort(
         key=lambda x: datetime.strptime(
             x["date"],
@@ -271,61 +175,28 @@ def fetch_539() -> dict:
         reverse=True,
     )
 
-    latest = candidates[0]
-
-    print(
-        "539來源：lotto-8.com"
-    )
-
-    print(
-        "539抓取結果："
-        f"{latest['date']}｜"
-        + " ".join(
-            f"{n:02d}"
-            for n in latest["nums"]
-        )
-    )
-
-    return latest
+    return candidates[0]
 
 
 # ============================================================
 # 天天樂
-# SC888 唯一來源
+# 唯一來源 SC888
 # ============================================================
 
-def fetch_dayday() -> dict:
-
+def fetch_dayday():
     html = fetch(URL_DAYDAY)
-
-    soup = BeautifulSoup(
-        html,
-        "lxml",
-    )
+    soup = BeautifulSoup(html, "lxml")
 
     candidates = []
 
-    # --------------------------------------------------------
-    # SC888 表格格式：
-    #
-    # 第 11963 期2026-08-09 星期日
-    # 05 11 14 27 33
-    # --------------------------------------------------------
-
     for tr in soup.find_all("tr"):
-
         cells = [
             re.sub(
                 r"\s+",
                 " ",
-                cell.get_text(
-                    " ",
-                    strip=True,
-                ),
+                cell.get_text(" ", strip=True),
             )
-            for cell in tr.find_all(
-                ["td", "th"]
-            )
+            for cell in tr.find_all(["td", "th"])
         ]
 
         if len(cells) < 2:
@@ -333,162 +204,81 @@ def fetch_dayday() -> dict:
 
         line = " | ".join(cells)
 
-        # ----------------------------------------------------
-        # 期號
-        # ----------------------------------------------------
-
         issue_match = re.search(
             r"第\s*(\d+)\s*期",
             line,
         )
 
-        if not issue_match:
+        date_match = re.search(
+            r"(20\d{2})[-/](\d{1,2})[-/](\d{1,2})",
+            line,
+        )
+
+        if not issue_match or not date_match:
             continue
 
         issue = issue_match.group(1)
 
-        # ----------------------------------------------------
-        # 日期
-        # ----------------------------------------------------
-
-        date_match = re.search(
-            r"(20\d{2})[-/]"
-            r"(\d{1,2})[-/]"
-            r"(\d{1,2})",
-            line,
+        year, month, day = map(
+            int,
+            date_match.groups(),
         )
 
-        if not date_match:
-            continue
-
-        year = int(
-            date_match.group(1)
-        )
-
-        month = int(
-            date_match.group(2)
-        )
-
-        day = int(
-            date_match.group(3)
-        )
-
-        date = (
-            f"{year:04d}/"
-            f"{month:02d}/"
-            f"{day:02d}"
-        )
-
-        try:
-            validate_recent_date(date)
-        except Exception:
-            continue
-
-        # ----------------------------------------------------
-        # 第二欄通常就是5個球號
-        # ----------------------------------------------------
+        date = f"{year:04d}/{month:02d}/{day:02d}"
 
         nums = []
 
         for cell in cells[1:]:
-
             values = [
                 int(v)
                 for v in re.findall(
-                    r"(?<!\d)"
-                    r"(0?[1-9]|[12]\d|3[0-9])"
-                    r"(?!\d)",
+                    r"(?<!\d)(0?[1-9]|[12]\d|3[0-9])(?!\d)",
                     cell,
                 )
             ]
 
-            # 完整五個號碼的欄位
-            if (
-                len(values) == 5
-                and valid_nums(values)
-            ):
+            if len(values) == 5 and valid_nums(values):
                 nums = values
                 break
 
         if not valid_nums(nums):
             continue
 
-        candidates.append(
-            {
-                "date": date,
-                "issue": issue,
-                "nums": sorted(nums),
-                "source": URL_DAYDAY,
-            }
-        )
-
-    # --------------------------------------------------------
-    # 找不到就失敗
-    # 不使用加州官方
-    # 不使用 LotteryUSA
-    # --------------------------------------------------------
+        candidates.append({
+            "date": date,
+            "issue": issue,
+            "nums": sorted(nums),
+            "source": URL_DAYDAY,
+        })
 
     if not candidates:
-        raise RuntimeError(
-            "SC888 找不到天天樂最新開獎資料"
-        )
-
-    # --------------------------------------------------------
-    # 優先用期號判斷最新
-    # --------------------------------------------------------
+        raise RuntimeError("SC888 找不到天天樂資料")
 
     candidates.sort(
-        key=lambda x: int(
-            x["issue"]
-        ),
+        key=lambda x: int(x["issue"]),
         reverse=True,
     )
 
-    latest = candidates[0]
-
-    print(
-        "天天樂來源：SC888"
-    )
-
-    print(
-        "天天樂抓取結果："
-        f"第{latest['issue']}期｜"
-        f"{latest['date']}｜"
-        + " ".join(
-            f"{n:02d}"
-            for n in latest["nums"]
-        )
-    )
-
-    return latest
+    return candidates[0]
 
 
 # ============================================================
-# 舊 latest-draws.json
+# JSON
 # ============================================================
 
-def load_old() -> dict:
-
+def load_old():
     if not OUTPUT_FILE.exists():
         return {}
 
     try:
         return json.loads(
-            OUTPUT_FILE.read_text(
-                encoding="utf-8"
-            )
+            OUTPUT_FILE.read_text(encoding="utf-8")
         )
-
     except Exception:
         return {}
 
 
-# ============================================================
-# 歷史資料
-# ============================================================
-
-def load_history(key: str) -> dict:
-
+def load_history(key):
     path = HISTORY_FILES[key]
 
     if not path.exists():
@@ -500,191 +290,109 @@ def load_history(key: str) -> dict:
 
     try:
         data = json.loads(
-            path.read_text(
-                encoding="utf-8"
-            )
+            path.read_text(encoding="utf-8")
         )
-
     except Exception:
+        data = {}
 
-        return {
-            "game": key,
-            "updated_at": "",
-            "draws": [],
-        }
-
-    if isinstance(data, list):
-
-        draws = data
-
-    elif isinstance(data, dict):
-
-        draws = data.get(
-            "draws",
-            [],
-        )
-
-    else:
-
-        draws = []
-
-    if not isinstance(draws, list):
-        draws = []
-
-    valid_draws = []
-
-    for draw in draws:
-
-        if valid_game(draw):
-            valid_draws.append(draw)
+    draws = data.get("draws", []) if isinstance(data, dict) else []
 
     return {
         "game": key,
-        "updated_at": (
-            str(
-                data.get(
-                    "updated_at",
-                    "",
-                )
-            )
-            if isinstance(data, dict)
-            else ""
-        ),
-        "draws": valid_draws,
+        "updated_at": str(data.get("updated_at", "")),
+        "draws": [
+            draw
+            for draw in draws
+            if valid_game(draw)
+        ],
     }
 
 
 # ============================================================
-# 防止重複
+# 判斷是不是新一期
 # ============================================================
 
-def draw_identity(
-    key: str,
-    draw: dict,
-):
+def is_new_draw(key, old_game, new_game):
+    if not valid_game(new_game):
+        return False
 
-    issue = str(
-        draw.get(
-            "issue",
-            "",
-        )
-    ).strip()
+    if not valid_game(old_game):
+        return True
 
-    # 天天樂用期號去重
+    if key == "dayday":
+        old_issue = str(old_game.get("issue", "")).strip()
+        new_issue = str(new_game.get("issue", "")).strip()
+
+        if old_issue.isdigit() and new_issue.isdigit():
+            return int(new_issue) > int(old_issue)
+
+    old_date = old_game.get("date", "")
+    new_date = new_game.get("date", "")
+
+    if new_date > old_date:
+        return True
+
+    if (
+        new_date == old_date
+        and new_game.get("nums") != old_game.get("nums")
+    ):
+        return True
+
+    return False
+
+
+# ============================================================
+# 歷史資料
+# ============================================================
+
+def draw_identity(key, draw):
+    issue = str(draw.get("issue", "")).strip()
+
     if key == "dayday" and issue:
+        return ("issue", issue)
 
-        return (
-            "issue",
-            issue,
-        )
-
-    # 539用日期+號碼去重
     return (
         "date_nums",
-        str(
-            draw.get(
-                "date",
-                "",
-            )
-        ).strip(),
-        tuple(
-            draw.get(
-                "nums",
-                [],
-            )
-        ),
+        str(draw.get("date", "")).strip(),
+        tuple(draw.get("nums", [])),
     )
 
 
-# ============================================================
-# 更新歷史資料
-# ============================================================
-
-def update_history(
-    key: str,
-    latest: dict,
-    updated_at: str,
-) -> None:
-
+def update_history(key, latest, updated_at):
     history = load_history(key)
 
-    existing = history.get(
-        "draws",
-        [],
-    )
-
     merged = [latest]
+    seen = {draw_identity(key, latest)}
 
-    seen = {
-        draw_identity(
-            key,
-            latest,
-        )
-    }
-
-    for draw in existing:
-
-        identity = draw_identity(
-            key,
-            draw,
-        )
+    for draw in history["draws"]:
+        identity = draw_identity(key, draw)
 
         if identity in seen:
             continue
 
         seen.add(identity)
-
         merged.append(draw)
 
-    # --------------------------------------------------------
-    # 日期最新排前
-    # 同日期天天樂期號較大排前
-    # --------------------------------------------------------
-
     def sort_key(draw):
-
         try:
-
-            date_value = datetime.strptime(
-                str(
-                    draw.get(
-                        "date",
-                        "",
-                    )
-                ),
+            d = datetime.strptime(
+                draw.get("date", ""),
                 "%Y/%m/%d",
             )
-
         except Exception:
+            d = datetime.min
 
-            date_value = datetime.min
+        issue = str(draw.get("issue", "")).strip()
+        issue_num = int(issue) if issue.isdigit() else 0
 
-        issue_text = str(
-            draw.get(
-                "issue",
-                "",
-            )
-        ).strip()
-
-        issue_value = (
-            int(issue_text)
-            if issue_text.isdigit()
-            else 0
-        )
-
-        return (
-            date_value,
-            issue_value,
-        )
+        return d, issue_num
 
     merged.sort(
         key=sort_key,
         reverse=True,
     )
 
-    merged = merged[
-        :MAX_HISTORY_DRAWS
-    ]
+    merged = merged[:MAX_HISTORY_DRAWS]
 
     output = {
         "game": key,
@@ -698,10 +406,184 @@ def update_history(
             output,
             ensure_ascii=False,
             indent=2,
-        )
-        + "\n",
+        ) + "\n",
         encoding="utf-8",
     )
+
+
+# ============================================================
+# 寫入結果
+# ============================================================
+
+def save_game(key, latest):
+    old = load_old()
+    games = old.get("games", {})
+
+    games[key] = latest
+
+    # 保留另一彩種原本資料
+    updated_at = datetime.now(
+        timezone.utc
+    ).isoformat(timespec="seconds")
+
+    output = {
+        "updated_at": updated_at,
+        "games": games,
+        "warnings": [],
+    }
+
+    OUTPUT_FILE.write_text(
+        json.dumps(
+            output,
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    update_history(
+        key,
+        latest,
+        updated_at,
+    )
+
+
+# ============================================================
+# 30秒即時監看
+# ============================================================
+
+def poll_game(key, getter):
+    old = load_old()
+    old_game = old.get("games", {}).get(key, {})
+
+    max_checks = int(
+        MAX_POLL_MINUTES * 60 / POLL_SECONDS
+    )
+
+    print("======================================")
+    print(f"開始監看：{key}")
+    print(f"每 {POLL_SECONDS} 秒檢查一次")
+    print(f"最多監看 {MAX_POLL_MINUTES} 分鐘")
+
+    if valid_game(old_game):
+        print(
+            "目前資料："
+            f"{old_game.get('date')}｜"
+            + " ".join(
+                f"{n:02d}"
+                for n in old_game.get("nums", [])
+            )
+        )
+
+    for check in range(1, max_checks + 1):
+        now_tw = datetime.now(TW_TZ)
+
+        print(
+            f"[{now_tw:%H:%M:%S}] "
+            f"第 {check}/{max_checks} 次檢查"
+        )
+
+        try:
+            latest = getter()
+
+            print(
+                "網站目前："
+                f"{latest['date']}｜"
+                + " ".join(
+                    f"{n:02d}"
+                    for n in latest["nums"]
+                )
+            )
+
+            if is_new_draw(
+                key,
+                old_game,
+                latest,
+            ):
+                print("★ 發現新一期！立即更新 ★")
+
+                save_game(
+                    key,
+                    latest,
+                )
+
+                print("更新完成，停止監看。")
+                return
+
+            print("尚未出現新一期。")
+
+        except Exception as exc:
+            print(
+                "本次抓取失敗：",
+                exc,
+            )
+
+        if check < max_checks:
+            time.sleep(POLL_SECONDS)
+
+    print(
+        f"{MAX_POLL_MINUTES} 分鐘內未發現新一期，"
+        "結束本次監看。"
+    )
+
+
+# ============================================================
+# 手動測試
+# ============================================================
+
+def manual_fetch_all():
+    old = load_old()
+    games = old.get("games", {})
+
+    for key, getter in (
+        ("539", fetch_539),
+        ("dayday", fetch_dayday),
+    ):
+        try:
+            latest = getter()
+
+            games[key] = latest
+
+            print(
+                f"{key}："
+                f"{latest['date']}｜"
+                + " ".join(
+                    f"{n:02d}"
+                    for n in latest["nums"]
+                )
+            )
+
+        except Exception as exc:
+            print(
+                f"{key}抓取失敗：{exc}"
+            )
+
+    updated_at = datetime.now(
+        timezone.utc
+    ).isoformat(timespec="seconds")
+
+    output = {
+        "updated_at": updated_at,
+        "games": games,
+        "warnings": [],
+    }
+
+    OUTPUT_FILE.write_text(
+        json.dumps(
+            output,
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    for key, game in games.items():
+        if valid_game(game):
+            update_history(
+                key,
+                game,
+                updated_at,
+            )
 
 
 # ============================================================
@@ -709,165 +591,52 @@ def update_history(
 # ============================================================
 
 def main():
+    now_tw = datetime.now(TW_TZ)
 
     print(
-        "======================================"
-    )
-
-    print(
-        "開始更新開獎號碼"
-    )
-
-    print(
-        "539唯一來源：lotto-8.com"
-    )
-
-    print(
-        "天天樂唯一來源：SC888"
-    )
-
-    print(
-        "======================================"
-    )
-
-    old = load_old()
-
-    old_games = old.get(
-        "games",
-        {},
-    )
-
-    games = {}
-
-    warnings = []
-
-    getters = (
-        (
-            "539",
-            fetch_539,
+        "台灣時間：",
+        now_tw.strftime(
+            "%Y/%m/%d %H:%M:%S"
         ),
-        (
+    )
+
+    hour = now_tw.hour
+    minute = now_tw.minute
+
+    # --------------------------------------------------------
+    # 天天樂
+    # 09:47附近由排程啟動
+    # --------------------------------------------------------
+
+    if hour == 9 and 40 <= minute <= 59:
+        poll_game(
             "dayday",
             fetch_dayday,
-        ),
-    )
-
-    for key, getter in getters:
-
-        try:
-
-            result = getter()
-
-            if not valid_game(result):
-
-                raise RuntimeError(
-                    "最終資料驗證失敗"
-                )
-
-            games[key] = result
-
-        except Exception as exc:
-
-            warning = (
-                f"{key}: {exc}"
-            )
-
-            warnings.append(
-                warning
-            )
-
-            print(
-                "WARNING:",
-                warning,
-            )
-
-            # -----------------------------------------------
-            # 唯一來源失敗：
-            # 不抓其他網站。
-            # 只保留上次成功資料。
-            # -----------------------------------------------
-
-            old_game = old_games.get(
-                key
-            )
-
-            if valid_game(old_game):
-
-                games[key] = old_game
-
-                print(
-                    f"{key}來源尚未更新或抓取失敗，"
-                    "保留原本最新資料"
-                )
-
-            else:
-
-                raise SystemExit(
-                    f"{key}抓取失敗，"
-                    "而且沒有舊資料可以保留"
-                )
-
-    # UTC時間
-    updated_at = (
-        datetime.now(
-            timezone.utc
-        ).isoformat(
-            timespec="seconds"
         )
-    )
-
-    output = {
-        "updated_at": updated_at,
-        "games": games,
-        "warnings": warnings,
-    }
+        return
 
     # --------------------------------------------------------
-    # latest-draws.json
+    # 539
+    # 20:32附近由排程啟動
     # --------------------------------------------------------
 
-    OUTPUT_FILE.write_text(
-        json.dumps(
-            output,
-            ensure_ascii=False,
-            indent=2,
+    if hour == 20 and 25 <= minute <= 59:
+        poll_game(
+            "539",
+            fetch_539,
         )
-        + "\n",
-        encoding="utf-8",
-    )
+        return
 
     # --------------------------------------------------------
-    # 歷史資料
+    # 其他時間代表手動 Run workflow
+    # 兩個來源各測一次
     # --------------------------------------------------------
-
-    for key, game in games.items():
-
-        update_history(
-            key,
-            game,
-            updated_at,
-        )
-
-        print(
-            f"{key}歷史資料已更新："
-            f"{HISTORY_FILES[key]}"
-        )
 
     print(
-        "======================================"
+        "非指定監看時段，執行手動測試模式。"
     )
 
-    print(
-        "本次更新完成"
-    )
-
-    print(
-        json.dumps(
-            output,
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
+    manual_fetch_all()
 
 
 if __name__ == "__main__":
