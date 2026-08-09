@@ -2,32 +2,97 @@ name: Update lottery results
 
 on:
   workflow_dispatch:
+
   schedule:
-    - cron: "15 1,5,9,13,17,21 * * *"
+    # ======================================================
+    # 天天樂
+    # 台灣時間每天 09:47 啟動
+    # GitHub cron 使用 UTC
+    # 台灣 UTC+8，所以 09:47 = UTC 01:47
+    # ======================================================
+    - cron: "47 1 * * *"
+
+    # ======================================================
+    # 今彩539
+    # 台灣時間週一～週六 20:32 啟動
+    # 台灣 20:32 = UTC 12:32
+    # 星期日不開獎，所以不執行
+    # ======================================================
+    - cron: "32 12 * * 1-6"
+
 
 permissions:
   contents: write
 
+
 jobs:
   update:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ====================================================
+      # 下載 Repository
+      # ====================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ====================================================
+      # 安裝 Python
+      # ====================================================
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+
+      # ====================================================
+      # 安裝 Python 套件
+      # ====================================================
+
       - name: Install dependencies
-        run: pip install beautifulsoup4 lxml
+        run: |
+          pip install beautifulsoup4 lxml
+
+
+      # ====================================================
+      # 執行開獎號碼抓取
+      #
+      # Python 程式會：
+      # 539      → lotto-8.com
+      # 天天樂   → sc888.net
+      #
+      # 並進行30秒輪詢
+      # 抓到最新一期就結束
+      # ====================================================
 
       - name: Fetch latest and update history
-        run: python update_lottery.py
+        run: |
+          python update_lottery.py
+
+
+      # ====================================================
+      # 將更新後的 JSON Commit 回 GitHub
+      # ====================================================
 
       - name: Commit updated JSON
         run: |
+
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add latest-draws.json history-539.json history-dayday.json
-          git diff --cached --quiet || git commit -m "Update lottery results and history"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            latest-draws.json \
+            history-539.json \
+            history-dayday.json
+
+          git diff --cached --quiet || \
+          git commit -m "Update lottery results and history"
+
           git push
