@@ -23,19 +23,12 @@ HISTORY_FILES = {
 
 MAX_HISTORY_DRAWS = 500
 
-# 今彩539唯一來源
 URL_539 = "https://www.lotto-8.com/listlto539bbk.asp"
-
-# 天天樂唯一來源
 URL_DAYDAY = "https://sc888.net/index.php?s=/LotteryFan/index"
 
-# 每30秒檢查一次
 POLL_SECONDS = 30
-
-# 最多持續監看30分鐘
 MAX_POLL_MINUTES = 30
 
-# 台灣時區
 TW_TZ = timezone(timedelta(hours=8))
 
 UA = (
@@ -43,6 +36,14 @@ UA = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0 Safari/537.36"
 )
+
+
+# ============================================================
+# 即時輸出
+# ============================================================
+
+def log(*args):
+    print(*args, flush=True)
 
 
 # ============================================================
@@ -68,9 +69,7 @@ def fetch(url: str) -> str:
         status = getattr(response, "status", 200)
 
         if status != 200:
-            raise RuntimeError(
-                f"HTTP {status}: {url}"
-            )
+            raise RuntimeError(f"HTTP {status}: {url}")
 
         raw = response.read()
 
@@ -80,20 +79,13 @@ def fetch(url: str) -> str:
         )
 
         try:
-            return raw.decode(
-                charset,
-                errors="ignore",
-            )
-
+            return raw.decode(charset, errors="ignore")
         except LookupError:
-            return raw.decode(
-                "utf-8",
-                errors="ignore",
-            )
+            return raw.decode("utf-8", errors="ignore")
 
 
 # ============================================================
-# 驗證函式
+# 驗證
 # ============================================================
 
 def valid_nums(nums):
@@ -115,10 +107,7 @@ def valid_game(game):
     if not isinstance(game, dict):
         return False
 
-    date = str(
-        game.get("date", "")
-    ).strip()
-
+    date = str(game.get("date", "")).strip()
     nums = game.get("nums")
 
     if not date:
@@ -164,26 +153,15 @@ def fetch_539():
             re.sub(
                 r"\s+",
                 " ",
-                cell.get_text(
-                    " ",
-                    strip=True,
-                ),
+                cell.get_text(" ", strip=True),
             )
-            for cell in tr.find_all(
-                ["td", "th"]
-            )
+            for cell in tr.find_all(["td", "th"])
         ]
 
         if not cells:
             continue
 
         line = " | ".join(cells)
-
-        # ----------------------------------------------------
-        # 日期
-        # lotto-8 常見格式：
-        # 2026 08/08
-        # ----------------------------------------------------
 
         date_match = re.search(
             r"\b(20\d{2})\s+"
@@ -195,27 +173,15 @@ def fetch_539():
         if not date_match:
             continue
 
-        year = int(
-            date_match.group(1)
-        )
-
-        month = int(
-            date_match.group(2)
-        )
-
-        day = int(
-            date_match.group(3)
-        )
+        year = int(date_match.group(1))
+        month = int(date_match.group(2))
+        day = int(date_match.group(3))
 
         date = (
             f"{year:04d}/"
             f"{month:02d}/"
             f"{day:02d}"
         )
-
-        # ----------------------------------------------------
-        # 5個號碼
-        # ----------------------------------------------------
 
         nums_match = re.search(
             r"(?<!\d)"
@@ -253,7 +219,6 @@ def fetch_539():
         )
 
     if not candidates:
-
         raise RuntimeError(
             "lotto-8 找不到539最新開獎資料"
         )
@@ -291,14 +256,9 @@ def fetch_dayday():
             re.sub(
                 r"\s+",
                 " ",
-                cell.get_text(
-                    " ",
-                    strip=True,
-                ),
+                cell.get_text(" ", strip=True),
             )
-            for cell in tr.find_all(
-                ["td", "th"]
-            )
+            for cell in tr.find_all(["td", "th"])
         ]
 
         if len(cells) < 2:
@@ -306,23 +266,10 @@ def fetch_dayday():
 
         line = " | ".join(cells)
 
-        # ----------------------------------------------------
-        # 期號
-        # ----------------------------------------------------
-
         issue_match = re.search(
             r"第\s*(\d+)\s*期",
             line,
         )
-
-        if not issue_match:
-            continue
-
-        issue = issue_match.group(1)
-
-        # ----------------------------------------------------
-        # 日期
-        # ----------------------------------------------------
 
         date_match = re.search(
             r"(20\d{2})[-/]"
@@ -331,30 +278,20 @@ def fetch_dayday():
             line,
         )
 
-        if not date_match:
+        if not issue_match or not date_match:
             continue
 
-        year = int(
-            date_match.group(1)
-        )
+        issue = issue_match.group(1)
 
-        month = int(
-            date_match.group(2)
-        )
-
-        day = int(
-            date_match.group(3)
-        )
+        year = int(date_match.group(1))
+        month = int(date_match.group(2))
+        day = int(date_match.group(3))
 
         date = (
             f"{year:04d}/"
             f"{month:02d}/"
             f"{day:02d}"
         )
-
-        # ----------------------------------------------------
-        # 尋找5個號碼
-        # ----------------------------------------------------
 
         nums = []
 
@@ -390,16 +327,12 @@ def fetch_dayday():
         )
 
     if not candidates:
-
         raise RuntimeError(
             "SC888 找不到天天樂最新開獎資料"
         )
 
-    # 最新期號優先
     candidates.sort(
-        key=lambda item: int(
-            item["issue"]
-        ),
+        key=lambda item: int(item["issue"]),
         reverse=True,
     )
 
@@ -416,15 +349,12 @@ def load_old():
         return {}
 
     try:
-
         return json.loads(
             OUTPUT_FILE.read_text(
                 encoding="utf-8"
             )
         )
-
     except Exception:
-
         return {}
 
 
@@ -437,7 +367,6 @@ def load_history(key):
     path = HISTORY_FILES[key]
 
     if not path.exists():
-
         return {
             "game": key,
             "updated_at": "",
@@ -445,45 +374,28 @@ def load_history(key):
         }
 
     try:
-
         data = json.loads(
             path.read_text(
                 encoding="utf-8"
             )
         )
-
     except Exception:
-
         data = {}
 
     if isinstance(data, dict):
-
-        draws = data.get(
-            "draws",
-            [],
-        )
-
+        draws = data.get("draws", [])
     elif isinstance(data, list):
-
         draws = data
-
     else:
-
         draws = []
 
     if not isinstance(draws, list):
-
         draws = []
 
     return {
         "game": key,
         "updated_at": (
-            str(
-                data.get(
-                    "updated_at",
-                    "",
-                )
-            )
+            str(data.get("updated_at", ""))
             if isinstance(data, dict)
             else ""
         ),
@@ -493,6 +405,55 @@ def load_history(key):
             if valid_game(draw)
         ],
     }
+
+
+# ============================================================
+# 判斷兩筆資料是否完全相同
+# ============================================================
+
+def same_draw(key, a, b):
+
+    if not valid_game(a):
+        return False
+
+    if not valid_game(b):
+        return False
+
+    if key == "dayday":
+
+        return (
+            str(a.get("issue", "")).strip()
+            == str(b.get("issue", "")).strip()
+            and a.get("date") == b.get("date")
+            and a.get("nums") == b.get("nums")
+        )
+
+    return (
+        a.get("date") == b.get("date")
+        and a.get("nums") == b.get("nums")
+    )
+
+
+# ============================================================
+# 判斷是否已經是今天最新資料
+# ============================================================
+
+def already_today(key, old_game, website_game):
+
+    today = datetime.now(
+        TW_TZ
+    ).strftime("%Y/%m/%d")
+
+    if not same_draw(
+        key,
+        old_game,
+        website_game,
+    ):
+        return False
+
+    return (
+        website_game.get("date") == today
+    )
 
 
 # ============================================================
@@ -506,32 +467,19 @@ def is_new_draw(
 ):
 
     if not valid_game(new_game):
-
         return False
 
-    # 沒有舊資料，直接視為新資料
     if not valid_game(old_game):
-
         return True
-
-    # --------------------------------------------------------
-    # 天天樂優先比較期號
-    # --------------------------------------------------------
 
     if key == "dayday":
 
         old_issue = str(
-            old_game.get(
-                "issue",
-                "",
-            )
+            old_game.get("issue", "")
         ).strip()
 
         new_issue = str(
-            new_game.get(
-                "issue",
-                "",
-            )
+            new_game.get("issue", "")
         ).strip()
 
         if (
@@ -545,38 +493,22 @@ def is_new_draw(
             if int(new_issue) < int(old_issue):
                 return False
 
-    # --------------------------------------------------------
-    # 比較日期
-    # --------------------------------------------------------
-
     old_date = str(
-        old_game.get(
-            "date",
-            "",
-        )
+        old_game.get("date", "")
     )
 
     new_date = str(
-        new_game.get(
-            "date",
-            "",
-        )
+        new_game.get("date", "")
     )
 
     if new_date > old_date:
         return True
-
-    # --------------------------------------------------------
-    # 同一天號碼不同
-    # 也視為資料更新
-    # --------------------------------------------------------
 
     if (
         new_date == old_date
         and new_game.get("nums")
         != old_game.get("nums")
     ):
-
         return True
 
     return False
@@ -592,16 +524,10 @@ def draw_identity(
 ):
 
     issue = str(
-        draw.get(
-            "issue",
-            "",
-        )
+        draw.get("issue", "")
     ).strip()
 
-    if (
-        key == "dayday"
-        and issue
-    ):
+    if key == "dayday" and issue:
 
         return (
             "issue",
@@ -610,18 +536,8 @@ def draw_identity(
 
     return (
         "date_nums",
-        str(
-            draw.get(
-                "date",
-                "",
-            )
-        ).strip(),
-        tuple(
-            draw.get(
-                "nums",
-                [],
-            )
-        ),
+        str(draw.get("date", "")).strip(),
+        tuple(draw.get("nums", [])),
     )
 
 
@@ -637,11 +553,6 @@ def update_history(
 
     history = load_history(key)
 
-    existing = history.get(
-        "draws",
-        [],
-    )
-
     merged = [latest]
 
     seen = {
@@ -651,7 +562,7 @@ def update_history(
         )
     }
 
-    for draw in existing:
+    for draw in history["draws"]:
 
         identity = draw_identity(
             key,
@@ -662,32 +573,20 @@ def update_history(
             continue
 
         seen.add(identity)
-
         merged.append(draw)
 
     def sort_key(draw):
 
         try:
-
             date_value = datetime.strptime(
-                str(
-                    draw.get(
-                        "date",
-                        "",
-                    )
-                ),
+                str(draw.get("date", "")),
                 "%Y/%m/%d",
             )
-
         except Exception:
-
             date_value = datetime.min
 
         issue_text = str(
-            draw.get(
-                "issue",
-                "",
-            )
+            draw.get("issue", "")
         ).strip()
 
         issue_value = (
@@ -706,9 +605,7 @@ def update_history(
         reverse=True,
     )
 
-    merged = merged[
-        :MAX_HISTORY_DRAWS
-    ]
+    merged = merged[:MAX_HISTORY_DRAWS]
 
     output = {
         "game": key,
@@ -728,7 +625,7 @@ def update_history(
 
 
 # ============================================================
-# 寫入最新一期
+# 寫入新資料
 # ============================================================
 
 def save_game(
@@ -738,16 +635,10 @@ def save_game(
 
     old = load_old()
 
-    old_games = old.get(
-        "games",
-        {},
-    )
-
     games = dict(
-        old_games
+        old.get("games", {})
     )
 
-    # 只替換本次更新的彩種
     games[key] = latest
 
     updated_at = (
@@ -779,19 +670,13 @@ def save_game(
         updated_at,
     )
 
-    print(
-        f"{key} 已寫入 "
-        f"{OUTPUT_FILE}"
-    )
-
-    print(
-        f"{key} 歷史資料已更新 "
-        f"{HISTORY_FILES[key]}"
+    log(
+        f"✅ {key} 已寫入 latest-draws.json"
     )
 
 
 # ============================================================
-# 30秒輪詢
+# 30秒即時監看
 # ============================================================
 
 def poll_game(
@@ -799,7 +684,6 @@ def poll_game(
     getter,
 ):
 
-    # 啟動時先讀目前JSON資料
     old = load_old()
 
     old_game = (
@@ -818,41 +702,28 @@ def poll_game(
         / POLL_SECONDS
     )
 
-    print(
+    log(
         "======================================"
     )
 
     if key == "539":
-
-        print(
-            "開始即時監看：539"
-        )
-
-        print(
-            "唯一來源：lotto-8.com"
-        )
-
+        log("開始即時監看：539")
+        log("唯一來源：lotto-8.com")
     else:
+        log("開始即時監看：天天樂")
+        log("唯一來源：SC888")
 
-        print(
-            "開始即時監看：天天樂"
-        )
-
-        print(
-            "唯一來源：SC888"
-        )
-
-    print(
+    log(
         f"每 {POLL_SECONDS} 秒檢查一次"
     )
 
-    print(
+    log(
         f"最多監看 {MAX_POLL_MINUTES} 分鐘"
     )
 
     if valid_game(old_game):
 
-        print(
+        log(
             "JSON目前資料："
             f"{old_game.get('date')}｜"
             + " ".join(
@@ -866,12 +737,12 @@ def poll_game(
 
         if key == "dayday":
 
-            print(
+            log(
                 "JSON目前期號："
                 f"{old_game.get('issue', '')}"
             )
 
-    print(
+    log(
         "======================================"
     )
 
@@ -884,7 +755,7 @@ def poll_game(
             TW_TZ
         )
 
-        print(
+        log(
             f"[{now_tw:%Y/%m/%d %H:%M:%S}] "
             f"第 {check}/{max_checks} 次檢查"
         )
@@ -893,7 +764,7 @@ def poll_game(
 
             latest = getter()
 
-            message = (
+            text = (
                 f"網站目前："
                 f"{latest['date']}｜"
                 + " ".join(
@@ -904,15 +775,39 @@ def poll_game(
 
             if key == "dayday":
 
-                message += (
-                    f"｜第{latest.get('issue', '')}期"
+                text += (
+                    f"｜第"
+                    f"{latest.get('issue', '')}"
+                    f"期"
                 )
 
-            print(message)
+            log(text)
 
-            # ------------------------------------------------
-            # 發現新一期
-            # ------------------------------------------------
+            # =================================================
+            # 關鍵修正：
+            # JSON已經是今天最新一期
+            # 立即停止，不再等待30分鐘
+            # =================================================
+
+            if already_today(
+                key,
+                old_game,
+                latest,
+            ):
+
+                log(
+                    "✅ JSON已經是今天最新一期。"
+                )
+
+                log(
+                    "不需要再次更新，立即結束監看。"
+                )
+
+                return True
+
+            # =================================================
+            # 網站出現比JSON更新的一期
+            # =================================================
 
             if is_new_draw(
                 key,
@@ -920,12 +815,12 @@ def poll_game(
                 latest,
             ):
 
-                print(
-                    "★ 發現新一期開獎號碼 ★"
+                log(
+                    "🔥 發現新一期開獎號碼！"
                 )
 
-                print(
-                    "立即更新 latest-draws.json"
+                log(
+                    "立即寫入資料..."
                 )
 
                 save_game(
@@ -933,20 +828,21 @@ def poll_game(
                     latest,
                 )
 
-                print(
-                    "★ 更新成功，停止監看 ★"
+                log(
+                    "✅ 更新完成，停止監看。"
                 )
 
                 return True
 
-            print(
-                "尚未出現新一期，30秒後再檢查。"
+            log(
+                f"尚未出現新一期，"
+                f"{POLL_SECONDS}秒後再檢查。"
             )
 
         except Exception as exc:
 
-            print(
-                "WARNING：本次抓取失敗：",
+            log(
+                "⚠️ 本次抓取失敗：",
                 exc,
             )
 
@@ -956,17 +852,17 @@ def poll_game(
                 POLL_SECONDS
             )
 
-    print(
+    log(
         "======================================"
     )
 
-    print(
+    log(
         f"{MAX_POLL_MINUTES}分鐘內"
         "沒有發現新一期。"
     )
 
-    print(
-        "結束本次監看，保留原資料。"
+    log(
+        "保留目前資料並結束。"
     )
 
     return False
@@ -978,13 +874,12 @@ def poll_game(
 
 def manual_fetch_all():
 
-    print(
+    log(
         "非自動監看時段。"
     )
 
-    print(
-        "執行手動測試模式："
-        "539與天天樂各抓一次。"
+    log(
+        "執行手動測試模式。"
     )
 
     old = load_old()
@@ -999,14 +894,8 @@ def manual_fetch_all():
     warnings = []
 
     for key, getter in (
-        (
-            "539",
-            fetch_539,
-        ),
-        (
-            "dayday",
-            fetch_dayday,
-        ),
+        ("539", fetch_539),
+        ("dayday", fetch_dayday),
     ):
 
         try:
@@ -1032,7 +921,7 @@ def manual_fetch_all():
                     f"期"
                 )
 
-            print(text)
+            log(text)
 
         except Exception as exc:
 
@@ -1044,7 +933,7 @@ def manual_fetch_all():
                 warning
             )
 
-            print(
+            log(
                 "WARNING：",
                 warning,
             )
@@ -1082,8 +971,8 @@ def manual_fetch_all():
                 updated_at,
             )
 
-    print(
-        "手動測試完成。"
+    log(
+        "✅ 手動測試完成。"
     )
 
 
@@ -1097,18 +986,18 @@ def main():
         TW_TZ
     )
 
-    print(
+    log(
         "======================================"
     )
 
-    print(
+    log(
         "台灣時間："
         + now_tw.strftime(
             "%Y/%m/%d %H:%M:%S"
         )
     )
 
-    print(
+    log(
         "======================================"
     )
 
@@ -1116,15 +1005,10 @@ def main():
     minute = now_tw.minute
 
     # ========================================================
-    # 天天樂監看時段
-    #
-    # 排程原本09:47啟動。
-    # 但GitHub可能延遲，所以放寬：
+    # 天天樂
+    # GitHub即使延遲到10點多啟動仍有效
     #
     # 09:40 ～ 10:40
-    #
-    # 即使GitHub 10點多才啟動，
-    # 仍然會進天天樂監看模式。
     # ========================================================
 
     in_dayday_window = (
@@ -1135,7 +1019,7 @@ def main():
 
     if in_dayday_window:
 
-        print(
+        log(
             "判定：天天樂即時監看時段"
         )
 
@@ -1147,10 +1031,7 @@ def main():
         return
 
     # ========================================================
-    # 539監看時段
-    #
-    # 排程20:32啟動。
-    # GitHub可能延遲，所以放寬：
+    # 539
     #
     # 20:25 ～ 21:30
     # ========================================================
@@ -1163,23 +1044,16 @@ def main():
 
     if in_539_window:
 
-        # 星期日沒有539
-        # Python datetime.weekday():
-        # Monday=0 ... Sunday=6
-
+        # 星期日不開539
         if now_tw.weekday() == 6:
 
-            print(
+            log(
                 "今天星期日，539不開獎。"
-            )
-
-            print(
-                "跳過539監看。"
             )
 
             return
 
-        print(
+        log(
             "判定：539即時監看時段"
         )
 
@@ -1191,8 +1065,7 @@ def main():
         return
 
     # ========================================================
-    # 其他時間
-    # 手動Run workflow時測試兩個來源
+    # 其他時間＝手動測試
     # ========================================================
 
     manual_fetch_all()
