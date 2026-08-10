@@ -1624,19 +1624,7 @@
             <button class="btn btn-dark" id="cleanupStorageBtn" type="button">清理舊暫存</button>
           </div>
 
-          <div class="auto-draw-panel" id="autoDrawPanel">
-            <div class="auto-draw-row">
-              <div>
-                <div class="field-label" style="color:#7dd3fc;margin-bottom:3px;">自動取得最新開獎號碼</div>
-                <div class="auto-draw-status" id="autoDrawStatus">固定排程：天天樂每天 09:50 首次檢查，若無最新期則每 5 分鐘重查，最多重複 28 次（至 12:10）；539 每天 20:35 首次檢查，之後每 2 分鐘檢查，共 10 次（至 20:53）。</div>
-              </div>
-              <button class="btn btn-secondary" id="autoUpdateDrawBtn" type="button" onclick="window.autoDrawStandalone(event)">更新539＋天天樂</button>
-            </div>
-            <div class="auto-draw-options">
-              <label><input type="checkbox" id="autoUpdateOnOpen" checked> 開啟網站時自動檢查</label>
-              <span>同網域讀取，不受外站 CORS／403 阻擋；並驗證5碼、01～39及防止重複。</span>
-            </div>
-          </div>
+          <div class="db-mini" style="margin-top:10px;padding:10px 12px;border:1px solid rgba(56,189,248,.35);border-radius:12px;background:rgba(2,6,23,.55);color:#cbd5e1;">已改為手動新增開獎號碼：539／天天樂不再自動抓號、不再定時檢查。請使用上方「新增到資料庫最上方」。</div>
           <div class="db-summary">
             <div class="db-chip">目前彩種：<b id="dbGameLabel">539</b></div>
             <div class="db-chip">資料庫筆數：<b id="dbCount">0</b></div>
@@ -1716,6 +1704,14 @@
           <select id="groupCount" class="btn btn-dark" style="text-align:center; appearance:auto; display:none;">
             <option value="2" selected>每日固定 2 組</option>
           </select>
+          <div style="margin-bottom:10px;">
+            <div class="field-label">第一柱選號模式</div>
+            <select id="firstPillarModeSelect" class="db-select">
+              <option value="original">原版篩選</option>
+              <option value="tailBalanced">尾數＋頭數均衡（各尾1支／各頭2～3支）</option>
+            </select>
+            <div class="db-mini">均衡模式只套用 539／天天樂 A～C 第一柱：0～9尾各1支，0～3頭各2～3支；第二、三柱與 D／E 保持原規則。</div>
+          </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
             <button id="clearLockBtn" type="button" style="display:none;"></button>
@@ -7959,185 +7955,8 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
 
-  // ===== 539／天天樂最新開獎自動更新 =====
-  const AUTO_DRAW_PREF_KEY = 'pillar_auto_draw_on_open_v1';
-  const autoUpdateDrawBtn = document.getElementById('autoUpdateDrawBtn');
-  const autoUpdateOnOpen = document.getElementById('autoUpdateOnOpen');
-  const autoDrawStatus = document.getElementById('autoDrawStatus');
+  // 539／天天樂自動抓號功能已移除；僅保留手動新增開獎資料。
 
-  function setAutoDrawStatus(text, type = '') {
-    if (!autoDrawStatus) return;
-    autoDrawStatus.textContent = text;
-    autoDrawStatus.className = 'auto-draw-status' + (type ? ' ' + type : '');
-  }
-  function autoFetchTimeout(url, options = {}, timeout = 12000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    return fetch(url, { cache:'no-store', ...options, signal:controller.signal }).finally(() => clearTimeout(timer));
-  }
-  function autoProxyUrls(url) {
-    const encoded = encodeURIComponent(url);
-    return [
-      url,
-      'https://api.allorigins.win/raw?url=' + encoded,
-      'https://corsproxy.io/?url=' + encoded
-    ];
-  }
-  async function autoFetchTextFromAny(urls, options = {}) {
-    const errors = [];
-    for (const original of urls) {
-      for (const url of autoProxyUrls(original)) {
-        try {
-          const res = await autoFetchTimeout(url, options);
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const text = await res.text();
-          if (text && text.length > 30) return { text, source:original };
-        } catch (e) { errors.push((e && e.message) || String(e)); }
-      }
-    }
-    throw new Error(errors.slice(-3).join('／') || '所有資料來源皆無回應');
-  }
-  function autoValidFive(nums) {
-    const clean = [...new Set((nums || []).map(Number).filter(n => n >= 1 && n <= 39))];
-    return clean.length === 5 ? clean : null;
-  }
-  function autoExtractDate(text) {
-    const s = String(text || '');
-    const m = s.match(/(20\d{2})[-\/.年](\d{1,2})[-\/.月](\d{1,2})/);
-    return m ? `${m[1]}/${String(m[2]).padStart(2,'0')}/${String(m[3]).padStart(2,'0')}` : '';
-  }
-  function autoFindFiveNearKeyword(text, keywords) {
-    const flat = String(text || '').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/\s+/g,' ');
-    for (const kw of keywords) {
-      let idx = flat.toLowerCase().indexOf(String(kw).toLowerCase());
-      while (idx >= 0) {
-        const chunk = flat.slice(idx, idx + 900);
-        const candidates = [...chunk.matchAll(/(?<!\d)(0?[1-9]|[12]\d|3[0-9])(?!\d)/g)].map(m => Number(m[1]));
-        for (let i=0;i<=candidates.length-5;i++) {
-          const five = autoValidFive(candidates.slice(i,i+5));
-          if (five) return { nums:five, date:autoExtractDate(chunk) };
-        }
-        idx = flat.toLowerCase().indexOf(String(kw).toLowerCase(), idx + kw.length);
-      }
-    }
-    return null;
-  }
-  function autoWalkJsonForFive(value, path = '') {
-    if (!value || typeof value !== 'object') return null;
-    if (Array.isArray(value)) {
-      const direct = autoValidFive(value.map(v => typeof v === 'object' ? (v.Number ?? v.number ?? v.Value ?? v.value) : v));
-      if (direct) return { nums:direct, date:'' };
-      for (const v of value.slice(0,30)) { const found = autoWalkJsonForFive(v, path); if (found) return found; }
-      return null;
-    }
-    const keys = Object.keys(value);
-    const numberKey = keys.find(k => /winning|number|獎號|開獎號碼/i.test(k));
-    if (numberKey) {
-      const found = autoWalkJsonForFive(value[numberKey], path + '.' + numberKey);
-      if (found) {
-        const dateKey = keys.find(k => /date|drawdate|開獎日期|期別/i.test(k));
-        found.date = found.date || (dateKey ? String(value[dateKey] || '') : '');
-        return found;
-      }
-    }
-    for (const k of keys.slice(0,50)) { const found = autoWalkJsonForFive(value[k], path + '.' + k); if (found) return found; }
-    return null;
-  }
-  async function fetchLatest539() {
-    const urls = [
-      'https://www.taiwanlottery.com/today_last_number/',
-      'https://www.taiwanlottery.com/lotto/lotto_lastest_result/',
-      'https://www.taiwanlottery.com/lotto/result/4_d/'
-    ];
-    const result = await autoFetchTextFromAny(urls);
-    let parsed = null;
-    try { parsed = autoWalkJsonForFive(JSON.parse(result.text)); } catch(e) {}
-    parsed = parsed || autoFindFiveNearKeyword(result.text, ['今彩539','Daily Cash','539']);
-    if (!parsed || !autoValidFive(parsed.nums)) throw new Error('539來源已連線，但無法辨識最新5個號碼');
-    return { mode:'539', nums:autoValidFive(parsed.nums), date:autoExtractDate(parsed.date) || autoExtractDate(result.text), source:'台灣彩券' };
-  }
-  async function fetchLatestDayday() {
-    const apiBase = 'https://www.calottery.com/api/DrawGameApi/DrawGamePastDrawResults/';
-    const apiUrls = [7,6,9,10,11,13,14].map(id => apiBase + id + '/1/3');
-    for (const original of apiUrls) {
-      try {
-        const result = await autoFetchTextFromAny([original]);
-        const json = JSON.parse(result.text);
-        const draws = json.PreviousDraws || json.previousDraws || json.Draws || json.draws || [];
-        for (const draw of draws) {
-          const label = JSON.stringify(draw).toLowerCase();
-          const found = autoWalkJsonForFive(draw);
-          if (found && autoValidFive(found.nums) && (label.includes('fantasy') || draws.length)) {
-            return { mode:'dayday', nums:autoValidFive(found.nums), date:autoExtractDate(draw.DrawDate || draw.drawDate || found.date), source:'California Lottery' };
-          }
-        }
-      } catch(e) {}
-    }
-    const result = await autoFetchTextFromAny([
-      'https://www.calottery.com/en/draw-games/fantasy-5',
-      'https://en.lottolyzer.com/history/united-states/fantasy-5-california/'
-    ]);
-    const parsed = autoFindFiveNearKeyword(result.text, ['Fantasy 5','Winning No','Winning Numbers']);
-    if (!parsed || !autoValidFive(parsed.nums)) throw new Error('天天樂來源已連線，但無法辨識最新5個號碼');
-    return { mode:'dayday', nums:autoValidFive(parsed.nums), date:parsed.date || autoExtractDate(result.text), source:result.source.includes('calottery') ? 'California Lottery' : '天天樂備援站' };
-  }
-  function autoRecordExists(mode, item) {
-    const keyNums = item.nums.slice().sort((a,b)=>a-b).join(',');
-    const date = String(item.date || '').replace(/\D/g,'');
-    return loadDrawDb(mode).some(r => {
-      const sameNums = r.nums.slice().sort((a,b)=>a-b).join(',') === keyNums;
-      const rDate = String(r.date || '').replace(/\D/g,'');
-      return sameNums && (!date || !rDate || date === rDate);
-    });
-  }
-  function autoInsertDraw(item) {
-    if (autoRecordExists(item.mode, item)) return false;
-    const records = loadDrawDb(item.mode);
-    records.unshift(normalizeDrawRecord({ date:item.date || '自動更新', nums:item.nums, createdAt:Date.now() }, item.mode));
-    saveDrawDb(records, item.mode);
-    return true;
-  }
-  async function updateLatest539AndDayday(options = {}) {
-    if (!autoUpdateDrawBtn || autoUpdateDrawBtn.disabled) return;
-    autoUpdateDrawBtn.disabled = true;
-    autoUpdateDrawBtn.textContent = '正在連線…';
-    setAutoDrawStatus('按鈕已啟動，正在檢查539與天天樂最新一期…', 'busy');
-    try {
-      const results = await Promise.allSettled([fetchLatest539(), fetchLatestDayday()]);
-      const messages = []; let added = 0;
-      results.forEach((r, idx) => {
-        const name = idx === 0 ? '539' : '天天樂';
-        if (r.status === 'fulfilled') {
-          const item = r.value; const inserted = autoInsertDraw(item);
-          if (inserted) added++;
-          messages.push(`${name}${inserted ? '已新增' : '已是最新'}：${formatNums(item.nums)}${item.date ? '（'+item.date+'）' : ''}`);
-        } else messages.push(`${name}更新失敗：${r.reason && r.reason.message ? r.reason.message : r.reason}`);
-      });
-      if (typeof renderDrawDb === 'function') renderDrawDb();
-      if (countDraws) countDraws.textContent = getBacktestDraws().length;
-      const failed = results.filter(r => r.status === 'rejected').length;
-      setAutoDrawStatus(messages.join('；'), failed === 2 ? 'err' : 'ok');
-      if (typeof log === 'function') log(`自動更新完成：新增 ${added} 期。${messages.join('；')}`);
-      if (!options.silent && failed === 2) alert('目前資料來源無法讀取；原資料庫完全沒有變動。錯誤原因已顯示在更新區塊。');
-    } catch (err) {
-      const msg = err && err.message ? err.message : String(err);
-      setAutoDrawStatus('更新程式錯誤：' + msg, 'err');
-      if (!options.silent) alert('更新程式發生錯誤：' + msg);
-    } finally {
-      autoUpdateDrawBtn.disabled = false;
-      autoUpdateDrawBtn.textContent = '更新539＋天天樂';
-    }
-  }
-  window.runAutoDrawUpdate = function(event) {
-    if (event && typeof event.preventDefault === 'function') event.preventDefault();
-    return updateLatest539AndDayday({silent:false});
-  };
-  if (autoUpdateOnOpen) {
-    const saved = localStorage.getItem(AUTO_DRAW_PREF_KEY);
-    autoUpdateOnOpen.checked = saved === null ? true : saved === '1';
-    autoUpdateOnOpen.addEventListener('change', () => localStorage.setItem(AUTO_DRAW_PREF_KEY, autoUpdateOnOpen.checked ? '1' : '0'));
-  }
-  // 舊版外站抓取器停用：按鈕統一交由頁尾 autoDrawStandalone 處理。
 
   gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
@@ -11038,9 +10857,18 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   const FIXED_DUAL_STORAGE_PREFIX = 'fixed_dual_10_14_15_v8_top_omit_single_source';
   const FIXED_PAIR_LABELS = ['A','B','C','D','E'];
+  const FIRST_PILLAR_MODE_KEY = 'pillar_first_pillar_mode_v1';
 
+  function fixedFirstPillarMode() {
+    const v = localStorage.getItem(FIRST_PILLAR_MODE_KEY);
+    return v === 'tailBalanced' ? 'tailBalanced' : 'original';
+  }
+  function fixedUseTailBalanced(mode = currentGameMode()) {
+    return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'tailBalanced';
+  }
   function fixedDualStorageKey(mode = currentGameMode()) {
-    return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}`;
+    const suffix = fixedUseTailBalanced(mode) ? '_tailBalanced' : '';
+    return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
   const FIXED_DUAL_HISTORY_PREFIX = FIXED_DUAL_STORAGE_PREFIX + '_history_v4_rowdraw_omitfix';
@@ -11051,7 +10879,8 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedHistoryStorageKey(mode = currentGameMode(), draws = null) {
     const fp = fixedDrawsFingerprint(draws || getBacktestDraws());
-    return `${FIXED_DUAL_HISTORY_PREFIX}_${mode}_${hashString(fp)}`;
+    const variant = fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original';
+    return `${FIXED_DUAL_HISTORY_PREFIX}_${mode}_${variant}_${hashString(fp)}`;
   }
 
   function fixedSaveHistorySnapshot(pack, mode = currentGameMode(), draws = null) {
@@ -11726,6 +11555,67 @@ ${settleRecord.analysisLines.join('\n')}`;
     return groups;
   }
 
+  function fixedFirstPillarHeadCounts(first) {
+    const counts = [0, 0, 0, 0];
+    (first || []).forEach(n => {
+      n = Number(n);
+      if (n >= 1 && n <= 9) counts[0]++;
+      else if (n >= 10 && n <= 19) counts[1]++;
+      else if (n >= 20 && n <= 29) counts[2]++;
+      else if (n >= 30 && n <= 39) counts[3]++;
+    });
+    return counts;
+  }
+
+  function fixedHeadBalancedFirst(first) {
+    if (!Array.isArray(first) || first.length !== 10) return false;
+    const counts = fixedFirstPillarHeadCounts(first);
+    return counts.every(v => v >= 2 && v <= 3);
+  }
+
+  function fixedHeadBalancePenalty(first) {
+    const counts = fixedFirstPillarHeadCounts(first);
+    return counts.reduce((sum, v) => sum + (v < 2 ? (2 - v) : (v > 3 ? (v - 3) : 0)), 0);
+  }
+
+  function fixedBuildTailBalancedGroupsFromPool(pool, rng) {
+    const base = (pool || []).map(Number).filter(Number.isFinite);
+    const buckets = Array.from({ length: 10 }, () => []);
+    base.forEach(n => buckets[((n % 10) + 10) % 10].push(n));
+    if (buckets.some(b => !b.length)) return fixedBuildOnePillarFromPoolDet(base, rng);
+
+    // 尾數為硬條件：0～9尾各1支；頭數同時要求0～3頭各2～3支。
+    // 多次抽樣後先取完全符合者；理論上若受可用池限制無法完全符合，才取最接近者。
+    let bestFirst = null;
+    let bestPenalty = Infinity;
+    for (let attempt = 0; attempt < 500; attempt++) {
+      const candidate = buckets.map(b => fixedShuffleWithRng(b, rng)[0]);
+      const penalty = fixedHeadBalancePenalty(candidate);
+      if (penalty < bestPenalty) {
+        bestPenalty = penalty;
+        bestFirst = candidate.slice();
+      }
+      if (penalty === 0) {
+        bestFirst = candidate;
+        break;
+      }
+    }
+
+    const first = bestFirst || buckets.map(b => fixedShuffleWithRng(b, rng)[0]);
+    const firstSet = new Set(first);
+    const remain = fixedShuffleWithRng(base.filter(n => !firstSet.has(n)), rng);
+    const groups = [first, remain.slice(0, 14), remain.slice(14, 29)];
+    groups.forEach(g => g.sort((a, b) => a - b));
+    return groups;
+  }
+
+  function fixedTailBalancedFirst(first) {
+    if (!Array.isArray(first) || first.length !== 10) return false;
+    const counts = Array(10).fill(0);
+    first.forEach(n => counts[((Number(n) % 10) + 10) % 10]++);
+    return counts.every(v => v === 1);
+  }
+
   function fixedLatestNUnionSet(draws, max, count) {
     const s = new Set();
     (draws || []).slice(0, count).forEach(draw => {
@@ -12023,7 +11913,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, targetScores, referenceFirstPillars = []) {
     const basePool = (pool || fixedRangeForMode(mode)).map(Number).filter(Number.isFinite).slice(0, 39);
-    if (basePool.length < 39 || (historyDraws || []).length < 10) return fixedBuildOnePillarFromPoolDet(basePool, rng);
+    if (basePool.length < 39 || (historyDraws || []).length < 10) return fixedUseTailBalanced(mode) ? fixedBuildTailBalancedGroupsFromPool(basePool, rng) : fixedBuildOnePillarFromPoolDet(basePool, rng);
 
     const overlapPenalty = groups => {
       const first = new Set(((groups && groups[0]) || []).map(Number));
@@ -12050,20 +11940,21 @@ ${settleRecord.analysisLines.join('\n')}`;
       const overlap = overlapPenalty(groups);
       const first = (groups && groups[0]) || [];
       const tieBreak = first.reduce((sum, n) => sum + (diversityWeight.get(Number(n)) || 0), 0);
+      const headPenalty = fixedUseTailBalanced(mode) ? fixedHeadBalancePenalty(first) * 1000000000000 : 0;
 
-      // 規則分數仍占絕對主體；tieBreak只在規則近似或完全同分時打散結果。
+      // 尾數均衡模式下，頭數2～3支也是硬限制；其餘規則分數仍占主體。
       return {
-        total: targetPenalty * 50000 + overlap.penalty + tieBreak,
+        total: headPenalty + targetPenalty * 50000 + overlap.penalty + tieBreak,
         targetPenalty,
         maxOverlap: overlap.maxOverlap
       };
     };
 
-    let bestFlat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
-    let bestGroups = fixedGroupsFromFlat(bestFlat);
+    let bestGroups = fixedUseTailBalanced(mode) ? fixedBuildTailBalancedGroupsFromPool(basePool, rng) : fixedGroupsFromFlat(fixedShuffleWithRng(basePool, rng).slice(0, 39));
+    let bestFlat = bestGroups.flat();
     let bestEval = combinedPenalty(bestGroups);
     let bestPenalty = bestEval.total;
-    if (bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3) return bestGroups;
+    if (bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(bestGroups[0]))) return bestGroups;
 
     // T0自動重播時改用輕量搜尋，避免手機每輪卡住；
     // 一般手動重新精選仍保留原本較深的搜尋。
@@ -12071,21 +11962,26 @@ ${settleRecord.analysisLines.join('\n')}`;
     const runs = fastReplay ? 8 : 34;
     const steps = fastReplay ? 420 : 1800;
     for (let run = 0; run < runs; run++) {
-      let flat = fixedShuffleWithRng(basePool, rng).slice(0, 39);
-      let groups = fixedGroupsFromFlat(flat);
+      let groups = fixedUseTailBalanced(mode) ? fixedBuildTailBalancedGroupsFromPool(basePool, rng) : fixedGroupsFromFlat(fixedShuffleWithRng(basePool, rng).slice(0, 39));
+      let flat = groups.flat();
       let evalNow = combinedPenalty(groups);
       let score = evalNow.total;
       let temperature = 18;
       for (let step = 0; step < steps; step++) {
-        if (evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3) {
+        if (evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(groups[0]))) {
           groups.forEach(g => g.sort((a, b) => a - b));
           return groups;
         }
         const a = Math.floor(rng() * 39);
         let b = Math.floor(rng() * 39);
         if (a === b) b = (b + 1) % 39;
+        if (fixedUseTailBalanced(mode) && ((a < 10) !== (b < 10)) && (flat[a] % 10) !== (flat[b] % 10)) continue;
         [flat[a], flat[b]] = [flat[b], flat[a]];
         const ng = fixedGroupsFromFlat(flat);
+        if (fixedUseTailBalanced(mode) && !fixedHeadBalancedFirst(ng[0])) {
+          [flat[a], flat[b]] = [flat[b], flat[a]];
+          continue;
+        }
         const nextEval = combinedPenalty(ng);
         const ns = nextEval.total;
         const accept = ns <= score || Math.exp((score - ns) / Math.max(1, temperature)) > rng();
@@ -12937,6 +12833,16 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
   }
 
+  const firstPillarModeSelect = document.getElementById('firstPillarModeSelect');
+  if (firstPillarModeSelect) {
+    firstPillarModeSelect.value = fixedFirstPillarMode();
+    firstPillarModeSelect.addEventListener('change', () => {
+      localStorage.setItem(FIRST_PILLAR_MODE_KEY, firstPillarModeSelect.value === 'tailBalanced' ? 'tailBalanced' : 'original');
+      if (dailyAgentResult) dailyAgentResult.innerHTML = firstPillarModeSelect.value === 'tailBalanced'
+        ? '已切換為<b>尾數＋頭數均衡</b>：539／天天樂 A～C 第一柱固定 0～9 尾各1支，且0～3頭各2～3支。請按「重新精選立柱」建立這個模式的號碼。'
+        : '已切換為<b>原版篩選</b>。原版與尾數均衡各自保存固定立柱，請按「天選雙柱」讀取，或按「重新精選立柱」換新一批。';
+    });
+  }
   runBtn.addEventListener('click', runDailyTwoGroups);
   if (backtrain50Btn) backtrain50Btn.addEventListener('click', runReselectFixedPillars);
   if (selfTuneBtn) selfTuneBtn.style.display = 'none';
@@ -14910,214 +14816,8 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 </script>
 
 
-<script>
-(function(){
-  'use strict';
-  const DB_PREFIX='pillar_app_draw_db_v41_';
-  const btn=document.getElementById('autoUpdateDrawBtn');
-  const status=document.getElementById('autoDrawStatus');
-  const checkbox=document.getElementById('autoUpdateOnOpen');
-  const fmt=a=>(a||[]).map(n=>String(Number(n)).padStart(2,'0')).join(' ');
-  const show=(m,c)=>{if(status){status.textContent=m;status.className='auto-draw-status '+(c||'');}};
-  function validNums(nums){const a=(nums||[]).map(Number);return a.length===5&&new Set(a).size===5&&a.every(n=>n>=1&&n<=39);}
-  function readList(mode){try{const a=JSON.parse(localStorage.getItem(DB_PREFIX+mode)||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}}
-  function sameNums(a,b){return Array.isArray(a)&&Array.isArray(b)&&a.map(Number).sort((x,y)=>x-y).join(',')===b.map(Number).sort((x,y)=>x-y).join(',');}
-  function insert(item){
-    if(!item||!['539','dayday'].includes(item.mode)||!validNums(item.nums)) throw new Error((item&&item.mode||'資料')+'格式驗證失敗');
-    const before=readList(item.mode);
-    const exists=before.some(r=>sameNums(r.nums,item.nums));
-    if(exists)return {added:false,before:before.length,after:before.length};
-    try{if(typeof window.autoSettlePillarBets==='function')window.autoSettlePillarBets(item.mode,item.nums,item.date||item.issue||'');}catch(e){}
-    const record={id:'d_auto_'+Date.now()+'_'+item.mode,date:String(item.date||item.issue||''),nums:item.nums.map(Number),createdAt:Date.now()};
-    before.unshift(record);
-    localStorage.setItem(DB_PREFIX+item.mode,JSON.stringify(before));
-    const after=readList(item.mode);
-    if(!after.some(r=>sameNums(r.nums,item.nums)))throw new Error(item.mode+'寫入後驗證失敗');
-    return {added:true,before:after.length-1,after:after.length};
-  }
-  function refreshUi(){
-    try{
-      const gameSelect=document.getElementById('gameMode');
-      if(gameSelect){
-        // 觸發原程式既有的 applyGameMode / syncDbToTextarea / renderDrawDb。
-        gameSelect.dispatchEvent(new Event('change',{bubbles:true}));
-      }
-    }catch(e){}
-    try{if(typeof window.syncDbToTextarea==='function')window.syncDbToTextarea();}catch(e){}
-    try{if(typeof window.renderDrawDb==='function')window.renderDrawDb();}catch(e){}
-    try{
-      const mode=(document.getElementById('gameMode')||{}).value||'539';
-      const list=readList(mode);
-      const c=document.getElementById('dbCount');
-      const l=document.getElementById('dbLatest');
-      if(c)c.textContent=String(list.length);
-      if(l)l.textContent=list[0]?((list[0].date?list[0].date+' ':'')+fmt(list[0].nums)):'尚無資料';
-    }catch(e){}
-  }
-  async function loadFeed(){
-    const stamp=Date.now();
-    const pageUrl=new URL(window.location.href);
-    pageUrl.hash='';
-    pageUrl.search='';
+<!-- 自動抓號／排程已移除：改為手動新增開獎號碼 -->
 
-    // 依目前HTML所在資料夾讀取；另加入網站根目錄備援。
-    const candidates=[
-      new URL('latest-draws.json?cb='+stamp,pageUrl).href,
-      new URL('./latest-draws.json?cb='+stamp,window.location.href).href,
-      window.location.origin+'/latest-draws.json?cb='+stamp
-    ];
-    const tried=[];
-    for(const url of [...new Set(candidates)]){
-      try{
-        const r=await fetch(url,{
-          cache:'no-store',
-          headers:{'Accept':'application/json'}
-        });
-        tried.push(url+' → HTTP '+r.status);
-        if(!r.ok)continue;
-        const raw=await r.text();
-        let data;
-        try{data=JSON.parse(raw);}catch(e){
-          throw new Error('回傳內容不是JSON，開頭：'+raw.slice(0,60));
-        }
-        if(!data||!data.games)throw new Error('latest-draws.json 缺少 games');
-        data.__feedUrl=url;
-        return data;
-      }catch(e){
-        tried.push(url+' → '+(e.message||e));
-      }
-    }
-    throw new Error('找不到可用的 latest-draws.json；'+tried.join('；'));
-  }
-  let scheduledAutoDrawBusy=false;
-  window.autoDrawStandalone=async function(ev,requestedMode='all'){
-    if(ev&&ev.preventDefault)ev.preventDefault();
-    if(!btn||scheduledAutoDrawBusy)return false;
-    scheduledAutoDrawBusy=true;
-    btn.disabled=true;btn.textContent='正在讀取…';
-    const targetLabel=requestedMode==='dayday'?'天天樂':requestedMode==='539'?'539':'539＋天天樂';
-    show('正在依排程檢查 '+targetLabel+' 最新開獎…','busy');
-    try{
-      const data=await loadFeed();
-      const allRows=[['539',data.games['539']],['天天樂',data.games.dayday]];
-      const rows=requestedMode==='all'?allRows:allRows.filter(([name])=>(requestedMode==='539'&&name==='539')||(requestedMode==='dayday'&&name==='天天樂'));
-      const messages=[];let success=0;
-      for(const [name,item0] of rows){
-        try{
-          if(!item0)throw new Error('JSON內沒有此彩種');
-          const item={...item0,mode:name==='539'?'539':'dayday'};
-          const w=insert(item);success++;
-          messages.push(name+(w.added?'已寫入並觸發結算':'已是最新')+'：'+(item.date||item.issue||'')+'｜'+fmt(item.nums)+'｜資料庫 '+w.before+'→'+w.after+' 筆');
-        }catch(e){messages.push(name+'失敗：'+(e.message||e));}
-      }
-      refreshUi();
-      const updated=data.updated_at?('\n資料檔更新：'+data.updated_at):'';
-      const feed=data.__feedUrl?('\n讀取位置：'+data.__feedUrl):'';
-      show(messages.join('\n')+updated+feed,success?'ok':'err');
-      const addedByMode={};
-      for(const [name,item0] of rows){
-        if(!item0)continue;
-        const mode=name==='539'?'539':'dayday';
-        const list=readList(mode);
-        addedByMode[mode]=list.some(r=>sameNums(r.nums,item0.nums));
-      }
-      return {ok:success>0,addedByMode,data,messages};
-    }catch(e){show(targetLabel+' 更新失敗：'+(e.message||e)+'。請先在 GitHub Actions 執行「Update lottery results」。','err');return {ok:false,addedByMode:{},error:e};}
-    finally{scheduledAutoDrawBusy=false;btn.disabled=false;btn.textContent='更新539＋天天樂';}
-  };
-  if(btn)btn.onclick=(ev)=>window.autoDrawStandalone(ev,'all');
-  if(checkbox){const k='pillar_auto_draw_on_open_v1';const saved=localStorage.getItem(k);checkbox.checked=saved===null?true:saved==='1';checkbox.onchange=()=>localStorage.setItem(k,checkbox.checked?'1':'0');if(checkbox.checked)setTimeout(()=>window.autoDrawStandalone(null,'all'),1200);}
-
-  // 固定自動檢查排程（依裝置本地時間）
-  const AUTO_SCHEDULES={
-    dayday:{hour:9,minute:50,label:'天天樂',retryMinutes:5,maxRetries:28},
-    '539':{hour:20,minute:35,label:'539',retryMinutes:2,maxRetries:9}
-  };
-  const AUTO_SCHEDULE_LAST_PREFIX='pillar_auto_schedule_last_v3_';
-  const AUTO_SCHEDULE_STATE_PREFIX='pillar_auto_schedule_state_v3_';
-  function localDateKey(d=new Date()){
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
-  function normalizeDateKey(v){
-    const m=String(v||'').match(/(20\d{2})[^0-9]?(\d{1,2})[^0-9]?(\d{1,2})/);
-    return m?m[1]+'-'+String(Number(m[2])).padStart(2,'0')+'-'+String(Number(m[3])).padStart(2,'0'):'';
-  }
-  function hasTodayDraw(mode,now=new Date()){
-    const today=localDateKey(now);
-    return readList(mode).some(r=>normalizeDateKey(r.date)===today);
-  }
-  function loadScheduleState(mode,now=new Date()){
-    const key=AUTO_SCHEDULE_STATE_PREFIX+mode;
-    try{
-      const state=JSON.parse(localStorage.getItem(key)||'null');
-      if(state&&state.date===localDateKey(now))return state;
-    }catch(e){}
-    return {date:localDateKey(now),attempts:0,nextAt:0,complete:false};
-  }
-  function saveScheduleState(mode,state){
-    localStorage.setItem(AUTO_SCHEDULE_STATE_PREFIX+mode,JSON.stringify(state));
-  }
-  function scheduledTime(mode,now=new Date()){
-    const cfg=AUTO_SCHEDULES[mode];
-    return new Date(now.getFullYear(),now.getMonth(),now.getDate(),cfg.hour,cfg.minute,0,0).getTime();
-  }
-  function isScheduleDue(mode,now=new Date()){
-    const cfg=AUTO_SCHEDULES[mode];
-    if(!cfg||now.getTime()<scheduledTime(mode,now))return false;
-    if(localStorage.getItem(AUTO_SCHEDULE_LAST_PREFIX+mode)===localDateKey(now))return false;
-    const state=loadScheduleState(mode,now);
-    if(state.complete)return false;
-    const maxAttempts=1+(cfg.maxRetries||0);
-    return state.attempts<maxAttempts&&now.getTime()>=(state.nextAt||scheduledTime(mode,now));
-  }
-  async function runScheduledMode(mode){
-    const now=new Date();
-    if(!isScheduleDue(mode,now)||scheduledAutoDrawBusy)return;
-    const cfg=AUTO_SCHEDULES[mode];
-    const state=loadScheduleState(mode,now);
-    state.attempts+=1;
-    state.nextAt=Date.now()+Math.max(0,cfg.retryMinutes||0)*60000;
-    saveScheduleState(mode,state);
-
-    const maxAttempts=1+(cfg.maxRetries||0);
-    show(cfg.label+'排程檢查第 '+state.attempts+'/'+maxAttempts+' 次…','busy');
-    const result=await window.autoDrawStandalone(null,mode);
-
-    // 新一期已存在於資料庫（本次新增，或開啟網站時先行補入）才視為完成。
-    const feedItem=result&&result.data&&result.data.games
-      ? (mode==='dayday'?result.data.games.dayday:result.data.games['539'])
-      : null;
-    const latestIsInDb=!!(feedItem&&readList(mode).some(r=>sameNums(r.nums,feedItem.nums)));
-    const todayIsInDb=hasTodayDraw(mode,new Date());
-    const completed=latestIsInDb&&todayIsInDb;
-
-    if(completed){
-      state.complete=true;
-      saveScheduleState(mode,state);
-      localStorage.setItem(AUTO_SCHEDULE_LAST_PREFIX+mode,localDateKey());
-      show(cfg.label+'已取得今日最新一期，排程完成。\n'+((result&&result.messages)||[]).join('\n'),'ok');
-      return;
-    }
-
-    if(state.attempts>=maxAttempts){
-      state.complete=true;
-      saveScheduleState(mode,state);
-      localStorage.setItem(AUTO_SCHEDULE_LAST_PREFIX+mode,localDateKey());
-      show(cfg.label+'已完成 '+maxAttempts+' 次檢查，仍未取得今日最新一期。今天不再自動重試，仍可手動按更新。','err');
-      return;
-    }
-
-    const next=new Date(state.nextAt);
-    show(cfg.label+'目前仍無今日最新期；已完成第 '+state.attempts+'/'+maxAttempts+' 次檢查。\n下次重查：'+String(next.getHours()).padStart(2,'0')+':'+String(next.getMinutes()).padStart(2,'0'),'busy');
-  }
-  function checkFixedAutoDrawSchedules(){
-    runScheduledMode('dayday');
-    setTimeout(()=>runScheduledMode('539'),1500);
-  }
-  setTimeout(checkFixedAutoDrawSchedules,2500);
-  setInterval(checkFixedAutoDrawSchedules,30000);
-})();
-</script>
 
 </body>
 </html>
