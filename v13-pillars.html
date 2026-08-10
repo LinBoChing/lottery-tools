@@ -11894,6 +11894,23 @@ ${settleRecord.analysisLines.join('\n')}`;
     return 999999;
   }
 
+  function fixedT0Recent3FirstZeroValid(groups, historyDraws, mode) {
+    // T0完整重播的不可放鬆硬條件：T1～T3第一柱必須全部0支。
+    if (!window.__t0FastReplayMode || getBallMax(mode) !== 39) return true;
+    const first = new Set((((groups || [])[0]) || []).map(Number));
+    const recent3 = (historyDraws || []).slice(0, 3);
+    if (recent3.length < 3) return false;
+    return recent3.every(draw => !(draw || []).some(n => first.has(Number(n))));
+  }
+
+  function fixedT0StoredRecent3FirstZeroValid(groups, mode = currentGameMode()) {
+    if (!window.__t0FastReplayMode || getBallMax(mode) !== 39) return true;
+    const recent3 = Array.isArray(window.__t0HardZeroRecent3) ? window.__t0HardZeroRecent3 : [];
+    if (recent3.length < 3) return false;
+    const first = new Set((((groups || [])[0]) || []).map(Number));
+    return recent3.every(draw => !(draw || []).some(n => first.has(Number(n))));
+  }
+
   function fixedTargetPillarPenalty(groups, historyDraws, mode, targetPatterns) {
     const draws = (historyDraws || []).slice(0, 10);
     if (!Array.isArray(targetPatterns) || targetPatterns.length < 10 || draws.length < 10) return 999999;
@@ -11941,12 +11958,15 @@ ${settleRecord.analysisLines.join('\n')}`;
       const first = (groups && groups[0]) || [];
       const tieBreak = first.reduce((sum, n) => sum + (diversityWeight.get(Number(n)) || 0), 0);
       const headPenalty = fixedUseTailBalanced(mode) ? fixedHeadBalancePenalty(first) * 1000000000000 : 0;
+      const t0Recent3HardFail = !fixedT0Recent3FirstZeroValid(groups, historyDraws, mode);
+      const t0Recent3Penalty = t0Recent3HardFail ? 1000000000000000 : 0;
 
-      // 尾數均衡模式下，頭數2～3支也是硬限制；其餘規則分數仍占主體。
+      // 尾數均衡模式下，頭數2～3支是硬限制；T0重播時T1～T3第一柱0支也不可放鬆。
       return {
-        total: headPenalty + targetPenalty * 50000 + overlap.penalty + tieBreak,
+        total: t0Recent3Penalty + headPenalty + targetPenalty * 50000 + overlap.penalty + tieBreak,
         targetPenalty,
-        maxOverlap: overlap.maxOverlap
+        maxOverlap: overlap.maxOverlap,
+        t0Recent3HardFail
       };
     };
 
@@ -11954,7 +11974,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     let bestFlat = bestGroups.flat();
     let bestEval = combinedPenalty(bestGroups);
     let bestPenalty = bestEval.total;
-    if (bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(bestGroups[0]))) return bestGroups;
+    if (!bestEval.t0Recent3HardFail && bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(bestGroups[0]))) return bestGroups;
 
     // T0自動重播時改用輕量搜尋，避免手機每輪卡住；
     // 一般手動重新精選仍保留原本較深的搜尋。
@@ -11968,7 +11988,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       let score = evalNow.total;
       let temperature = 18;
       for (let step = 0; step < steps; step++) {
-        if (evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(groups[0]))) {
+        if (!evalNow.t0Recent3HardFail && evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(groups[0]))) {
           groups.forEach(g => g.sort((a, b) => a - b));
           return groups;
         }
@@ -12002,6 +12022,10 @@ ${settleRecord.analysisLines.join('\n')}`;
         if (temperature < 1.4) temperature = 1.4;
       }
     }
+    if (window.__t0FastReplayMode && !fixedT0Recent3FirstZeroValid(bestGroups, historyDraws, mode)) {
+      // 找不到合格候選時不可把違反T1～T3的近似解送出去；回傳空值讓本輪作廢。
+      return null;
+    }
     bestGroups.forEach(g => g.sort((a, b) => a - b));
     return bestGroups;
   }
@@ -12017,8 +12041,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     const t = fixedTargetScoresForPairLabel(label);
     if (!t) return null;
     const firstGroups = fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, t.first, referenceFirstPillars);
+    if (!firstGroups || !Array.isArray(firstGroups[0])) return null;
     const refsForSecond = (referenceFirstPillars || []).concat([firstGroups[0]]);
     const secondGroups = fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, t.second, refsForSecond);
+    if (!secondGroups || !Array.isArray(secondGroups[0])) return null;
     return [
       { groups: firstGroups, label: `${label}1`, omitted, omittedInfo },
       { groups: secondGroups, label: `${label}2`, omitted, omittedInfo }
@@ -13048,6 +13074,11 @@ ${settleRecord.analysisLines.join('\n')}`;
         (hits[1] === 2 && hits[2] === 3)
       );
       if (!isTarget) return;
+      // T0完整重播的二次出廠驗證：T1～T3任一期命中第一柱就禁止加入比對區。
+      if (!fixedT0StoredRecent3FirstZeroValid(item.groups || [], currentGameMode())) return;
+      // 均衡模式下再驗一次尾數與頭數，避免任何備援生成路徑繞過新規格。
+      const firstPillar = ((item.groups || [])[0] || []);
+      if (fixedUseTailBalanced(currentGameMode()) && (!fixedTailBalancedFirst(firstPillar) || !fixedHeadBalancedFirst(firstPillar))) return;
       matched.push((item.groups || []).map(g => (g || []).map(pad2).join(',')).join('+'));
       matchedLabels.push(`${labels[index]}（${hits.join('-')}）`);
     });
@@ -13253,7 +13284,16 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function t0ManualFindBestPairFromInput(input) {
-    const parsed = t0ManualParseCheckerGroups(input.value || '');
+    let parsed = t0ManualParseCheckerGroups(input.value || '');
+    if (window.__t0FastReplayMode && Array.isArray(window.__t0HardZeroRecent3) && window.__t0HardZeroRecent3.length >= 3) {
+      const recent3 = window.__t0HardZeroRecent3;
+      parsed = parsed.filter(first => {
+        const firstSet = new Set((first || []).map(Number));
+        const recent3Ok = recent3.every(draw => !(draw || []).some(n => firstSet.has(Number(n))));
+        const balanceOk = !fixedUseTailBalanced(currentGameMode()) || (fixedTailBalancedFirst(first) && fixedHeadBalancedFirst(first));
+        return recent3Ok && balanceOk;
+      });
+    }
     let best = null;
     for (let i = 0; i < parsed.length; i++) {
       for (let j = i + 1; j < parsed.length; j++) {
@@ -13385,6 +13425,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     t0AutoSearchRunning = true;
     t0AutoSearchStopRequested = false;
     window.__t0FastReplayMode = true;
+    // 固定記住原資料中的T1～T3；即使T0暫時刪除/還原，硬條件基準都不會漂移。
+    window.__t0HardZeroRecent3 = originalRecords.slice(1, 4).map(r => Array.isArray(r.nums) ? r.nums.slice() : []);
 
     if (startBtn) {
       startBtn.disabled = true;
@@ -13509,6 +13551,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       window.__t0FiveBallRelaxLevel = 0;
       window.__t0CurrentDraw = null;
       window.__t0FastReplayMode = false;
+      window.__t0HardZeroRecent3 = null;
 
       t0AutoSearchRunning = false;
       if (startBtn) {
