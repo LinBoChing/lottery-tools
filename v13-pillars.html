@@ -1709,8 +1709,9 @@
             <select id="firstPillarModeSelect" class="db-select">
               <option value="original">原版篩選</option>
               <option value="tailBalanced">尾數＋頭數均衡（各尾1支／各頭2～3支）</option>
+              <option value="fullBalanced">第三模式｜第一柱尾／頭均衡＋二三柱大小單雙均衡</option>
             </select>
-            <div class="db-mini">均衡模式只套用 539／天天樂 A～C 第一柱：0～9尾各1支，0～3頭各2～3支；第二、三柱與 D／E 保持原規則。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8；D／E保持原規則。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -10861,13 +10862,17 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedFirstPillarMode() {
     const v = localStorage.getItem(FIRST_PILLAR_MODE_KEY);
-    return v === 'tailBalanced' ? 'tailBalanced' : 'original';
+    return (v === 'tailBalanced' || v === 'fullBalanced') ? v : 'original';
   }
   function fixedUseTailBalanced(mode = currentGameMode()) {
-    return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'tailBalanced';
+    return getBallMax(mode) === 39 && (fixedFirstPillarMode() === 'tailBalanced' || fixedFirstPillarMode() === 'fullBalanced');
+  }
+  function fixedUseFullBalanced(mode = currentGameMode()) {
+    return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'fullBalanced';
   }
   function fixedDualStorageKey(mode = currentGameMode()) {
-    const suffix = fixedUseTailBalanced(mode) ? '_tailBalanced' : '';
+    const pillarMode = fixedFirstPillarMode();
+    const suffix = pillarMode === 'fullBalanced' ? '_fullBalanced' : (pillarMode === 'tailBalanced' ? '_tailBalanced' : '');
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
@@ -10879,7 +10884,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedHistoryStorageKey(mode = currentGameMode(), draws = null) {
     const fp = fixedDrawsFingerprint(draws || getBacktestDraws());
-    const variant = fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original';
+    const variant = fixedUseFullBalanced(mode) ? 'fullBalanced' : (fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original');
     return `${FIXED_DUAL_HISTORY_PREFIX}_${mode}_${variant}_${hashString(fp)}`;
   }
 
@@ -11616,6 +11621,62 @@ ${settleRecord.analysisLines.join('\n')}`;
     return counts.every(v => v === 1);
   }
 
+  function fixedSecondThirdBalancePenalty(groups) {
+    if (!Array.isArray(groups) || groups.length < 3) return 999;
+    const second = groups[1] || [];
+    const third = groups[2] || [];
+    // 14支理想 7:7；15支理想 7:8。差距越大懲罰越重。
+    return oddEvenBalance(second) + bigSmallBalance(second) + oddEvenBalance(third) + bigSmallBalance(third);
+  }
+
+  function fixedSecondThirdBalanced(groups) {
+    if (!Array.isArray(groups) || groups.length < 3) return false;
+    const second = groups[1] || [];
+    const third = groups[2] || [];
+    return second.length === 14 && third.length === 15 &&
+      oddEvenBalance(second) === 0 && bigSmallBalance(second) === 0 &&
+      oddEvenBalance(third) <= 1 && bigSmallBalance(third) <= 1;
+  }
+
+  function fixedBuildFullBalancedGroupsFromPool(pool, rng) {
+    const base = (pool || []).map(Number).filter(Number.isFinite);
+    const buckets = Array.from({ length: 10 }, () => []);
+    base.forEach(n => buckets[((n % 10) + 10) % 10].push(n));
+    if (buckets.some(b => !b.length)) return fixedBuildOnePillarFromPoolDet(base, rng);
+
+    let best = null;
+    let bestScore = Infinity;
+    // 同時搜尋第一柱尾／頭均衡，以及第二、三柱大小／單雙均衡。
+    for (let attempt = 0; attempt < 1800; attempt++) {
+      const first = buckets.map(b => fixedShuffleWithRng(b, rng)[0]);
+      const headPenalty = fixedHeadBalancePenalty(first);
+      if (headPenalty > 0) continue;
+      const firstSet = new Set(first);
+      const remain = fixedShuffleWithRng(base.filter(n => !firstSet.has(n)), rng);
+      const groups = [first.slice(), remain.slice(0, 14), remain.slice(14, 29)];
+      const balancePenalty = fixedSecondThirdBalancePenalty(groups);
+      const score = balancePenalty;
+      if (score < bestScore) {
+        bestScore = score;
+        best = groups.map(g => g.slice());
+      }
+      if (fixedSecondThirdBalanced(groups)) {
+        best = groups;
+        break;
+      }
+    }
+
+    if (!best) return fixedBuildTailBalancedGroupsFromPool(base, rng);
+    best.forEach(g => g.sort((a, b) => a - b));
+    return best;
+  }
+
+  function fixedBuildModeBalancedGroupsFromPool(pool, rng, mode = currentGameMode()) {
+    if (fixedUseFullBalanced(mode)) return fixedBuildFullBalancedGroupsFromPool(pool, rng);
+    if (fixedUseTailBalanced(mode)) return fixedBuildTailBalancedGroupsFromPool(pool, rng);
+    return fixedBuildOnePillarFromPoolDet(pool, rng);
+  }
+
   function fixedLatestNUnionSet(draws, max, count) {
     const s = new Set();
     (draws || []).slice(0, count).forEach(draw => {
@@ -11930,7 +11991,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedBuildTargetPillarFromPool(pool, rng, historyDraws, mode, targetScores, referenceFirstPillars = []) {
     const basePool = (pool || fixedRangeForMode(mode)).map(Number).filter(Number.isFinite).slice(0, 39);
-    if (basePool.length < 39 || (historyDraws || []).length < 10) return fixedUseTailBalanced(mode) ? fixedBuildTailBalancedGroupsFromPool(basePool, rng) : fixedBuildOnePillarFromPoolDet(basePool, rng);
+    if (basePool.length < 39 || (historyDraws || []).length < 10) return fixedBuildModeBalancedGroupsFromPool(basePool, rng, mode);
 
     const overlapPenalty = groups => {
       const first = new Set(((groups && groups[0]) || []).map(Number));
@@ -11958,23 +12019,24 @@ ${settleRecord.analysisLines.join('\n')}`;
       const first = (groups && groups[0]) || [];
       const tieBreak = first.reduce((sum, n) => sum + (diversityWeight.get(Number(n)) || 0), 0);
       const headPenalty = fixedUseTailBalanced(mode) ? fixedHeadBalancePenalty(first) * 1000000000000 : 0;
+      const secondThirdPenalty = fixedUseFullBalanced(mode) ? fixedSecondThirdBalancePenalty(groups) * 250000000 : 0;
       const t0Recent3HardFail = !fixedT0Recent3FirstZeroValid(groups, historyDraws, mode);
       const t0Recent3Penalty = t0Recent3HardFail ? 1000000000000000 : 0;
 
       // 尾數均衡模式下，頭數2～3支是硬限制；T0重播時T1～T3第一柱0支也不可放鬆。
       return {
-        total: t0Recent3Penalty + headPenalty + targetPenalty * 50000 + overlap.penalty + tieBreak,
+        total: t0Recent3Penalty + headPenalty + secondThirdPenalty + targetPenalty * 50000 + overlap.penalty + tieBreak,
         targetPenalty,
         maxOverlap: overlap.maxOverlap,
         t0Recent3HardFail
       };
     };
 
-    let bestGroups = fixedUseTailBalanced(mode) ? fixedBuildTailBalancedGroupsFromPool(basePool, rng) : fixedGroupsFromFlat(fixedShuffleWithRng(basePool, rng).slice(0, 39));
+    let bestGroups = fixedUseTailBalanced(mode) ? fixedBuildModeBalancedGroupsFromPool(basePool, rng, mode) : fixedGroupsFromFlat(fixedShuffleWithRng(basePool, rng).slice(0, 39));
     let bestFlat = bestGroups.flat();
     let bestEval = combinedPenalty(bestGroups);
     let bestPenalty = bestEval.total;
-    if (!bestEval.t0Recent3HardFail && bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(bestGroups[0]))) return bestGroups;
+    if (!bestEval.t0Recent3HardFail && bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(bestGroups[0])) && (!fixedUseFullBalanced(mode) || fixedSecondThirdBalanced(bestGroups))) return bestGroups;
 
     // T0自動重播時改用輕量搜尋，避免手機每輪卡住；
     // 一般手動重新精選仍保留原本較深的搜尋。
@@ -11982,13 +12044,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     const runs = fastReplay ? 8 : 34;
     const steps = fastReplay ? 420 : 1800;
     for (let run = 0; run < runs; run++) {
-      let groups = fixedUseTailBalanced(mode) ? fixedBuildTailBalancedGroupsFromPool(basePool, rng) : fixedGroupsFromFlat(fixedShuffleWithRng(basePool, rng).slice(0, 39));
+      let groups = fixedUseTailBalanced(mode) ? fixedBuildModeBalancedGroupsFromPool(basePool, rng, mode) : fixedGroupsFromFlat(fixedShuffleWithRng(basePool, rng).slice(0, 39));
       let flat = groups.flat();
       let evalNow = combinedPenalty(groups);
       let score = evalNow.total;
       let temperature = 18;
       for (let step = 0; step < steps; step++) {
-        if (!evalNow.t0Recent3HardFail && evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(groups[0]))) {
+        if (!evalNow.t0Recent3HardFail && evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(groups[0])) && (!fixedUseFullBalanced(mode) || fixedSecondThirdBalanced(groups))) {
           groups.forEach(g => g.sort((a, b) => a - b));
           return groups;
         }
@@ -12863,10 +12925,13 @@ ${settleRecord.analysisLines.join('\n')}`;
   if (firstPillarModeSelect) {
     firstPillarModeSelect.value = fixedFirstPillarMode();
     firstPillarModeSelect.addEventListener('change', () => {
-      localStorage.setItem(FIRST_PILLAR_MODE_KEY, firstPillarModeSelect.value === 'tailBalanced' ? 'tailBalanced' : 'original');
-      if (dailyAgentResult) dailyAgentResult.innerHTML = firstPillarModeSelect.value === 'tailBalanced'
-        ? '已切換為<b>尾數＋頭數均衡</b>：539／天天樂 A～C 第一柱固定 0～9 尾各1支，且0～3頭各2～3支。請按「重新精選立柱」建立這個模式的號碼。'
-        : '已切換為<b>原版篩選</b>。原版與尾數均衡各自保存固定立柱，請按「天選雙柱」讀取，或按「重新精選立柱」換新一批。';
+      const selectedMode = ['tailBalanced', 'fullBalanced'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
+      localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
+      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'fullBalanced'
+        ? '已切換為<b>第三模式｜全面均衡</b>：第一柱維持尾數＋頭數均衡，第二柱盡量達到大小7:7、單雙7:7；第三柱盡量達到大小7:8、單雙7:8。請按「重新精選立柱」建立這個模式的號碼。'
+        : (selectedMode === 'tailBalanced'
+          ? '已切換為<b>尾數＋頭數均衡</b>：539／天天樂 A～C 第一柱固定 0～9 尾各1支，且0～3頭各2～3支。請按「重新精選立柱」建立這個模式的號碼。'
+          : '已切換為<b>原版篩選</b>。三種模式各自保存固定立柱，請按「天選雙柱」讀取，或按「重新精選立柱」換新一批。');
     });
   }
   runBtn.addEventListener('click', runDailyTwoGroups);
