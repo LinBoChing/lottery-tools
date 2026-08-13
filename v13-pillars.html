@@ -14731,9 +14731,123 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
         : '';
       const distributionInfo = `<div class="first-pillar-head-info">第${item.a}組：${item.distA}<br>第${item.b}組：${item.distB}</div>`;
 
-      return `<div class="first-pillar-pair pass-low${balancedClass}"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums} ${balancedBadge}</span>${distributionInfo}</div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
+      return `<div class="first-pillar-pair pass-low${balancedClass}"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums} ${balancedBadge}</span>${distributionInfo}</div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn balance-comparison-23-btn" data-balance-a="${item.a - 1}" data-balance-b="${item.b - 1}">一鍵調整二三柱（尾數＋大小均衡）</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
     }).join('');
     result.innerHTML = `<b>${headline}</b>${details || `<div class="first-pillar-pair pass-low">目前沒有重複 0～${displayLimit} 支的比對結果。</div>`}`;
+  }
+
+  function comparisonTailCounts(nums) {
+    const counts = Array(10).fill(0);
+    (nums || []).forEach(n => {
+      n = Number(n);
+      if (n >= 1 && n <= 39) counts[n % 10]++;
+    });
+    return counts;
+  }
+
+  function comparisonBalanceText(pillars) {
+    const second = (pillars && pillars[1]) || [];
+    const third = (pillars && pillars[2]) || [];
+    const sizeText = nums => {
+      const small = nums.filter(n => Number(n) <= 19).length;
+      return `${small}小${nums.length - small}大`;
+    };
+    const tailText = nums => comparisonTailCounts(nums).join('-');
+    return `二柱 ${sizeText(second)}／尾 ${tailText(second)}；三柱 ${sizeText(third)}／尾 ${tailText(third)}`;
+  }
+
+  // 第一柱固定不動；只把剩餘29支重新切成14+15。
+  // DP同時最佳化：各尾數在二、三柱之間盡量對半、大小盡量7:7／7:8，
+  // 同分時優先保留原第二柱號碼，避免按一次就整柱大洗牌。
+  function buildTailSizeBalanced23(group) {
+    if (!group || !Array.isArray(group.pillars) || group.pillars.length < 3) return null;
+    const first = [...new Set((group.pillars[0] || []).map(Number))].filter(n => n >= 1 && n <= 39);
+    const oldSecond = [...new Set((group.pillars[1] || []).map(Number))].filter(n => n >= 1 && n <= 39);
+    const oldThird = [...new Set((group.pillars[2] || []).map(Number))].filter(n => n >= 1 && n <= 39);
+    if (first.length !== 10 || oldSecond.length !== 14 || oldThird.length !== 15) return null;
+
+    const universe = Array.from({ length: 39 }, (_, i) => i + 1);
+    const firstSet = new Set(first);
+    const remain = universe.filter(n => !firstSet.has(n));
+    if (remain.length !== 29) return null;
+    const oldSecondSet = new Set(oldSecond);
+    const buckets = Array.from({ length: 10 }, () => []);
+    remain.forEach(n => buckets[n % 10].push(n));
+
+    // state key = 已選支數|已選小號數；value = {cost, kept, picked}
+    let states = new Map([['0|0', { cost: 0, kept: 0, picked: [] }]]);
+    for (const bucket of buckets) {
+      const options = [];
+      const totalMasks = 1 << bucket.length;
+      for (let mask = 0; mask < totalMasks; mask++) {
+        const picked = [];
+        let small = 0;
+        let kept = 0;
+        for (let i = 0; i < bucket.length; i++) {
+          if (mask & (1 << i)) {
+            const n = bucket[i];
+            picked.push(n);
+            if (n <= 19) small++;
+            if (oldSecondSet.has(n)) kept++;
+          }
+        }
+        // 同一尾數總共有T支時，二柱選k支，三柱就是T-k；|2k-T|越小越平均。
+        const tailCost = Math.abs(2 * picked.length - bucket.length) * 100;
+        options.push({ count: picked.length, small, kept, picked, tailCost });
+      }
+
+      const next = new Map();
+      for (const state of states.values()) {
+        for (const opt of options) {
+          const count = state.picked.length + opt.count;
+          if (count > 14) continue;
+          const small = state.picked.filter(n => n <= 19).length + opt.small;
+          const picked = state.picked.concat(opt.picked);
+          const candidate = {
+            cost: state.cost + opt.tailCost,
+            kept: state.kept + opt.kept,
+            picked,
+            small
+          };
+          const key = `${count}|${small}`;
+          const prev = next.get(key);
+          if (!prev || candidate.cost < prev.cost || (candidate.cost === prev.cost && candidate.kept > prev.kept)) {
+            next.set(key, candidate);
+          }
+        }
+      }
+      states = next;
+    }
+
+    let best = null;
+    for (const state of states.values()) {
+      if (state.picked.length !== 14) continue;
+      const secondSmall = state.picked.filter(n => n <= 19).length;
+      const remainSmall = remain.filter(n => n <= 19).length;
+      const thirdSmall = remainSmall - secondSmall;
+      const secondBig = 14 - secondSmall;
+      const thirdBig = 15 - thirdSmall;
+      // 二柱理想7:7，三柱理想7:8或8:7；兩柱一起評估。
+      const sizeCost = Math.abs(secondSmall - secondBig) * 500 + Math.abs(thirdSmall - thirdBig) * 500;
+      const totalCost = state.cost + sizeCost;
+      const candidate = { ...state, totalCost };
+      if (!best || candidate.totalCost < best.totalCost ||
+          (candidate.totalCost === best.totalCost && candidate.kept > best.kept)) best = candidate;
+    }
+    if (!best) return null;
+
+    const second = best.picked.slice().sort((a, b) => a - b);
+    const secondSet = new Set(second);
+    const third = remain.filter(n => !secondSet.has(n)).sort((a, b) => a - b);
+    if (second.length !== 14 || third.length !== 15) return null;
+    return [first.slice().sort((a, b) => a - b), second, third];
+  }
+
+  function replaceComparisonGroups(groups, replacements) {
+    return groups.map((group, index) => {
+      const pillars = replacements.has(index) ? replacements.get(index) : group.pillars;
+      return (pillars || []).map(fmtComma).join('+');
+    }).join('\n\n');
   }
 
   function buildComparisonD(groupA, groupB) {
@@ -14823,6 +14937,31 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
   }
 
   result.addEventListener('click', async function (event) {
+    const balance23Btn = event.target.closest('.balance-comparison-23-btn');
+    if (balance23Btn) {
+      const groups = parseGroups(input.value);
+      const a = Number(balance23Btn.dataset.balanceA);
+      const b = Number(balance23Btn.dataset.balanceB);
+      const balancedA = buildTailSizeBalanced23(groups[a]);
+      const balancedB = buildTailSizeBalanced23(groups[b]);
+      const originalText = balance23Btn.textContent;
+      if (!balancedA || !balancedB) {
+        balance23Btn.textContent = '調整失敗（需10-14-15）';
+        setTimeout(() => { balance23Btn.textContent = originalText; }, 1600);
+        return;
+      }
+      const replacements = new Map([[a, balancedA], [b, balancedB]]);
+      input.value = replaceComparisonGroups(groups, replacements);
+      analyze();
+      balance23Btn.textContent = '✓ 已完成尾數＋大小均衡';
+      balance23Btn.classList.add('copied');
+      setTimeout(() => {
+        balance23Btn.textContent = originalText;
+        balance23Btn.classList.remove('copied');
+      }, 1700);
+      return;
+    }
+
     const copyDBtn = event.target.closest('.copy-comparison-d-btn');
     if (copyDBtn) {
       const groups = parseGroups(input.value);
