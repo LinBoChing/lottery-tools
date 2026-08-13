@@ -1769,8 +1769,9 @@
               <option value="original">原版篩選</option>
               <option value="tailBalanced">尾數＋頭數均衡（各尾1支／各頭2～3支）</option>
               <option value="fullBalanced">第三模式｜第一柱尾／頭均衡＋二三柱大小單雙均衡</option>
+              <option value="strictComplement">第四模式｜嚴格互補：避遺漏前10＋各尾1支＋雙組0～1重複</option>
             </select>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8；D／E保持原規則。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡且各至少8種尾數。D／E保持原規則。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -10921,7 +10922,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedFirstPillarMode() {
     const v = localStorage.getItem(FIRST_PILLAR_MODE_KEY);
-    return (v === 'tailBalanced' || v === 'fullBalanced') ? v : 'original';
+    return (v === 'tailBalanced' || v === 'fullBalanced' || v === 'strictComplement') ? v : 'original';
   }
   function fixedUseTailBalanced(mode = currentGameMode()) {
     return getBallMax(mode) === 39 && (fixedFirstPillarMode() === 'tailBalanced' || fixedFirstPillarMode() === 'fullBalanced');
@@ -10929,9 +10930,13 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedUseFullBalanced(mode = currentGameMode()) {
     return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'fullBalanced';
   }
+  function fixedUseStrictComplement(mode = currentGameMode()) {
+    return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'strictComplement';
+  }
   function fixedDualStorageKey(mode = currentGameMode()) {
     const pillarMode = fixedFirstPillarMode();
-    const suffix = pillarMode === 'fullBalanced' ? '_fullBalanced' : (pillarMode === 'tailBalanced' ? '_tailBalanced' : '');
+    // 第四模式 v2：更換儲存鍵，避免繼續載入舊版使用不同遺漏來源生成的號碼。
+    const suffix = pillarMode === 'strictComplement' ? '_strictComplement_v2_missSameSource' : (pillarMode === 'fullBalanced' ? '_fullBalanced' : (pillarMode === 'tailBalanced' ? '_tailBalanced' : ''));
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
@@ -10943,7 +10948,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedHistoryStorageKey(mode = currentGameMode(), draws = null) {
     const fp = fixedDrawsFingerprint(draws || getBacktestDraws());
-    const variant = fixedUseFullBalanced(mode) ? 'fullBalanced' : (fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original');
+    const variant = fixedUseStrictComplement(mode) ? 'strictComplement_v2_missSameSource' : (fixedUseFullBalanced(mode) ? 'fullBalanced' : (fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original'));
     return `${FIXED_DUAL_HISTORY_PREFIX}_${mode}_${variant}_${hashString(fp)}`;
   }
 
@@ -11117,6 +11122,16 @@ ${settleRecord.analysisLines.join('\n')}`;
       omitted = omittedInfo.map(x => x.n);
     }
 
+    if ((label === 'A' || label === 'B' || label === 'C') && fixedUseStrictComplement(mode)) {
+      const rng = fixedLocalRng([FIXED_DUAL_STORAGE_PREFIX, mode, label, 'strictComplement', Date.now(), Math.random()].join('::'));
+      const strictPair = fixedBuildStrictComplementPair(historyDraws || getBacktestDraws(), rng, mode, label);
+      if (strictPair && strictPair.length === 2) {
+        strictPair.forEach(x => used.add(fixedGroupsKey(x.groups)));
+        return strictPair;
+      }
+      throw new Error(`第四模式 ${label} 組未能建立符合硬條件的雙柱。`);
+    }
+
     if (label === 'A' || label === 'B' || label === 'C') {
       const rng = fixedLocalRng([FIXED_DUAL_STORAGE_PREFIX, mode, label, 'target10', Date.now(), Math.random()].join('::'));
       const targetPair = fixedBuildTargetPatternPair(label, sharedPool || fixedRangeForMode(mode), rng, historyDraws || getBacktestDraws(), mode, omitted, omittedInfo);
@@ -11225,6 +11240,28 @@ ${settleRecord.analysisLines.join('\n')}`;
       return p.pair.length === 2 && p.pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15);
     });
     if (!basicOk) return null;
+
+    // 第四模式完整性防呆：A～C 兩組第一柱都必須使用「目前遺漏排行展開區」同一份前10硬排除。
+    // 任何舊快照只要命中前10、尾數未全覆蓋、雙組重複>1、或二三柱未達嚴格均衡，就直接作廢重生。
+    if (getBallMax(mode) === 39 && fixedUseStrictComplement(mode)) {
+      const strictCold = fixedStrictColdTop10(null, mode);
+      if (!Array.isArray(strictCold) || strictCold.length !== 10) return null;
+      const strictColdSet = new Set(strictCold.map(x => Number(x && x.n != null ? x.n : x)));
+      for (const p of raw.pairs) {
+        const label = String(p && p.label || '').toUpperCase();
+        if (!(label === 'A' || label === 'B' || label === 'C')) continue;
+        if (!Array.isArray(p.pair) || p.pair.length !== 2) return null;
+        const g1 = p.pair[0] && p.pair[0].groups;
+        const g2 = p.pair[1] && p.pair[1].groups;
+        if (!Array.isArray(g1) || !Array.isArray(g2)) return null;
+        const f1 = g1[0] || [];
+        const f2 = g2[0] || [];
+        if (f1.some(n => strictColdSet.has(Number(n))) || f2.some(n => strictColdSet.has(Number(n)))) return null;
+        if (!fixedStrictFirstTailCovered(f1) || !fixedStrictFirstTailCovered(f2)) return null;
+        if (fixedStrictFirstOverlap(f1, f2) > 1) return null;
+        if (!fixedStrictSecondThirdBalanced(g1) || !fixedStrictSecondThirdBalanced(g2)) return null;
+      }
+    }
 
     // 49彩種完整性防呆：儲存資料裡的 omitted / omittedInfo 必須跟三柱實際缺少的10支完全一致。
     // 若不一致，代表讀到舊版錯誤快照：直接作廢重生，避免上方摘除正確、下方實際摘除卻不同步。
@@ -11727,6 +11764,160 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     if (!best) return fixedBuildTailBalancedGroupsFromPool(base, rng);
     best.forEach(g => g.sort((a, b) => a - b));
+    return best;
+  }
+
+  function fixedMissRankingFromDraws(mode = currentGameMode(), drawList = []) {
+    const max = getBallMax(mode);
+    const list = (drawList || []).map(d => (d || []).map(Number).filter(n => Number.isFinite(n) && n >= 1 && n <= max));
+    const freqWindow = Math.min(list.length, 30);
+    const ranking = [];
+    for (let n = 1; n <= max; n++) {
+      let miss = list.length;
+      for (let i = 0; i < list.length; i++) {
+        if ((list[i] || []).includes(n)) { miss = i; break; }
+      }
+      let recentFreq = 0;
+      for (let i = 0; i < freqWindow; i++) if ((list[i] || []).includes(n)) recentFreq++;
+      ranking.push({ n, miss, recentFreq });
+    }
+    ranking.sort((a, b) => b.miss - a.miss || a.recentFreq - b.recentFreq || a.n - b.n);
+    return ranking;
+  }
+
+  function fixedStrictColdTop10(historyDraws, mode = currentGameMode()) {
+    if (getBallMax(mode) !== 39) return [];
+
+    // 第四模式的一般重新精選，必須和「遺漏次數排行｜回測查看」完全同源。
+    // fixedCurrentMissRanking() 會直接讀目前畫面/資料庫正在使用的完整開獎資料，
+    // 不再受「生成立柱參考期數」(10/50/100...) 截斷影響。
+    // 真正 walk-forward 歷史回測可顯式開啟旗標，才使用傳入的 historyDraws，避免偷看未來。
+    if (window.__strictComplementWalkForward === true && Array.isArray(historyDraws) && historyDraws.length) {
+      return fixedMissRankingFromDraws(mode, historyDraws).slice(0, 10);
+    }
+    return fixedCurrentMissRanking(mode).slice(0, 10);
+  }
+
+  function fixedTailKindCount(numbers) {
+    return new Set((numbers || []).map(Number).filter(Number.isFinite).map(n => ((n % 10) + 10) % 10)).size;
+  }
+
+  function fixedStrictFirstTailCovered(first) {
+    if (!Array.isArray(first) || first.length !== 10) return false;
+    const tails = first.map(n => ((Number(n) % 10) + 10) % 10);
+    return new Set(tails).size === 10 && Array.from({ length: 10 }, (_, t) => tails.filter(x => x === t).length).every(v => v === 1);
+  }
+
+  function fixedStrictSecondThirdBalanced(groups) {
+    if (!fixedSecondThirdBalanced(groups)) return false;
+    const second = (groups && groups[1]) || [];
+    const third = (groups && groups[2]) || [];
+    return fixedTailKindCount(second) >= 8 && fixedTailKindCount(third) >= 8;
+  }
+
+  function fixedStrictBuildGroupsWithFirst(first, rng, mode = currentGameMode()) {
+    const all = fixedRangeForMode(mode).slice(0, 39);
+    const firstSet = new Set((first || []).map(Number));
+    if (firstSet.size !== 10) return null;
+    const remainBase = all.filter(n => !firstSet.has(n));
+    let best = null;
+    let bestPenalty = Infinity;
+    for (let attempt = 0; attempt < 2400; attempt++) {
+      const remain = fixedShuffleWithRng(remainBase, rng);
+      const groups = [Array.from(firstSet), remain.slice(0, 14), remain.slice(14, 29)];
+      const tailPenalty = Math.max(0, 8 - fixedTailKindCount(groups[1])) * 1000 + Math.max(0, 8 - fixedTailKindCount(groups[2])) * 1000;
+      const p = fixedSecondThirdBalancePenalty(groups) + tailPenalty;
+      if (p < bestPenalty) {
+        bestPenalty = p;
+        best = groups.map(g => g.slice());
+      }
+      if (fixedStrictSecondThirdBalanced(groups)) {
+        groups.forEach(g => g.sort((a, b) => a - b));
+        return groups;
+      }
+    }
+    return null;
+  }
+
+  function fixedStrictFirstOverlap(a, b) {
+    const setA = new Set((a || []).map(Number));
+    return (b || []).reduce((sum, n) => sum + (setA.has(Number(n)) ? 1 : 0), 0);
+  }
+
+  function fixedBuildStrictComplementPair(historyDraws, rng, mode = currentGameMode(), label = 'A') {
+    if (getBallMax(mode) !== 39) return null;
+    const coldInfo = fixedStrictColdTop10(historyDraws, mode);
+    if (coldInfo.length !== 10) return null;
+    const coldSet = new Set(coldInfo.map(x => Number(x.n)));
+    const allowedFirst = fixedRangeForMode(mode).filter(n => !coldSet.has(n));
+    const buckets = Array.from({ length: 10 }, () => []);
+    allowedFirst.forEach(n => buckets[((n % 10) + 10) % 10].push(n));
+    if (buckets.some(b => !b.length)) {
+      throw new Error(`第四模式無法生成：排除遺漏前10後，有尾數已無可用號碼。前10=${coldInfo.map(x => pad2(x.n)).join(' ')}`);
+    }
+
+    // 若有兩個以上尾數只剩單一候選，兩組第一柱至少會被迫重複2支，與0～1支硬條件衝突。
+    const forcedOverlapTails = buckets.filter(b => b.length === 1).length;
+    if (forcedOverlapTails > 1) {
+      throw new Error(`第四模式無法生成：排除遺漏前10後，有 ${forcedOverlapTails} 個尾數只剩1支可選，兩組第一柱無法維持重複≤1。`);
+    }
+
+    let best = null;
+    let bestOverlap = 99;
+    for (let attempt = 0; attempt < 3200; attempt++) {
+      const firstA = buckets.map(b => fixedShuffleWithRng(b, rng)[0]);
+      if (!fixedStrictFirstTailCovered(firstA)) continue;
+      // 為了讓剩餘29支可同時切成14/15的大小、單雙平衡，第一柱本身也需5:5大小與5:5單雙。
+      if (bigSmallBalance(firstA) !== 0 || oddEvenBalance(firstA) !== 0) continue;
+
+      const firstB = buckets.map((b, tail) => {
+        const alternatives = b.filter(n => n !== firstA[tail]);
+        const source = alternatives.length ? alternatives : b;
+        return fixedShuffleWithRng(source, rng)[0];
+      });
+      if (!fixedStrictFirstTailCovered(firstB)) continue;
+      if (bigSmallBalance(firstB) !== 0 || oddEvenBalance(firstB) !== 0) continue;
+      const overlap = fixedStrictFirstOverlap(firstA, firstB);
+      if (overlap > 1) continue;
+
+      const groupsA = fixedStrictBuildGroupsWithFirst(firstA, rng, mode);
+      if (!groupsA) continue;
+      const groupsB = fixedStrictBuildGroupsWithFirst(firstB, rng, mode);
+      if (!groupsB) continue;
+
+      const coldHitA = groupsA[0].filter(n => coldSet.has(Number(n))).length;
+      const coldHitB = groupsB[0].filter(n => coldSet.has(Number(n))).length;
+      if (coldHitA || coldHitB) continue;
+      if (!fixedStrictFirstTailCovered(groupsA[0]) || !fixedStrictFirstTailCovered(groupsB[0])) continue;
+      if (!fixedStrictSecondThirdBalanced(groupsA) || !fixedStrictSecondThirdBalanced(groupsB)) continue;
+
+      best = [
+        { groups: groupsA, label: `${label}1`, strictColdTop10: coldInfo.map(x => ({ ...x })), strictMode: true },
+        { groups: groupsB, label: `${label}2`, strictColdTop10: coldInfo.map(x => ({ ...x })), strictMode: true }
+      ];
+      bestOverlap = overlap;
+      if (overlap === 0) break;
+    }
+    if (!best) {
+      throw new Error(`第四模式嚴格條件無解：已嘗試第一柱各尾1支、避遺漏前10、雙組重複≤1，以及二三柱大小/單雙平衡＋各≥8種尾數。請重新精選再試。`);
+    }
+    best.forEach(x => { x.strictFirstOverlap = bestOverlap; });
+
+    // 最後一道硬驗證：再次用目前展開區同源的遺漏前10確認兩組第一柱皆為0命中。
+    // 一般生成時這份名單應與 coldInfo 完全一致；若中途資料變動，也寧可整次失敗，不留下錯誤結果。
+    if (window.__strictComplementWalkForward !== true) {
+      const liveCold = fixedCurrentMissRanking(mode).slice(0, 10);
+      const liveSet = new Set(liveCold.map(x => Number(x.n)));
+      const badA = best[0].groups[0].filter(n => liveSet.has(Number(n)));
+      const badB = best[1].groups[0].filter(n => liveSet.has(Number(n)));
+      if (badA.length || badB.length) {
+        throw new Error(`第四模式最終驗證失敗：第一柱仍命中目前遺漏前10。A=${badA.map(pad2).join(' ') || '0'}；B=${badB.map(pad2).join(' ') || '0'}`);
+      }
+      best.forEach(x => {
+        x.strictColdTop10 = liveCold.map(v => ({ ...v }));
+        x.strictColdSource = 'current-miss-ranking-same-as-review-panel';
+      });
+    }
     return best;
   }
 
@@ -12382,6 +12573,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         if (max === 49) groups = fixedEnsureFourGroupsUseOnlyPool(groups, sharedPool, rng);
         return { label, type: 'fourDown', pair: [{ groups, label: `${label}1`, omitted, omittedInfo, type: 'fourDown' }], createdAt: window.__t0FastReplayMode ? 'four-pillar-fast-placeholder' : 'four-pillar-down10', mode };
       }
+      if ((label === 'A' || label === 'B' || label === 'C') && fixedUseStrictComplement(mode)) {
+        // 第四模式完全脫離近10期過倒型態：只執行使用者指定的結構硬條件。
+        // 回測時冷門前10以 historyDraws 當下時間點計算，避免使用未來資料。
+        const strictPair = fixedBuildStrictComplementPair(historyDraws, rng, mode, label);
+        if (!strictPair || strictPair.length !== 2) throw new Error(`第四模式 ${label} 組生成失敗。`);
+        strictPair.forEach(x => used.add(fixedGroupsKey(x.groups)));
+        return { label, pair: strictPair, createdAt: 'strict-complement-v4-no-10row-pattern', mode, strictMode: true };
+      }
       if (label === 'A' || label === 'B' || label === 'C') {
         // 保持真正的手動模擬：重新精選時不偷看T0，也不受比對區內容反向干預。
         // 每個字母組只維持原本組內的第一柱避重與隨機生成。
@@ -12409,7 +12608,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
       return { label, pair, createdAt: 'walk-forward', mode };
     });
-    return { version: 3, mode, createdAt: 'walk-forward', pairs };
+    return { version: 4, mode, pillarMode: fixedFirstPillarMode(), createdAt: 'walk-forward', pairs };
   }
 
   function fixedNormalizeRecent10Result(result) {
@@ -12984,13 +13183,15 @@ ${settleRecord.analysisLines.join('\n')}`;
   if (firstPillarModeSelect) {
     firstPillarModeSelect.value = fixedFirstPillarMode();
     firstPillarModeSelect.addEventListener('change', () => {
-      const selectedMode = ['tailBalanced', 'fullBalanced'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
+      const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
       localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
-      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'fullBalanced'
-        ? '已切換為<b>第三模式｜全面均衡</b>：第一柱維持尾數＋頭數均衡，第二柱盡量達到大小7:7、單雙7:7；第三柱盡量達到大小7:8、單雙7:8。請按「重新精選立柱」建立這個模式的號碼。'
-        : (selectedMode === 'tailBalanced'
-          ? '已切換為<b>尾數＋頭數均衡</b>：539／天天樂 A～C 第一柱固定 0～9 尾各1支，且0～3頭各2～3支。請按「重新精選立柱」建立這個模式的號碼。'
-          : '已切換為<b>原版篩選</b>。三種模式各自保存固定立柱，請按「天選雙柱」讀取，或按「重新精選立柱」換新一批。');
+      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'strictComplement'
+        ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡且各至少8種尾數。請按「重新精選立柱」建立新號碼。'
+        : (selectedMode === 'fullBalanced'
+          ? '已切換為<b>第三模式｜全面均衡</b>：第一柱維持尾數＋頭數均衡，第二柱盡量達到大小7:7、單雙7:7；第三柱盡量達到大小7:8、單雙7:8。請按「重新精選立柱」建立這個模式的號碼。'
+          : (selectedMode === 'tailBalanced'
+            ? '已切換為<b>尾數＋頭數均衡</b>：539／天天樂 A～C 第一柱固定 0～9 尾各1支，且0～3頭各2～3支。請按「重新精選立柱」建立這個模式的號碼。'
+            : '已切換為<b>原版篩選</b>。四種模式各自保存固定立柱，請按「天選雙柱」讀取，或按「重新精選立柱」換新一批。'));
     });
   }
   runBtn.addEventListener('click', runDailyTwoGroups);
