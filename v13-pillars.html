@@ -14550,6 +14550,20 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     }
   };
 
+  // 供第一柱比對區的一鍵三柱調整使用：
+  // 從本頁實際開獎資料直接計算目前遺漏排行，避免跨 script 作用域讀不到內部函式。
+  window.getComparisonTopMiss10 = function() {
+    try {
+      const mode = currentGameMode();
+      if (getBallMax(mode) !== 39) return [];
+      const ranking = fixedCurrentMissRanking(mode);
+      return (ranking || []).slice(0, 10).map(x => Number(x.n)).filter(n => n >= 1 && n <= 39);
+    } catch (error) {
+      console.error('計算遺漏前10失敗：', error);
+      return [];
+    }
+  };
+
   // 財神立柱記憶資料庫已移除：不再初始化、不再渲染、不再綁定快捷跳轉。
 
 })();
@@ -14731,7 +14745,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
         : '';
       const distributionInfo = `<div class="first-pillar-head-info">第${item.a}組：${item.distA}<br>第${item.b}組：${item.distB}</div>`;
 
-      return `<div class="first-pillar-pair pass-low${balancedClass}"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums} ${balancedBadge}</span>${distributionInfo}</div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn balance-comparison-23-btn" data-balance-a="${item.a - 1}" data-balance-b="${item.b - 1}">一鍵調整二三柱（尾數＋大小均衡）</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
+      return `<div class="first-pillar-pair pass-low${balancedClass}"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums} ${balancedBadge}</span>${distributionInfo}</div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn balance-comparison-23-btn" data-balance-a="${item.a - 1}" data-balance-b="${item.b - 1}">一鍵調整一二三柱（避遺漏＋低重複＋均衡）</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
     }).join('');
     result.innerHTML = `<b>${headline}</b>${details || `<div class="first-pillar-pair pass-low">目前沒有重複 0～${displayLimit} 支的比對結果。</div>`}`;
   }
@@ -14756,12 +14770,92 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     return `二柱 ${sizeText(second)}／尾 ${tailText(second)}；三柱 ${sizeText(third)}／尾 ${tailText(third)}`;
   }
 
-  // 第一柱固定不動；只把剩餘29支重新切成14+15。
+  function comparisonTopMiss10() {
+    try {
+      if (typeof window.getComparisonTopMiss10 !== 'function') return [];
+      const nums = window.getComparisonTopMiss10();
+      return [...new Set((nums || []).map(Number).filter(n => n >= 1 && n <= 39))].slice(0, 10);
+    } catch (e) {
+      console.error('取得遺漏前10失敗：', e);
+      return [];
+    }
+  }
+
+  function comparisonFirstScore(first, oldFirst) {
+    const nums = (first || []).map(Number);
+    if (nums.length !== 10) return 1e15;
+    const tails = comparisonTailCounts(nums);
+    // 第一柱延續目前「尾數均衡」方向：10支盡量做到0~9尾各1支。
+    const tailPenalty = tails.reduce((sum, c) => sum + Math.abs(c - 1), 0) * 1200;
+    const heads = firstPillarHeadDistribution(nums);
+    // 頭數仍盡量維持2~3支，避免為了排遺漏後變成極端頭數。
+    const headPenalty = heads.reduce((sum, c) => sum + (c < 2 ? (2-c) : (c > 3 ? (c-3) : 0)), 0) * 900;
+    const small = nums.filter(n => n <= 19).length;
+    const sizePenalty = Math.abs(small - (10 - small)) * 180;
+    const oldSet = new Set((oldFirst || []).map(Number));
+    const kept = nums.filter(n => oldSet.has(n)).length;
+    return tailPenalty + headPenalty + sizePenalty - kept * 8;
+  }
+
+  function comparisonBuildFirstCandidates(group, forbiddenSet, limit = 80) {
+    if (!group || !Array.isArray(group.pillars) || group.pillars.length < 3) return [];
+    const oldFirst = (group.pillars[0] || []).map(Number).filter(n => n >= 1 && n <= 39);
+    const allowed = Array.from({length:39}, (_,i)=>i+1).filter(n => !forbiddenSet.has(n));
+    if (allowed.length < 20) return [];
+    const seen = new Set();
+    const out = [];
+    const add = arr => {
+      const first = [...new Set(arr.map(Number))].filter(n => n >= 1 && n <= 39 && !forbiddenSet.has(n));
+      if (first.length !== 10) return;
+      first.sort((a,b)=>a-b);
+      const key = first.join(',');
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ first, score: comparisonFirstScore(first, oldFirst) });
+    };
+
+    // 先嘗試保留原第一柱中未被「遺漏前10」擋掉的號碼，再補足。
+    const kept = oldFirst.filter(n => !forbiddenSet.has(n));
+    for (let t = 0; t < 180; t++) {
+      const rest = allowed.filter(n => !kept.includes(n)).sort(() => Math.random() - .5);
+      add(kept.concat(rest).slice(0,10));
+    }
+    // 再加入較廣的候選，避免原第一柱結構限制住兩組重複<=2的可行性。
+    for (let t = 0; t < 2200; t++) {
+      const shuffled = allowed.slice();
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      add(shuffled.slice(0,10));
+    }
+    out.sort((a,b)=>a.score-b.score);
+    return out.slice(0, limit);
+  }
+
+  function comparisonChooseFirstPair(groupA, groupB, forbiddenNums) {
+    const forbiddenSet = new Set((forbiddenNums || []).map(Number));
+    const candA = comparisonBuildFirstCandidates(groupA, forbiddenSet);
+    const candB = comparisonBuildFirstCandidates(groupB, forbiddenSet);
+    let best = null;
+    for (const a of candA) {
+      const setA = new Set(a.first);
+      for (const b of candB) {
+        const overlap = b.first.reduce((sum,n)=>sum+(setA.has(n)?1:0),0);
+        if (overlap > 2) continue;
+        const total = a.score + b.score + overlap * 25;
+        if (!best || total < best.total) best = { firstA:a.first, firstB:b.first, overlap, total };
+      }
+    }
+    return best;
+  }
+
+  // 指定新的第一柱後，把剩餘29支重新切成14+15。
   // DP同時最佳化：各尾數在二、三柱之間盡量對半、大小盡量7:7／7:8，
-  // 同分時優先保留原第二柱號碼，避免按一次就整柱大洗牌。
-  function buildTailSizeBalanced23(group) {
+  // 同分時優先保留原第二柱號碼，避免不必要的大洗牌。
+  function buildTailSizeBalanced23(group, forcedFirst = null) {
     if (!group || !Array.isArray(group.pillars) || group.pillars.length < 3) return null;
-    const first = [...new Set((group.pillars[0] || []).map(Number))].filter(n => n >= 1 && n <= 39);
+    const first = [...new Set(((forcedFirst || group.pillars[0]) || []).map(Number))].filter(n => n >= 1 && n <= 39);
     const oldSecond = [...new Set((group.pillars[1] || []).map(Number))].filter(n => n >= 1 && n <= 39);
     const oldThird = [...new Set((group.pillars[2] || []).map(Number))].filter(n => n >= 1 && n <= 39);
     if (first.length !== 10 || oldSecond.length !== 14 || oldThird.length !== 15) return null;
@@ -14774,8 +14868,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const buckets = Array.from({ length: 10 }, () => []);
     remain.forEach(n => buckets[n % 10].push(n));
 
-    // state key = 已選支數|已選小號數；value = {cost, kept, picked}
-    let states = new Map([['0|0', { cost: 0, kept: 0, picked: [] }]]);
+    let states = new Map([['0|0', { cost: 0, kept: 0, picked: [], small: 0 }]]);
     for (const bucket of buckets) {
       const options = [];
       const totalMasks = 1 << bucket.length;
@@ -14791,7 +14884,6 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
             if (oldSecondSet.has(n)) kept++;
           }
         }
-        // 同一尾數總共有T支時，二柱選k支，三柱就是T-k；|2k-T|越小越平均。
         const tailCost = Math.abs(2 * picked.length - bucket.length) * 100;
         options.push({ count: picked.length, small, kept, picked, tailCost });
       }
@@ -14801,38 +14893,29 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
         for (const opt of options) {
           const count = state.picked.length + opt.count;
           if (count > 14) continue;
-          const small = state.picked.filter(n => n <= 19).length + opt.small;
+          const small = state.small + opt.small;
           const picked = state.picked.concat(opt.picked);
-          const candidate = {
-            cost: state.cost + opt.tailCost,
-            kept: state.kept + opt.kept,
-            picked,
-            small
-          };
+          const candidate = { cost: state.cost + opt.tailCost, kept: state.kept + opt.kept, picked, small };
           const key = `${count}|${small}`;
           const prev = next.get(key);
-          if (!prev || candidate.cost < prev.cost || (candidate.cost === prev.cost && candidate.kept > prev.kept)) {
-            next.set(key, candidate);
-          }
+          if (!prev || candidate.cost < prev.cost || (candidate.cost === prev.cost && candidate.kept > prev.kept)) next.set(key, candidate);
         }
       }
       states = next;
     }
 
     let best = null;
+    const remainSmall = remain.filter(n => n <= 19).length;
     for (const state of states.values()) {
       if (state.picked.length !== 14) continue;
-      const secondSmall = state.picked.filter(n => n <= 19).length;
-      const remainSmall = remain.filter(n => n <= 19).length;
+      const secondSmall = state.small;
       const thirdSmall = remainSmall - secondSmall;
       const secondBig = 14 - secondSmall;
       const thirdBig = 15 - thirdSmall;
-      // 二柱理想7:7，三柱理想7:8或8:7；兩柱一起評估。
       const sizeCost = Math.abs(secondSmall - secondBig) * 500 + Math.abs(thirdSmall - thirdBig) * 500;
       const totalCost = state.cost + sizeCost;
       const candidate = { ...state, totalCost };
-      if (!best || candidate.totalCost < best.totalCost ||
-          (candidate.totalCost === best.totalCost && candidate.kept > best.kept)) best = candidate;
+      if (!best || candidate.totalCost < best.totalCost || (candidate.totalCost === best.totalCost && candidate.kept > best.kept)) best = candidate;
     }
     if (!best) return null;
 
@@ -14841,6 +14924,23 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const third = remain.filter(n => !secondSet.has(n)).sort((a, b) => a - b);
     if (second.length !== 14 || third.length !== 15) return null;
     return [first.slice().sort((a, b) => a - b), second, third];
+  }
+
+  function buildComparisonBalanced123Pair(groupA, groupB) {
+    const forbidden = comparisonTopMiss10();
+    if (forbidden.length !== 10) return { error: '找不到完整的遺漏前10排行，請先確認目前彩種有開獎資料。' };
+    const picked = comparisonChooseFirstPair(groupA, groupB, forbidden);
+    if (!picked) return { error: '找不到同時避開遺漏前10且第一柱重複<=2支的組合。' };
+    const pillarsA = buildTailSizeBalanced23(groupA, picked.firstA);
+    const pillarsB = buildTailSizeBalanced23(groupB, picked.firstB);
+    if (!pillarsA || !pillarsB) return { error: '第二、第三柱均衡調整失敗。' };
+
+    const forbiddenSet = new Set(forbidden);
+    if (pillarsA[0].some(n=>forbiddenSet.has(n)) || pillarsB[0].some(n=>forbiddenSet.has(n))) return { error: '驗證失敗：第一柱仍含遺漏前10號碼。' };
+    const setA = new Set(pillarsA[0]);
+    const overlap = pillarsB[0].filter(n=>setA.has(n));
+    if (overlap.length > 2) return { error: '驗證失敗：兩組第一柱重複超過2支。' };
+    return { pillarsA, pillarsB, forbidden, overlap };
   }
 
   function replaceComparisonGroups(groups, replacements) {
@@ -14942,23 +15042,32 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       const groups = parseGroups(input.value);
       const a = Number(balance23Btn.dataset.balanceA);
       const b = Number(balance23Btn.dataset.balanceB);
-      const balancedA = buildTailSizeBalanced23(groups[a]);
-      const balancedB = buildTailSizeBalanced23(groups[b]);
       const originalText = balance23Btn.textContent;
-      if (!balancedA || !balancedB) {
-        balance23Btn.textContent = '調整失敗（需10-14-15）';
-        setTimeout(() => { balance23Btn.textContent = originalText; }, 1600);
-        return;
+      balance23Btn.textContent = '調整中…';
+      balance23Btn.disabled = true;
+      try {
+        const pack = buildComparisonBalanced123Pair(groups[a], groups[b]);
+        if (!pack || pack.error) {
+          balance23Btn.textContent = pack && pack.error ? `失敗：${pack.error}` : '調整失敗';
+          setTimeout(() => { balance23Btn.textContent = originalText; balance23Btn.disabled = false; }, 2200);
+          return;
+        }
+        const replacements = new Map([[a, pack.pillarsA], [b, pack.pillarsB]]);
+        input.value = replaceComparisonGroups(groups, replacements);
+        analyze();
+        const missText = pack.forbidden.map(pad2).join(' ');
+        balance23Btn.textContent = `✓ 三柱完成｜一柱重複${pack.overlap.length}支`;
+        balance23Btn.title = `第一柱已避開遺漏前10：${missText}`;
+        balance23Btn.classList.add('copied');
+        setTimeout(() => {
+          balance23Btn.textContent = originalText;
+          balance23Btn.disabled = false;
+          balance23Btn.classList.remove('copied');
+        }, 2200);
+      } catch (e) {
+        balance23Btn.textContent = '調整失敗';
+        setTimeout(() => { balance23Btn.textContent = originalText; balance23Btn.disabled = false; }, 1800);
       }
-      const replacements = new Map([[a, balancedA], [b, balancedB]]);
-      input.value = replaceComparisonGroups(groups, replacements);
-      analyze();
-      balance23Btn.textContent = '✓ 已完成尾數＋大小均衡';
-      balance23Btn.classList.add('copied');
-      setTimeout(() => {
-        balance23Btn.textContent = originalText;
-        balance23Btn.classList.remove('copied');
-      }, 1700);
       return;
     }
 
