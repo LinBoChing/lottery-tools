@@ -1341,6 +1341,54 @@
 
 
 
+
+/* 遺漏次數回測展開區 */
+.miss-review-box{
+  margin:10px 0 12px;
+  border:1px solid rgba(245,158,11,.46);
+  border-radius:14px;
+  background:rgba(2,6,23,.72);
+  overflow:hidden;
+}
+.miss-review-box summary{
+  list-style:none;
+  cursor:pointer;
+  user-select:none;
+  padding:11px 13px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:#fde68a;
+  font-weight:900;
+}
+.miss-review-box summary::-webkit-details-marker{display:none;}
+.miss-review-box summary::after{content:'展開 ▼';color:#94a3b8;font-size:12px;white-space:nowrap;}
+.miss-review-box[open] summary::after{content:'收合 ▲';}
+.miss-review-body{padding:0 12px 12px;}
+.miss-review-note{color:#94a3b8;font-size:12px;line-height:1.6;margin-bottom:8px;}
+.miss-review-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+.miss-review-toolbar .btn{width:auto;padding:7px 10px;font-size:12px;}
+.miss-review-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;}
+.miss-review-item{
+  border:1px solid #334155;
+  border-radius:10px;
+  background:#0b1220;
+  padding:7px 8px;
+  min-width:0;
+}
+.miss-review-item.top10{
+  border-color:rgba(245,158,11,.72);
+  background:rgba(245,158,11,.12);
+  box-shadow:0 0 0 1px rgba(245,158,11,.10) inset;
+}
+.miss-review-rank{color:#94a3b8;font-size:11px;}
+.miss-review-num{font-size:17px;font-weight:1000;color:#f8fafc;}
+.miss-review-item.top10 .miss-review-num{color:#fde68a;}
+.miss-review-count{font-size:12px;color:#cbd5e1;line-height:1.4;}
+.miss-review-empty{padding:10px;color:#fca5a5;font-weight:800;line-height:1.6;}
+@media(max-width:768px){.miss-review-list{grid-template-columns:repeat(3,minmax(0,1fr));}}
+
 /* 多組立柱第一柱重複檢查器 */
 .first-pillar-checker{
   margin-top:12px;
@@ -1686,6 +1734,17 @@
               <option value="4">4 支（含）以下</option>
             </select>
           </div>
+          <details class="miss-review-box" id="missReviewBox">
+            <summary>遺漏次數排行｜回測查看</summary>
+            <div class="miss-review-body">
+              <div class="miss-review-note">依目前彩種、目前載入的開獎資料即時計算。排名越前代表連續未開期數越多；前10名會以黃色標示，與「一鍵調整一二三柱」避開的遺漏前10採同一份資料。</div>
+              <div class="miss-review-toolbar">
+                <button type="button" class="btn btn-dark" id="refreshMissReviewBtn">重新計算</button>
+                <span id="missReviewMeta" class="db-mini"></span>
+              </div>
+              <div id="missReviewList" class="miss-review-list"></div>
+            </div>
+          </details>
           <textarea id="firstPillarCheckInput" class="first-pillar-checker-input" placeholder="可貼多組完整立柱；每組一行並用＋分柱，或每柱一行、空行分組。貼上後會依上方選擇，只顯示重複 2、3 或 4 支（含）以下的結果。"></textarea>
           <div id="firstPillarCheckResult" class="first-pillar-checker-result">尚未貼上立柱。目前顯示重複 0～3 支的比對結果。</div>
         </div>
@@ -14564,6 +14623,23 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     }
   };
 
+  // 供「遺漏次數排行｜回測查看」使用完整排行；與一鍵調整第一柱共用同一計算來源。
+  window.getComparisonMissRanking = function() {
+    try {
+      const mode = currentGameMode();
+      if (getBallMax(mode) !== 39) return [];
+      return (fixedCurrentMissRanking(mode) || []).map((x, idx) => ({
+        rank: idx + 1,
+        n: Number(x.n),
+        miss: Number(x.miss || 0),
+        recentFreq: Number(x.recentFreq || 0)
+      })).filter(x => x.n >= 1 && x.n <= 39);
+    } catch (error) {
+      console.error('計算完整遺漏排行失敗：', error);
+      return [];
+    }
+  };
+
   // 財神立柱記憶資料庫已移除：不再初始化、不再渲染、不再綁定快捷跳轉。
 
 })();
@@ -15172,9 +15248,50 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 </script>
 
 
+
+<script>
+(function(){
+  const box = document.getElementById('missReviewBox');
+  const list = document.getElementById('missReviewList');
+  const meta = document.getElementById('missReviewMeta');
+  const refreshBtn = document.getElementById('refreshMissReviewBtn');
+  if (!box || !list) return;
+
+  function pad2(n){ return String(Number(n)).padStart(2,'0'); }
+
+  function renderMissReview(){
+    let ranking = [];
+    try {
+      ranking = typeof window.getComparisonMissRanking === 'function' ? window.getComparisonMissRanking() : [];
+    } catch(e){ ranking = []; }
+    if (!ranking.length) {
+      list.innerHTML = '<div class="miss-review-empty" style="grid-column:1/-1;">目前找不到可計算的開獎資料。</div>';
+      if (meta) meta.textContent = '';
+      return;
+    }
+    list.innerHTML = ranking.map((x, idx) => `
+      <div class="miss-review-item${idx < 10 ? ' top10' : ''}">
+        <div class="miss-review-rank">第${idx + 1}名${idx < 10 ? '｜避開' : ''}</div>
+        <div class="miss-review-num">${pad2(x.n)}</div>
+        <div class="miss-review-count">遺漏 <b>${x.miss}</b> 期<br>近30期出現 ${x.recentFreq} 次</div>
+      </div>`).join('');
+    if (meta) meta.textContent = `共 ${ranking.length} 號｜前10名黃色標示`;
+  }
+
+  box.addEventListener('toggle', function(){ if (box.open) renderMissReview(); });
+  if (refreshBtn) refreshBtn.addEventListener('click', renderMissReview);
+
+  // 回測時若更換貼上資料，展開狀態下自動跟著刷新。
+  const drawInput = document.getElementById('drawInput');
+  if (drawInput) {
+    drawInput.addEventListener('input', function(){ if (box.open) renderMissReview(); });
+    drawInput.addEventListener('change', function(){ if (box.open) renderMissReview(); });
+  }
+})();
+</script>
+
 <!-- 自動抓號／排程已移除：改為手動新增開獎號碼 -->
 
 
 </body>
 </html>
-
