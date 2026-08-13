@@ -14821,7 +14821,7 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
         : '';
       const distributionInfo = `<div class="first-pillar-head-info">第${item.a}組：${item.distA}<br>第${item.b}組：${item.distB}</div>`;
 
-      return `<div class="first-pillar-pair pass-low${balancedClass}"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums} ${balancedBadge}</span>${distributionInfo}</div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn balance-comparison-23-btn" data-balance-a="${item.a - 1}" data-balance-b="${item.b - 1}">一鍵調整一二三柱（避遺漏＋低重複＋均衡）</button><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
+      return `<div class="first-pillar-pair pass-low${balancedClass}"><div class="first-pillar-pair-main"><span>✓ 第${item.a}組 vs 第${item.b}組：<b>${item.overlap.length} 支</b>${nums} ${balancedBadge}</span>${distributionInfo}</div><div class="first-pillar-copy-actions"><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.a - 1}">複製第${item.a}組</button><button type="button" class="first-pillar-copy-btn" data-copy-group="${item.b - 1}">複製第${item.b}組</button><button type="button" class="first-pillar-copy-btn balance-comparison-23-btn" data-balance-a="${item.a - 1}" data-balance-b="${item.b - 1}">一鍵調整一二三柱（避遺漏＋低重複＋均衡）</button><span class="comparison-hard-verify" data-verify-a="${item.a - 1}" data-verify-b="${item.b - 1}" style="display:none;width:100%;font-size:12px;font-weight:900;color:#86efac;margin-top:4px;"></span><button type="button" class="first-pillar-copy-btn apply-comparison-d-btn" data-apply-d-a="${item.a - 1}" data-apply-d-b="${item.b - 1}">一鍵套用到D（10-10-19）</button><button type="button" class="first-pillar-copy-btn copy-comparison-d-btn" data-copy-d-a="${item.a - 1}" data-copy-d-b="${item.b - 1}">一鍵複製三組立柱</button></div></div>`;
     }).join('');
     result.innerHTML = `<b>${headline}</b>${details || `<div class="first-pillar-pair pass-low">目前沒有重複 0～${displayLimit} 支的比對結果。</div>`}`;
   }
@@ -14848,13 +14848,50 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 
   function comparisonTopMiss10() {
     try {
-      if (typeof window.getComparisonTopMiss10 !== 'function') return [];
-      const nums = window.getComparisonTopMiss10();
-      return [...new Set((nums || []).map(Number).filter(n => n >= 1 && n <= 39))].slice(0, 10);
+      // 第一優先：遺漏排行區「實際畫面」目前標成前10的10支。
+      // 這是使用者肉眼看到的排除名單，因此一鍵調整必須與它完全一致。
+      const displayed = [...new Set(Array.from(document.querySelectorAll('#missReviewList .miss-review-item.top10[data-num]'))
+        .map(el => Number(el.dataset.num)).filter(n => n >= 1 && n <= 39))];
+      if (displayed.length === 10) return displayed.slice();
+
+      // 第二優先：遺漏排行區最後一次渲染時保存的快照。
+      const snapshot = [...new Set(((window.__comparisonMissTop10 || [])).map(Number).filter(n => n >= 1 && n <= 39))];
+      if (snapshot.length === 10) return snapshot.slice();
+
+      // 第三優先：直接從目前開獎歷史即時計算。
+      if (typeof window.getComparisonMissRanking === 'function') {
+        const ranking = window.getComparisonMissRanking() || [];
+        const nums = [...new Set(ranking.slice(0, 10).map(x => Number(x.n)).filter(n => n >= 1 && n <= 39))];
+        if (nums.length === 10) return nums;
+      }
+      if (typeof window.getComparisonTopMiss10 === 'function') {
+        const nums = [...new Set((window.getComparisonTopMiss10() || []).map(Number).filter(n => n >= 1 && n <= 39))];
+        if (nums.length === 10) return nums.slice(0, 10);
+      }
+      return [];
     } catch (e) {
       console.error('取得遺漏前10失敗：', e);
       return [];
     }
+  }
+
+  // 不依賴parseGroups的最終原始文字驗證，避免第二組因解析/索引問題漏驗。
+  function comparisonVerifyRawPair(text, indexA, indexB, forbiddenNums) {
+    const forbidden = new Set((forbiddenNums || []).map(Number));
+    const lines = String(text || '').replace(/，/g, ',').replace(/[＋]/g, '+')
+      .split(/\r?\n/).map(x => x.trim()).filter(Boolean).filter(x => x.includes('+'));
+    const readFirst = idx => {
+      if (!Number.isInteger(idx) || idx < 0 || idx >= lines.length) return [];
+      const firstText = String(lines[idx]).split('+')[0] || '';
+      return [...new Set((firstText.match(/\d{1,2}/g) || []).map(Number).filter(n => n >= 1 && n <= 39))];
+    };
+    const firstA = readFirst(indexA);
+    const firstB = readFirst(indexB);
+    const badA = firstA.filter(n => forbidden.has(n));
+    const badB = firstB.filter(n => forbidden.has(n));
+    const setA = new Set(firstA);
+    const overlap = firstB.filter(n => setA.has(n));
+    return { firstA, firstB, badA, badB, overlap, ok:firstA.length===10 && firstB.length===10 && badA.length===0 && badB.length===0 && overlap.length<=2 };
   }
 
   function comparisonFirstScore(first, oldFirst) {
@@ -14910,19 +14947,66 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
   }
 
   function comparisonChooseFirstPair(groupA, groupB, forbiddenNums) {
-    const forbiddenSet = new Set((forbiddenNums || []).map(Number));
-    const candA = comparisonBuildFirstCandidates(groupA, forbiddenSet);
-    const candB = comparisonBuildFirstCandidates(groupB, forbiddenSet);
+    // 兩組全程共用「同一份」前10快照。禁止A、B各自重新取得排行。
+    const forbidden = [...new Set((forbiddenNums || []).map(Number).filter(n => n >= 1 && n <= 39))];
+    const forbiddenSet = new Set(forbidden);
+    if (forbiddenSet.size !== 10) return null;
+
+    // 唯一第一柱母池：39 - 遺漏前10 = 29支。
+    const allowed = Array.from({length:39}, (_,i)=>i+1).filter(n => !forbiddenSet.has(n));
+    if (allowed.length !== 29) return null;
+    const allowedSet = new Set(allowed);
+
+    // A、B都從同一29支母池獨立重建，不允許任何被排除號碼透過「保留舊柱」補回。
+    const buildStrictCandidates = (group, limit=180) => {
+      const oldFirst = ((group && group.pillars && group.pillars[0]) || []).map(Number);
+      const seen = new Set();
+      const list = [];
+      const add = arr => {
+        const first = [...new Set((arr || []).map(Number))].filter(n => allowedSet.has(n));
+        if (first.length !== 10) return;
+        first.sort((a,b)=>a-b);
+        if (first.some(n => forbiddenSet.has(n))) return;
+        const key = first.join(',');
+        if (seen.has(key)) return;
+        seen.add(key);
+        list.push({first, score:comparisonFirstScore(first, oldFirst)});
+      };
+
+      // 隨機只從allowed抽；每一輪都不接觸前10。
+      for (let t=0; t<5000; t++) {
+        const pool = allowed.slice();
+        for (let i=pool.length-1; i>0; i--) {
+          const j = Math.floor(Math.random()*(i+1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        add(pool.slice(0,10));
+      }
+      list.sort((x,y)=>x.score-y.score);
+      return list.slice(0,limit);
+    };
+
+    const candA = buildStrictCandidates(groupA);
+    const candB = buildStrictCandidates(groupB);
     let best = null;
     for (const a of candA) {
       const setA = new Set(a.first);
       for (const b of candB) {
+        if (a.first.some(n => forbiddenSet.has(n)) || b.first.some(n => forbiddenSet.has(n))) continue;
         const overlap = b.first.reduce((sum,n)=>sum+(setA.has(n)?1:0),0);
         if (overlap > 2) continue;
-        const total = a.score + b.score + overlap * 25;
-        if (!best || total < best.total) best = { firstA:a.first, firstB:b.first, overlap, total };
+        const total = a.score + b.score + overlap*100;
+        if (!best || total < best.total) {
+          best = {firstA:a.first.slice(), firstB:b.first.slice(), overlap, total, forbidden:forbidden.slice()};
+        }
       }
     }
+    if (!best) return null;
+
+    // 回傳前最後一次同步驗證：A、B都必須對同一份前10交集=0。
+    const badA = best.firstA.filter(n=>forbiddenSet.has(n));
+    const badB = best.firstB.filter(n=>forbiddenSet.has(n));
+    if (badA.length || badB.length || best.overlap > 2) return null;
     return best;
   }
 
@@ -15003,20 +15087,40 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
   }
 
   function buildComparisonBalanced123Pair(groupA, groupB) {
-    const forbidden = comparisonTopMiss10();
-    if (forbidden.length !== 10) return { error: '找不到完整的遺漏前10排行，請先確認目前彩種有開獎資料。' };
+    // 本次按鈕只取一次排行快照，A、B兩組全部沿用這一份。
+    const forbidden = comparisonTopMiss10().map(Number);
+    const forbiddenSet = new Set(forbidden);
+    if (forbidden.length !== 10 || forbiddenSet.size !== 10) return { error: '找不到完整的遺漏前10排行，請先確認目前彩種有開獎資料。' };
+
     const picked = comparisonChooseFirstPair(groupA, groupB, forbidden);
-    if (!picked) return { error: '找不到同時避開遺漏前10且第一柱重複<=2支的組合。' };
-    const pillarsA = buildTailSizeBalanced23(groupA, picked.firstA);
-    const pillarsB = buildTailSizeBalanced23(groupB, picked.firstB);
+    if (!picked) return { error: '找不到兩組都避開同一份遺漏前10且第一柱重複<=2支的組合。' };
+
+    // 先驗第一柱，再建立二三柱；buildTailSizeBalanced23不得改動forcedFirst。
+    const firstA = picked.firstA.slice().sort((a,b)=>a-b);
+    const firstB = picked.firstB.slice().sort((a,b)=>a-b);
+    const firstBadA = firstA.filter(n=>forbiddenSet.has(n));
+    const firstBadB = firstB.filter(n=>forbiddenSet.has(n));
+    const firstSetA = new Set(firstA);
+    const firstOverlap = firstB.filter(n=>firstSetA.has(n));
+    if (firstBadA.length || firstBadB.length || firstOverlap.length > 2) {
+      return { error: '第一柱同步硬驗證失敗，已拒絕本次調整。' };
+    }
+
+    const pillarsA = buildTailSizeBalanced23(groupA, firstA);
+    const pillarsB = buildTailSizeBalanced23(groupB, firstB);
     if (!pillarsA || !pillarsB) return { error: '第二、第三柱均衡調整失敗。' };
 
-    const forbiddenSet = new Set(forbidden);
-    if (pillarsA[0].some(n=>forbiddenSet.has(n)) || pillarsB[0].some(n=>forbiddenSet.has(n))) return { error: '驗證失敗：第一柱仍含遺漏前10號碼。' };
-    const setA = new Set(pillarsA[0]);
-    const overlap = pillarsB[0].filter(n=>setA.has(n));
-    if (overlap.length > 2) return { error: '驗證失敗：兩組第一柱重複超過2支。' };
-    return { pillarsA, pillarsB, forbidden, overlap };
+    // 二三柱完成後再一起驗A+B，避免其中一組被後續流程改回。
+    const badA = pillarsA[0].filter(n=>forbiddenSet.has(Number(n)));
+    const badB = pillarsB[0].filter(n=>forbiddenSet.has(Number(n)));
+    const setA = new Set(pillarsA[0].map(Number));
+    const overlap = pillarsB[0].filter(n=>setA.has(Number(n)));
+    if (badA.length || badB.length) {
+      const badText = [...new Set(badA.concat(badB))].map(pad2).join(' ');
+      return { error: `同步驗證失敗：第一柱仍含遺漏前10 ${badText}` };
+    }
+    if (overlap.length > 2) return { error: `同步驗證失敗：兩組第一柱重複${overlap.length}支。` };
+    return { pillarsA, pillarsB, forbidden:forbidden.slice(), overlap };
   }
 
   function replaceComparisonGroups(groups, replacements) {
@@ -15128,12 +15232,81 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
           setTimeout(() => { balance23Btn.textContent = originalText; balance23Btn.disabled = false; }, 2200);
           return;
         }
+        // 寫回前第一道硬驗證：使用「本次生成時」同一份遺漏前10快照。
+        const strictForbidden = [...new Set((pack.forbidden || []).map(Number))];
+        const strictForbiddenSet = new Set(strictForbidden);
+        const preBadA = pack.pillarsA[0].filter(n => strictForbiddenSet.has(Number(n)));
+        const preBadB = pack.pillarsB[0].filter(n => strictForbiddenSet.has(Number(n)));
+        const preSetA = new Set(pack.pillarsA[0].map(Number));
+        const preOverlap = pack.pillarsB[0].filter(n => preSetA.has(Number(n)));
+        if (strictForbidden.length !== 10 || preBadA.length || preBadB.length || preOverlap.length > 2) {
+          const bad = [...new Set(preBadA.concat(preBadB))].map(pad2).join(' ');
+          balance23Btn.textContent = bad ? `失敗：第一柱含排除碼 ${bad}` : `失敗：第一柱重複${preOverlap.length}支`;
+          setTimeout(() => { balance23Btn.textContent = originalText; balance23Btn.disabled = false; }, 2800);
+          return;
+        }
+
         const replacements = new Map([[a, pack.pillarsA], [b, pack.pillarsB]]);
+        const beforeText = input.value;
         input.value = replaceComparisonGroups(groups, replacements);
+
+        // 立即用「原始文字」驗一次A、B兩組，完全不依賴物件/舊索引內容。
+        const rawCheck = comparisonVerifyRawPair(input.value, a, b, strictForbidden);
+        if (!rawCheck.ok) {
+          input.value = beforeText;
+          analyze();
+          const badText = [...new Set(rawCheck.badA.concat(rawCheck.badB))].map(pad2).join(' ');
+          const reason = badText ? `雙組原始文字驗證：仍命中 ${badText}` : `雙組原始文字驗證失敗／重複${rawCheck.overlap.length}支`;
+          balance23Btn.textContent = `失敗：${reason}`;
+          setTimeout(() => { balance23Btn.textContent = originalText; balance23Btn.disabled = false; }, 3200);
+          return;
+        }
+
+        // 最終硬驗證：不要只相信候選生成結果，直接從「實際已寫回比對區」的文字重新解析。
+        // 同時重新抓一次目前完整遺漏排行，確保畫面排行與第一柱排除使用同一份即時資料。
+        const freshForbidden = comparisonTopMiss10().map(Number);
+        const verifyGroups = parseGroups(input.value);
+        const verifyA = verifyGroups[a] && verifyGroups[a].first ? verifyGroups[a].first.map(Number) : [];
+        const verifyB = verifyGroups[b] && verifyGroups[b].first ? verifyGroups[b].first.map(Number) : [];
+        // 最終同時驗「本次固定快照」與目前畫面；兩份都必須是完整10支。
+        const verifyForbiddenSet = new Set(strictForbidden.concat(freshForbidden));
+        const badA = verifyA.filter(n => verifyForbiddenSet.has(n));
+        const badB = verifyB.filter(n => verifyForbiddenSet.has(n));
+        const verifySetA = new Set(verifyA);
+        const verifyOverlap = verifyB.filter(n => verifySetA.has(n));
+
+        if (freshForbidden.length !== 10 || verifyA.length !== 10 || verifyB.length !== 10 || badA.length || badB.length || verifyOverlap.length > 2) {
+          // 驗證不過就完全還原，絕不留下錯誤第一柱。
+          input.value = beforeText;
+          analyze();
+          const badText = [...new Set(badA.concat(badB))].map(pad2).join(' ');
+          const reason = freshForbidden.length !== 10
+            ? '無法取得完整遺漏前10'
+            : (badText ? `第一柱仍命中遺漏前10：${badText}` : (verifyOverlap.length > 2 ? `第一柱重複${verifyOverlap.length}支` : '第一柱格式驗證失敗'));
+          balance23Btn.textContent = `失敗：${reason}`;
+          setTimeout(() => { balance23Btn.textContent = originalText; balance23Btn.disabled = false; }, 2800);
+          return;
+        }
+
         analyze();
-        const missText = pack.forbidden.map(pad2).join(' ');
-        balance23Btn.textContent = `✓ 三柱完成｜一柱重複${pack.overlap.length}支`;
-        balance23Btn.title = `第一柱已避開遺漏前10：${missText}`;
+        // analyze會重畫比對結果，因此重新抓新DOM上的驗證提示位置。
+        const finalRaw = comparisonVerifyRawPair(input.value, a, b, strictForbidden);
+        if (!finalRaw.ok) {
+          input.value = beforeText;
+          analyze();
+          alert('安全攔截：寫回後雙組第一柱驗證未通過，已自動還原。');
+          return;
+        }
+        const verifyBadge = result.querySelector(`.comparison-hard-verify[data-verify-a="${a}"][data-verify-b="${b}"]`);
+        if (verifyBadge) {
+          verifyBadge.style.display = 'inline-block';
+          verifyBadge.textContent = `硬驗證：A命中前10＝${finalRaw.badA.length}｜B命中前10＝${finalRaw.badB.length}｜第一柱重複＝${finalRaw.overlap.length}`;
+        }
+        const missText = strictForbidden.map(pad2).join(' ');
+        const firstAText = finalRaw.firstA.map(pad2).join(' ');
+        const firstBText = finalRaw.firstB.map(pad2).join(' ');
+        balance23Btn.textContent = `✓ 三柱完成｜A排除0・B排除0・重複${finalRaw.overlap.length}`;
+        balance23Btn.title = `硬驗證通過｜排除：${missText}｜A一柱：${firstAText}｜B一柱：${firstBText}`;
         balance23Btn.classList.add('copied');
         setTimeout(() => {
           balance23Btn.textContent = originalText;
@@ -15269,8 +15442,10 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       if (meta) meta.textContent = '';
       return;
     }
+    const visibleTop10 = ranking.slice(0, 10).map(x => Number(x.n)).filter(n => n >= 1 && n <= 39);
+    window.__comparisonMissTop10 = visibleTop10.slice();
     list.innerHTML = ranking.map((x, idx) => `
-      <div class="miss-review-item${idx < 10 ? ' top10' : ''}">
+      <div class="miss-review-item${idx < 10 ? ' top10' : ''}" data-num="${Number(x.n)}">
         <div class="miss-review-rank">第${idx + 1}名${idx < 10 ? '｜避開' : ''}</div>
         <div class="miss-review-num">${pad2(x.n)}</div>
         <div class="miss-review-count">遺漏 <b>${x.miss}</b> 期<br>近30期出現 ${x.recentFreq} 次</div>
