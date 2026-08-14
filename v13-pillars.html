@@ -12028,6 +12028,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     const key = String(label || '').toUpperCase();
     if (!['A', 'B', 'C'].includes(key)) return null;
 
+    // 第四模式 T0 模擬專用：移除 T0 後的重新精選不限制第1～10期過倒型態。
+    // 只在重新精選完成後，額外觀察「當下最新期（=移除前第2期）」是否自然符合指定 0-x-y。
+    if (window.__t0FourthIgnorePeriodRules === true) {
+      const random10 = Array(10).fill('RANDOM');
+      return { first: random10.slice(), second: random10.slice(), relaxLevel: 0 };
+    }
+
     // 僅在 T0 完整重播自動搜尋期間啟用；一般手動重新精選仍為等級0。
     const relaxLevel = Math.max(0, Math.min(3, Number(window.__t0FiveBallRelaxLevel || 0)));
 
@@ -13551,6 +13558,84 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
+  // 第四模式 T0 自動搜尋專用：只接受第一柱掛0，且另外兩柱把5球分成 1+4 / 2+3 / 3+2 / 4+1。
+  // 這裡只「觀察」重新精選後的真實命中，不會反向修改任何立柱或歷史結果。
+  function t0FourthModeTargetHits(hits) {
+    const c = (hits || []).slice(0, 3).map(Number);
+    return c.length === 3 && c[0] === 0 && c[1] >= 1 && c[2] >= 1 && (c[1] + c[2] === 5);
+  }
+
+  function t0FourthModeCaptureSecondPeriodQualified(items, secondDraw, round) {
+    const labels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    const qualified = [];
+    (items || []).slice(0, 6).forEach((item, index) => {
+      if (!item || !Array.isArray(item.groups) || item.groups.length < 3) return;
+      const hitInfo = fixedHitScoreForGroupsDirect(item.groups, secondDraw);
+      const hits = (hitInfo.hits || []).slice(0, 3).map(Number);
+      if (!t0FourthModeTargetHits(hits)) return;
+      qualified.push({
+        key: t0AutoNormalizeBlock(t0AutoGroupsText(item.groups)),
+        label: labels[index],
+        hits,
+        round
+      });
+    });
+    return qualified;
+  }
+
+  function t0FourthModeAppendAfterT0(input, items, latestDraw, round) {
+    const result = { matchedCount: 0, addedCount: 0, matchedLabels: [], addedLabels: [], reason: '' };
+    if (!input || !Array.isArray(items) || !Array.isArray(latestDraw) || latestDraw.length < 5) {
+      result.reason = '資料不足';
+      return result;
+    }
+    // 保留第一柱比對區既有的「完整三柱文字」，不能用解析後的第一柱陣列回寫，
+    // 否則前幾輪已加入的完整立柱會被吃掉，只剩最新一組。
+    const currentText = String(input.value || '')
+      .replace(/，/g, ',')
+      .replace(/＋/g, '+')
+      .trim();
+    let currentBlocks = [];
+    if (currentText) {
+      const blankSeparated = currentText.split(/\n\s*\n+/).map(v => v.trim()).filter(Boolean);
+      currentBlocks = blankSeparated.length > 1
+        ? blankSeparated
+        : currentText.split(/\r?\n/).map(v => v.trim()).filter(v => v.includes('+'));
+      // 單一完整立柱、沒有換行時也要保留。
+      if (!currentBlocks.length && currentText.includes('+')) currentBlocks = [currentText];
+    }
+    const existing = new Set(currentBlocks.map(t0AutoNormalizeBlock));
+    const matchedLabels = [];
+    const addedLabels = [];
+
+    items.forEach((item, index) => {
+      if (!item || !Array.isArray(item.groups) || item.groups.length < 3) return;
+      const label = ['A1','A2','B1','B2','C1','C2'][index] || `第${index + 1}組`;
+      const hitInfo = fixedHitScoreForGroupsDirect(item.groups, latestDraw);
+      const hits = (hitInfo.hits || []).slice(0, 3).map(Number);
+      if (!t0FourthModeTargetHits(hits)) return;
+
+      const block = t0AutoGroupsText(item.groups);
+      const key = t0AutoNormalizeBlock(block);
+      matchedLabels.push(`${label}（T0 ${hits.join('-')}）`);
+      if (existing.has(key)) return;
+      existing.add(key);
+      currentBlocks.push(block);
+      addedLabels.push(`${label}（T0 ${hits.join('-')}）`);
+    });
+
+    if (addedLabels.length) {
+      input.value = currentBlocks.join('\n\n');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    result.matchedCount = matchedLabels.length;
+    result.addedCount = addedLabels.length;
+    result.matchedLabels = matchedLabels;
+    result.addedLabels = addedLabels;
+    result.reason = matchedLabels.length ? '' : '復原T0後最新期沒有符合指定型態';
+    return result;
+  }
+
   function t0ManualAppendQualified(input, items, latestDraw, round) {
     const labels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
     const currentBlocks = String(input.value || '').trim()
@@ -13746,12 +13831,16 @@ ${settleRecord.analysisLines.join('\n')}`;
     const MAX_ROUNDS = 500;
     let totalAdded = 0;
     let totalMatched = 0;
+    const isFourthModeT0Flow = fixedUseStrictComplement(mode);
 
     t0AutoSearchRunning = true;
     t0AutoSearchStopRequested = false;
     window.__t0FastReplayMode = true;
-    // 固定記住原資料中的T1～T3；即使T0暫時刪除/還原，硬條件基準都不會漂移。
-    window.__t0HardZeroRecent3 = originalRecords.slice(1, 4).map(r => Array.isArray(r.nums) ? r.nums.slice() : []);
+    window.__t0FourthIgnorePeriodRules = isFourthModeT0Flow;
+    // 第四模式 T0 流程不檢查移除後任何一期過倒，也不套 T1～T10 條件；其他模式維持原邏輯。
+    window.__t0HardZeroRecent3 = isFourthModeT0Flow
+      ? null
+      : originalRecords.slice(1, 4).map(r => Array.isArray(r.nums) ? r.nums.slice() : []);
 
     if (startBtn) {
       startBtn.disabled = true;
@@ -13760,52 +13849,69 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (stopBtn) stopBtn.disabled = false;
 
     try {
-      for (let round = 1; round <= MAX_ROUNDS; round++) {
+      for (let round = 1; isFourthModeT0Flow || round <= MAX_ROUNDS; round++) {
         if (t0AutoSearchStopRequested) break;
 
-        // 依照「先近後遠影響」重新安排：
-        // 依原本100輪的放鬆比例等比例調整為500輪：
-        // 1～85輪原始；86～165輪先放鬆第5期；
-        // 166～250輪再放鬆第6～10期；
-        // 251輪起僅在估算最低重複仍>2時，才輕微放鬆第4期。
+        // 第四模式 T0：移除 T0 後不檢查任何一期過倒、不做任何放鬆；只照手動流程走到復原後的最新期。
+        // 其他模式仍沿用原本分級放鬆邏輯。
         const trainBeforeRemoval = originalRecords.slice(1).map(r => Array.isArray(r.nums) ? r.nums : []);
-        let relaxLevel = round <= 85 ? 0 : (round <= 165 ? 1 : 2);
-        let feasibility = t0FiveBallFeasibility(t0Draw, trainBeforeRemoval, relaxLevel);
-
-        if (round >= 251 && feasibility.theoreticalMin > 2) {
-          relaxLevel = 3;
+        let relaxLevel = 0;
+        let feasibility = { theoreticalMin: 0 };
+        if (!isFourthModeT0Flow) {
+          relaxLevel = round <= 85 ? 0 : (round <= 165 ? 1 : 2);
           feasibility = t0FiveBallFeasibility(t0Draw, trainBeforeRemoval, relaxLevel);
+          if (round >= 251 && feasibility.theoreticalMin > 2) {
+            relaxLevel = 3;
+            feasibility = t0FiveBallFeasibility(t0Draw, trainBeforeRemoval, relaxLevel);
+          }
         }
 
-        window.__t0FiveBallRelaxLevel = relaxLevel;
+        window.__t0FiveBallRelaxLevel = isFourthModeT0Flow ? 0 : relaxLevel;
         window.__t0CurrentDraw = t0Draw.slice();
 
-        const relaxLabel = relaxLevel === 0
-          ? '原始規則'
-          : relaxLevel === 1
-            ? '先放鬆第5期（第一柱0優先、可1支）'
-            : relaxLevel === 2
-              ? '再放鬆第6～10期'
-              : '估算無法達2支，輕微放鬆第4期';
+        const relaxLabel = isFourthModeT0Flow
+          ? '第四模式T0：移除後各期過倒都不檢查／不放鬆'
+          : (relaxLevel === 0
+            ? '原始規則'
+            : relaxLevel === 1
+              ? '先放鬆第5期（第一柱0優先、可1支）'
+              : relaxLevel === 2
+                ? '再放鬆第6～10期'
+                : '估算無法達2支，輕微放鬆第4期');
 
         // ① 將 T0 視為未知：暫時自資料庫最上方移除。
         removeT0ForSimulation();
 
+        // 重要：先讓資料庫/畫面真正完成一次刷新，再進入重新精選。
+        // 否則手機瀏覽器可能還沒把「最新期已移除」畫出來，就直接開始下一步，
+        // 使用者看起來會像 T0 根本沒有先被移除。
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
         // ② 完整執行原本的「重新精選立柱」。
+        //    第四模式在這一步完全不看過倒結果，只保留這次重新精選產生的固定立柱。
         await runReselectFixedPillars();
 
-        // ③ T0 正式開出：還原 T0 至資料庫最上方。
+        // ③ 不檢查移除 T0 後任何一期的過倒結果；重新精選完成就直接復原原本最新一期 T0。
         restoreT0ForDrawReplay();
 
         // ④ 完整執行原本的「天選雙柱」，讓畫面、lastFixedDaily、
         //    近期期況與固定雙柱狀態依還原後的 T0 重新讀取。
         await runDailyTwoGroups();
 
-        // ⑤ 完整執行原本「提取 0-3-2／0-2-3」的同一套邏輯。
-        const extractResult = extractABC023ToFirstPillarCheck({
-          silent: true,
-          noScroll: true
-        });
+        // ⑤ 復原T0後模擬手動按一次「天選雙柱」，再只看最新一期，抓取符合指定型態的立柱；
+        //    其他模式維持原本 0-3-2／0-2-3 提取邏輯。
+        const extractResult = isFourthModeT0Flow
+          ? t0FourthModeAppendAfterT0(
+              input,
+              (lastFixedDaily || []).slice(0, 6),
+              t0Draw,
+              round
+            )
+          : extractABC023ToFirstPillarCheck({
+              silent: true,
+              noScroll: true
+            });
 
         totalMatched += Number(extractResult && extractResult.matchedCount || 0);
         totalAdded += Number(extractResult && extractResult.addedCount || 0);
@@ -13819,17 +13925,24 @@ ${settleRecord.analysisLines.join('\n')}`;
           : '目前尚未形成兩組可比較立柱';
 
         t0AutoSetStatus(
-          `第 ${round}/${MAX_ROUNDS} 輪完整重播完成｜${relaxLabel}\n` +
-          `安全池上限：${feasibility.safePoolSize}支｜數學下限約${feasibility.theoreticalMin}支（不代表生成器必然用滿）\n` +
+          `${isFourthModeT0Flow ? `第 ${round} 輪完整重播完成` : `第 ${round}/${MAX_ROUNDS} 輪完整重播完成`}｜${relaxLabel}\n` +
+          `${isFourthModeT0Flow
+            ? '安全池：第四模式T0本流程不使用／不限制\n'
+            : `安全池上限：${feasibility.safePoolSize}支｜數學下限約${feasibility.theoreticalMin}支（不代表生成器必然用滿）\n`} ` +
           `目前合格第一柱實際聯集：${diversityStats.unionSize}支｜最高單號出現${diversityStats.maxFrequency}次\n` +
-          `流程：刪除T0 → 原重新精選 → 還原T0 → 原天選雙柱 → 原提取功能\n` +
+          `${fixedUseStrictComplement(mode)
+            ? '流程：刪除T0 → 重新精選（不看過倒）→ 還原T0 → 天選雙柱 → 只抓最新期合格組\n'
+            : '流程：刪除T0 → 原重新精選 → 還原T0 → 原天選雙柱 → 原提取功能\n'}` +
           `本輪符合 ${extractResult.matchedCount || 0} 組｜新增 ${extractResult.addedCount || 0} 組\n` +
           `累計符合 ${totalMatched} 組｜累計新增 ${totalAdded} 組｜比對區共 ${pairInfo.parsed.length} 組\n` +
           `${bestText}`,
           best && best.overlap.length <= 2 ? 'ok' : 'busy'
         );
 
-        if (best && best.overlap.length <= 2) {
+        // 第四模式取消「第一柱重複 <= 2 支就自動停止」。
+        // 即使已找到低重複配對，也繼續跑並持續新增，直到使用者自己按「停止」。
+        // 其他模式仍保留原本 <= 2 支自動停止的行為。
+        if (!isFourthModeT0Flow && best && best.overlap.length <= 2) {
           const overlapText = best.overlap.length
             ? best.overlap.map(pad2).join(' ')
             : '無重複號碼';
@@ -13851,7 +13964,17 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
 
       const finalInfo = t0ManualFindBestPairFromInput(input);
-      if (!(finalInfo.best && finalInfo.best.overlap.length <= 2)) {
+      if (isFourthModeT0Flow) {
+        const bestText = finalInfo.best
+          ? `目前最低重複 ${finalInfo.best.overlap.length} 支`
+          : '目前沒有可比較配對';
+        t0AutoSetStatus(
+          `${t0AutoSearchStopRequested ? '已手動停止。' : '第四模式 T0 持續搜尋已結束。'}\n` +
+          `累計符合 ${totalMatched} 組、實際新增 ${totalAdded} 組；比對區目前 ${finalInfo.parsed.length} 組。\n` +
+          `${bestText}。第四模式不因低重複自動停止。`,
+          'warn'
+        );
+      } else if (!(finalInfo.best && finalInfo.best.overlap.length <= 2)) {
         const bestText = finalInfo.best
           ? `目前最低重複 ${finalInfo.best.overlap.length} 支`
           : '目前沒有可比較配對';
@@ -13877,6 +14000,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       window.__t0CurrentDraw = null;
       window.__t0FastReplayMode = false;
       window.__t0HardZeroRecent3 = null;
+      window.__t0FourthIgnorePeriodRules = false;
 
       t0AutoSearchRunning = false;
       if (startBtn) {
