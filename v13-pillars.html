@@ -1771,7 +1771,7 @@
               <option value="fullBalanced">第三模式｜第一柱尾／頭均衡＋二三柱大小單雙均衡</option>
               <option value="strictComplement">第四模式｜嚴格互補：避遺漏前10＋各尾1支＋雙組0～1重複</option>
             </select>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡且各至少8種尾數。D／E保持原規則。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）。D／E保持原規則。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -10935,8 +10935,8 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
   function fixedDualStorageKey(mode = currentGameMode()) {
     const pillarMode = fixedFirstPillarMode();
-    // 第四模式 v2：更換儲存鍵，避免繼續載入舊版使用不同遺漏來源生成的號碼。
-    const suffix = pillarMode === 'strictComplement' ? '_strictComplement_v2_missSameSource' : (pillarMode === 'fullBalanced' ? '_fullBalanced' : (pillarMode === 'tailBalanced' ? '_tailBalanced' : ''));
+    // 第四模式 v3：二、三柱改為0～9尾全覆蓋；更換儲存鍵避免載入舊版僅要求8種尾數的號碼。
+    const suffix = pillarMode === 'strictComplement' ? '_strictComplement_v3_allTails23' : (pillarMode === 'fullBalanced' ? '_fullBalanced' : (pillarMode === 'tailBalanced' ? '_tailBalanced' : ''));
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
@@ -11812,7 +11812,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (!fixedSecondThirdBalanced(groups)) return false;
     const second = (groups && groups[1]) || [];
     const third = (groups && groups[2]) || [];
-    return fixedTailKindCount(second) >= 8 && fixedTailKindCount(third) >= 8;
+    return fixedTailKindCount(second) === 10 && fixedTailKindCount(third) === 10;
   }
 
   function fixedStrictBuildGroupsWithFirst(first, rng, mode = currentGameMode()) {
@@ -11825,7 +11825,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     for (let attempt = 0; attempt < 2400; attempt++) {
       const remain = fixedShuffleWithRng(remainBase, rng);
       const groups = [Array.from(firstSet), remain.slice(0, 14), remain.slice(14, 29)];
-      const tailPenalty = Math.max(0, 8 - fixedTailKindCount(groups[1])) * 1000 + Math.max(0, 8 - fixedTailKindCount(groups[2])) * 1000;
+      const tailPenalty = Math.max(0, 10 - fixedTailKindCount(groups[1])) * 100000 + Math.max(0, 10 - fixedTailKindCount(groups[2])) * 100000;
       const p = fixedSecondThirdBalancePenalty(groups) + tailPenalty;
       if (p < bestPenalty) {
         bestPenalty = p;
@@ -11899,7 +11899,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (overlap === 0) break;
     }
     if (!best) {
-      throw new Error(`第四模式嚴格條件無解：已嘗試第一柱各尾1支、避遺漏前10、雙組重複≤1，以及二三柱大小/單雙平衡＋各≥8種尾數。請重新精選再試。`);
+      throw new Error(`第四模式嚴格條件無解：已嘗試第一柱各尾1支、避遺漏前10、雙組重複≤1，以及二三柱大小/單雙平衡＋第二、第三柱0～9尾全覆蓋。請重新精選再試。`);
     }
     best.forEach(x => { x.strictFirstOverlap = bestOverlap; });
 
@@ -13186,7 +13186,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
       localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
       if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'strictComplement'
-        ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡且各至少8種尾數。請按「重新精選立柱」建立新號碼。'
+        ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡，且第二、第三柱都必須0～9尾全覆蓋。請按「重新精選立柱」建立新號碼。'
         : (selectedMode === 'fullBalanced'
           ? '已切換為<b>第三模式｜全面均衡</b>：第一柱維持尾數＋頭數均衡，第二柱盡量達到大小7:7、單雙7:7；第三柱盡量達到大小7:8、單雙7:8。請按「重新精選立柱」建立這個模式的號碼。'
           : (selectedMode === 'tailBalanced'
