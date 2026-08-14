@@ -13829,6 +13829,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
 
     const MAX_ROUNDS = 500;
+    const FOURTH_MODE_MAX_ROUNDS = 200;
     let totalAdded = 0;
     let totalMatched = 0;
     const isFourthModeT0Flow = fixedUseStrictComplement(mode);
@@ -13849,7 +13850,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (stopBtn) stopBtn.disabled = false;
 
     try {
-      for (let round = 1; isFourthModeT0Flow || round <= MAX_ROUNDS; round++) {
+      const activeMaxRounds = isFourthModeT0Flow ? FOURTH_MODE_MAX_ROUNDS : MAX_ROUNDS;
+      for (let round = 1; round <= activeMaxRounds; round++) {
         if (t0AutoSearchStopRequested) break;
 
         // 第四模式 T0：移除 T0 後不檢查任何一期過倒、不做任何放鬆；只照手動流程走到復原後的最新期。
@@ -13925,7 +13927,7 @@ ${settleRecord.analysisLines.join('\n')}`;
           : '目前尚未形成兩組可比較立柱';
 
         t0AutoSetStatus(
-          `${isFourthModeT0Flow ? `第 ${round} 輪完整重播完成` : `第 ${round}/${MAX_ROUNDS} 輪完整重播完成`}｜${relaxLabel}\n` +
+          `第 ${round}/${activeMaxRounds} 輪完整重播完成｜${relaxLabel}\n` +
           `${isFourthModeT0Flow
             ? '安全池：第四模式T0本流程不使用／不限制\n'
             : `安全池上限：${feasibility.safePoolSize}支｜數學下限約${feasibility.theoreticalMin}支（不代表生成器必然用滿）\n`} ` +
@@ -13940,7 +13942,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         );
 
         // 第四模式取消「第一柱重複 <= 2 支就自動停止」。
-        // 即使已找到低重複配對，也繼續跑並持續新增，直到使用者自己按「停止」。
+        // 即使已找到低重複配對，也會繼續跑到本次 200 輪完成；中途仍可手動停止。
         // 其他模式仍保留原本 <= 2 支自動停止的行為。
         if (!isFourthModeT0Flow && best && best.overlap.length <= 2) {
           const overlapText = best.overlap.length
@@ -13969,9 +13971,9 @@ ${settleRecord.analysisLines.join('\n')}`;
           ? `目前最低重複 ${finalInfo.best.overlap.length} 支`
           : '目前沒有可比較配對';
         t0AutoSetStatus(
-          `${t0AutoSearchStopRequested ? '已手動停止。' : '第四模式 T0 持續搜尋已結束。'}\n` +
+          `${t0AutoSearchStopRequested ? '已手動停止。' : `本次第四模式 T0 ${FOURTH_MODE_MAX_ROUNDS} 輪已完成。`}\n` +
           `累計符合 ${totalMatched} 組、實際新增 ${totalAdded} 組；比對區目前 ${finalInfo.parsed.length} 組。\n` +
-          `${bestText}。第四模式不因低重複自動停止。`,
+          `${bestText}。第四模式不因低重複自動停止；每次最多執行 ${FOURTH_MODE_MAX_ROUNDS} 輪。`,
           'warn'
         );
       } else if (!(finalInfo.best && finalInfo.best.overlap.length <= 2)) {
@@ -15795,4 +15797,3 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 
 </body>
 </html>
-
