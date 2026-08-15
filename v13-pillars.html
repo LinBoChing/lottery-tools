@@ -1771,7 +1771,7 @@
               <option value="fullBalanced">第三模式｜第一柱尾／頭均衡＋二三柱大小單雙均衡</option>
               <option value="strictComplement">第四模式｜嚴格互補：避遺漏前10＋各尾1支＋雙組0～1重複</option>
             </select>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）。D／E保持原規則。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -10935,8 +10935,10 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
   function fixedDualStorageKey(mode = currentGameMode()) {
     const pillarMode = fixedFirstPillarMode();
-    // 第四模式 v3：二、三柱改為0～9尾全覆蓋；更換儲存鍵避免載入舊版僅要求8種尾數的號碼。
-    const suffix = pillarMode === 'strictComplement' ? '_strictComplement_v3_allTails23' : (pillarMode === 'fullBalanced' ? '_fullBalanced' : (pillarMode === 'tailBalanced' ? '_tailBalanced' : ''));
+    // 極端牌型防護 v1：39球 A～C 的第二、三柱新增「禁止3連號」與「和值/大小斷層防護」。
+    // 更換固定立柱儲存鍵，避免新版仍讀到舊版已存在 localStorage 的號碼。
+    const guardSuffix = getBallMax(mode) === 39 ? '_extremeGuard_v1' : '';
+    const suffix = pillarMode === 'strictComplement' ? '_strictComplement_v4_allTails23_extremeGuard' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix));
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
@@ -11734,6 +11736,149 @@ ${settleRecord.analysisLines.join('\n')}`;
       oddEvenBalance(third) <= 1 && bigSmallBalance(third) <= 1;
   }
 
+  // ===== 極端牌型防護 v1：第二、三柱 =====
+  // 目標：
+  // 1. 單柱不得出現連續3碼(含)以上，例如 12,13,14。
+  // 2. 二、三柱平均值/和值不可出現極端斷層，並避免單柱幾乎被低號或高號佔滿。
+  // 這裡只作用於 39 球的 10-14-15 A～C，不碰第一柱，也不改 D/E 規則。
+
+  function fixedConsecutiveRuns(numbers, minLen = 3) {
+    const sorted = [...new Set((numbers || []).map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
+    const runs = [];
+    let start = 0;
+    for (let i = 1; i <= sorted.length; i++) {
+      if (i < sorted.length && sorted[i] === sorted[i - 1] + 1) continue;
+      const run = sorted.slice(start, i);
+      if (run.length >= minLen) runs.push(run);
+      start = i;
+    }
+    return runs;
+  }
+
+  function fixedHasThreePlusConsecutive(numbers) {
+    return fixedConsecutiveRuns(numbers, 3).length > 0;
+  }
+
+  function fixedPillarAverage(numbers) {
+    const arr = (numbers || []).map(Number).filter(Number.isFinite);
+    return arr.length ? arr.reduce((s, n) => s + n, 0) / arr.length : 0;
+  }
+
+  function fixedExtremeDistributionMetrics(groups) {
+    if (!Array.isArray(groups) || groups.length < 3) {
+      return { safe: false, penalty: 1e9 };
+    }
+    const second = (groups[1] || []).map(Number).filter(Number.isFinite);
+    const third = (groups[2] || []).map(Number).filter(Number.isFinite);
+    if (second.length !== 14 || third.length !== 15) {
+      return { safe: false, penalty: 1e9 };
+    }
+
+    const avg2 = fixedPillarAverage(second);
+    const avg3 = fixedPillarAverage(third);
+    const avgGap = Math.abs(avg2 - avg3);
+    const low2 = second.filter(n => n <= 9).length;
+    const low3 = third.filter(n => n <= 9).length;
+    const high2 = second.filter(n => n >= 30).length;
+    const high3 = third.filter(n => n >= 30).length;
+    const runs2 = fixedConsecutiveRuns(second, 3);
+    const runs3 = fixedConsecutiveRuns(third, 3);
+
+    // 合理常態帶採寬鬆硬限制，不要求兩柱和值完全相同：
+    // - 平均值各自維持 14.5～25.5；
+    // - 兩柱平均值差距 <= 4.5；
+    // - 每柱至少包含 1 支低號(01～09)及 1 支高號(30～39)；
+    // - 低號或高號不可佔單柱超過約 60%（14支最多8、15支最多9）。
+    const meanSafe = avg2 >= 14.5 && avg2 <= 25.5 && avg3 >= 14.5 && avg3 <= 25.5 && avgGap <= 4.5;
+    const rangeSafe =
+      low2 >= 1 && high2 >= 1 && low3 >= 1 && high3 >= 1 &&
+      low2 <= 8 && high2 <= 8 && low3 <= 9 && high3 <= 9;
+    const consecutiveSafe = runs2.length === 0 && runs3.length === 0;
+
+    let penalty = 0;
+    penalty += runs2.reduce((s, r) => s + (r.length - 2) * 500000, 0);
+    penalty += runs3.reduce((s, r) => s + (r.length - 2) * 500000, 0);
+    penalty += Math.max(0, 14.5 - avg2) * 120000 + Math.max(0, avg2 - 25.5) * 120000;
+    penalty += Math.max(0, 14.5 - avg3) * 120000 + Math.max(0, avg3 - 25.5) * 120000;
+    penalty += Math.max(0, avgGap - 4.5) * 180000;
+    if (low2 < 1) penalty += 250000;
+    if (high2 < 1) penalty += 250000;
+    if (low3 < 1) penalty += 250000;
+    if (high3 < 1) penalty += 250000;
+    penalty += Math.max(0, low2 - 8) * 180000 + Math.max(0, high2 - 8) * 180000;
+    penalty += Math.max(0, low3 - 9) * 180000 + Math.max(0, high3 - 9) * 180000;
+
+    return {
+      safe: consecutiveSafe && meanSafe && rangeSafe,
+      penalty,
+      avg2, avg3, avgGap,
+      low2, low3, high2, high3,
+      runs2, runs3
+    };
+  }
+
+  function fixedSecondThirdExtremeSafe(groups, mode = currentGameMode()) {
+    if (getBallMax(mode) !== 39) return true;
+    return !!fixedExtremeDistributionMetrics(groups).safe;
+  }
+
+  function fixedSecondThirdExtremePenalty(groups, mode = currentGameMode()) {
+    if (getBallMax(mode) !== 39) return 0;
+    return fixedExtremeDistributionMetrics(groups).penalty || 0;
+  }
+
+  // 若現成分配不合格，優先從三連號的「中間碼」開始與另一柱交換。
+  // 每次只接受能降低極端牌型分數的交換，且可額外保留原模式的硬條件。
+  function fixedRepairSecondThirdExtreme(groups, rng, mode = currentGameMode(), keepPredicate = null) {
+    if (getBallMax(mode) !== 39 || !Array.isArray(groups) || groups.length < 3) return groups;
+    let work = groups.map(g => (g || []).map(Number).filter(Number.isFinite));
+    if (fixedSecondThirdExtremeSafe(work, mode) && (!keepPredicate || keepPredicate(work))) {
+      work.forEach(g => g.sort((a, b) => a - b));
+      return work;
+    }
+
+    const scoreOf = g => fixedSecondThirdExtremePenalty(g, mode);
+    for (let step = 0; step < 260; step++) {
+      const before = fixedExtremeDistributionMetrics(work);
+      if (before.safe && (!keepPredicate || keepPredicate(work))) break;
+
+      let best = null;
+      const sourceOrder = before.runs2.length ? [1, 2] : (before.runs3.length ? [2, 1] : [1, 2]);
+      for (const srcIdx of sourceOrder) {
+        const dstIdx = srcIdx === 1 ? 2 : 1;
+        const runs = fixedConsecutiveRuns(work[srcIdx], 3);
+        let sourceCandidates = [];
+        runs.forEach(run => {
+          // 三連號優先拿中間碼；4連以上則依序取內部碼。
+          if (run.length === 3) sourceCandidates.push(run[1]);
+          else sourceCandidates.push(...run.slice(1, -1));
+        });
+        if (!sourceCandidates.length) sourceCandidates = fixedShuffleWithRng(work[srcIdx], rng).slice(0, 8);
+
+        const destCandidates = fixedShuffleWithRng(work[dstIdx], rng);
+        for (const a of sourceCandidates) {
+          for (const b of destCandidates) {
+            if (a === b) continue;
+            const candidate = work.map(g => g.slice());
+            candidate[srcIdx][candidate[srcIdx].indexOf(a)] = b;
+            candidate[dstIdx][candidate[dstIdx].indexOf(b)] = a;
+            if (keepPredicate && !keepPredicate(candidate)) continue;
+            const s = scoreOf(candidate);
+            if (!best || s < best.score) best = { score: s, groups: candidate };
+            if (s === 0 && fixedSecondThirdExtremeSafe(candidate, mode)) break;
+          }
+          if (best && best.score === 0) break;
+        }
+      }
+
+      if (!best || best.score >= before.penalty) break;
+      work = best.groups;
+    }
+
+    work.forEach(g => g.sort((a, b) => a - b));
+    return fixedSecondThirdExtremeSafe(work, mode) && (!keepPredicate || keepPredicate(work)) ? work : null;
+  }
+
   function fixedBuildFullBalancedGroupsFromPool(pool, rng) {
     const base = (pool || []).map(Number).filter(Number.isFinite);
     const buckets = Array.from({ length: 10 }, () => []);
@@ -11751,12 +11896,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       const remain = fixedShuffleWithRng(base.filter(n => !firstSet.has(n)), rng);
       const groups = [first.slice(), remain.slice(0, 14), remain.slice(14, 29)];
       const balancePenalty = fixedSecondThirdBalancePenalty(groups);
-      const score = balancePenalty;
+      const extremePenalty = fixedSecondThirdExtremePenalty(groups);
+      const score = balancePenalty * 1000000 + extremePenalty;
       if (score < bestScore) {
         bestScore = score;
         best = groups.map(g => g.slice());
       }
-      if (fixedSecondThirdBalanced(groups)) {
+      if (fixedSecondThirdBalanced(groups) && fixedSecondThirdExtremeSafe(groups)) {
         best = groups;
         break;
       }
@@ -11812,7 +11958,9 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (!fixedSecondThirdBalanced(groups)) return false;
     const second = (groups && groups[1]) || [];
     const third = (groups && groups[2]) || [];
-    return fixedTailKindCount(second) === 10 && fixedTailKindCount(third) === 10;
+    return fixedTailKindCount(second) === 10 &&
+      fixedTailKindCount(third) === 10 &&
+      fixedSecondThirdExtremeSafe(groups);
   }
 
   function fixedStrictBuildGroupsWithFirst(first, rng, mode = currentGameMode()) {
@@ -11826,7 +11974,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const remain = fixedShuffleWithRng(remainBase, rng);
       const groups = [Array.from(firstSet), remain.slice(0, 14), remain.slice(14, 29)];
       const tailPenalty = Math.max(0, 10 - fixedTailKindCount(groups[1])) * 100000 + Math.max(0, 10 - fixedTailKindCount(groups[2])) * 100000;
-      const p = fixedSecondThirdBalancePenalty(groups) + tailPenalty;
+      const p = fixedSecondThirdBalancePenalty(groups) * 1000000 + tailPenalty + fixedSecondThirdExtremePenalty(groups, mode);
       if (p < bestPenalty) {
         bestPenalty = p;
         best = groups.map(g => g.slice());
@@ -11899,7 +12047,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (overlap === 0) break;
     }
     if (!best) {
-      throw new Error(`第四模式嚴格條件無解：已嘗試第一柱各尾1支、避遺漏前10、雙組重複≤1，以及二三柱大小/單雙平衡＋第二、第三柱0～9尾全覆蓋。請重新精選再試。`);
+      throw new Error(`第四模式嚴格條件無解：已嘗試第一柱各尾1支、避遺漏前10、雙組重複≤1，以及二三柱大小/單雙平衡、0～9尾全覆蓋、禁止單柱3連號、和值/大小斷層防護。請重新精選再試。`);
     }
     best.forEach(x => { x.strictFirstOverlap = bestOverlap; });
 
@@ -11922,9 +12070,35 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fixedBuildModeBalancedGroupsFromPool(pool, rng, mode = currentGameMode()) {
-    if (fixedUseFullBalanced(mode)) return fixedBuildFullBalancedGroupsFromPool(pool, rng);
-    if (fixedUseTailBalanced(mode)) return fixedBuildTailBalancedGroupsFromPool(pool, rng);
-    return fixedBuildOnePillarFromPoolDet(pool, rng);
+    let groups;
+    let keepPredicate = null;
+    if (fixedUseFullBalanced(mode)) {
+      groups = fixedBuildFullBalancedGroupsFromPool(pool, rng);
+      keepPredicate = g => fixedSecondThirdBalanced(g) && fixedTailBalancedFirst(g[0]) && fixedHeadBalancedFirst(g[0]);
+    } else if (fixedUseTailBalanced(mode)) {
+      groups = fixedBuildTailBalancedGroupsFromPool(pool, rng);
+      keepPredicate = g => fixedTailBalancedFirst(g[0]) && fixedHeadBalancedFirst(g[0]);
+    } else {
+      groups = fixedBuildOnePillarFromPoolDet(pool, rng);
+    }
+
+    if (getBallMax(mode) === 39) {
+      const repaired = fixedRepairSecondThirdExtreme(groups, rng, mode, keepPredicate);
+      if (repaired) return repaired;
+
+      // 修補失敗時重新分配二、三柱，不動第一柱；避免把不合格近似解送出去。
+      for (let attempt = 0; attempt < 420; attempt++) {
+        let retry;
+        if (fixedUseFullBalanced(mode)) retry = fixedBuildFullBalancedGroupsFromPool(pool, rng);
+        else if (fixedUseTailBalanced(mode)) retry = fixedBuildTailBalancedGroupsFromPool(pool, rng);
+        else retry = fixedBuildOnePillarFromPoolDet(pool, rng);
+        if (keepPredicate && !keepPredicate(retry)) continue;
+        const fixedRetry = fixedRepairSecondThirdExtreme(retry, rng, mode, keepPredicate);
+        if (fixedRetry) return fixedRetry;
+      }
+      return null;
+    }
+    return groups;
   }
 
   function fixedLatestNUnionSet(draws, max, count) {
@@ -12277,12 +12451,13 @@ ${settleRecord.analysisLines.join('\n')}`;
       const tieBreak = first.reduce((sum, n) => sum + (diversityWeight.get(Number(n)) || 0), 0);
       const headPenalty = fixedUseTailBalanced(mode) ? fixedHeadBalancePenalty(first) * 1000000000000 : 0;
       const secondThirdPenalty = fixedUseFullBalanced(mode) ? fixedSecondThirdBalancePenalty(groups) * 250000000 : 0;
+      const extremePenalty = fixedSecondThirdExtremePenalty(groups, mode) * 5000;
       const t0Recent3HardFail = !fixedT0Recent3FirstZeroValid(groups, historyDraws, mode);
       const t0Recent3Penalty = t0Recent3HardFail ? 1000000000000000 : 0;
 
       // 尾數均衡模式下，頭數2～3支是硬限制；T0重播時T1～T3第一柱0支也不可放鬆。
       return {
-        total: t0Recent3Penalty + headPenalty + secondThirdPenalty + targetPenalty * 50000 + overlap.penalty + tieBreak,
+        total: t0Recent3Penalty + headPenalty + secondThirdPenalty + extremePenalty + targetPenalty * 50000 + overlap.penalty + tieBreak,
         targetPenalty,
         maxOverlap: overlap.maxOverlap,
         t0Recent3HardFail
@@ -12293,7 +12468,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     let bestFlat = bestGroups.flat();
     let bestEval = combinedPenalty(bestGroups);
     let bestPenalty = bestEval.total;
-    if (!bestEval.t0Recent3HardFail && bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(bestGroups[0])) && (!fixedUseFullBalanced(mode) || fixedSecondThirdBalanced(bestGroups))) return bestGroups;
+    if (!bestEval.t0Recent3HardFail && bestEval.targetPenalty === 0 && bestEval.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(bestGroups[0])) && (!fixedUseFullBalanced(mode) || fixedSecondThirdBalanced(bestGroups)) && fixedSecondThirdExtremeSafe(bestGroups, mode)) return bestGroups;
 
     // T0自動重播時改用輕量搜尋，避免手機每輪卡住；
     // 一般手動重新精選仍保留原本較深的搜尋。
@@ -12307,7 +12482,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       let score = evalNow.total;
       let temperature = 18;
       for (let step = 0; step < steps; step++) {
-        if (!evalNow.t0Recent3HardFail && evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(groups[0])) && (!fixedUseFullBalanced(mode) || fixedSecondThirdBalanced(groups))) {
+        if (!evalNow.t0Recent3HardFail && evalNow.targetPenalty === 0 && evalNow.maxOverlap <= 3 && (!fixedUseTailBalanced(mode) || fixedHeadBalancedFirst(groups[0])) && (!fixedUseFullBalanced(mode) || fixedSecondThirdBalanced(groups)) && fixedSecondThirdExtremeSafe(groups, mode)) {
           groups.forEach(g => g.sort((a, b) => a - b));
           return groups;
         }
@@ -12343,6 +12518,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     if (window.__t0FastReplayMode && !fixedT0Recent3FirstZeroValid(bestGroups, historyDraws, mode)) {
       // 找不到合格候選時不可把違反T1～T3的近似解送出去；回傳空值讓本輪作廢。
+      return null;
+    }
+    if (!fixedSecondThirdExtremeSafe(bestGroups, mode)) {
+      // 新版極端牌型限制是硬條件，不回傳僅「接近」的解。
       return null;
     }
     bestGroups.forEach(g => g.sort((a, b) => a - b));
@@ -13149,6 +13328,15 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
   }
 
+  const fixedAlertOnceKeys = new Set();
+  function fixedAlertOnce(key, message) {
+    const k = String(key || message || 'fixed-error');
+    if (fixedAlertOnceKeys.has(k)) return false;
+    fixedAlertOnceKeys.add(k);
+    alert(message);
+    return true;
+  }
+
   async function runDailyTwoGroups() {
     runBtn.disabled = true;
     runBtn.textContent = '讀取固定雙柱中...';
@@ -13179,7 +13367,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       console.error(err);
       log('固定雙柱讀取錯誤：' + (err && err.message ? err.message : String(err)));
       if (dailyAgentResult) dailyAgentResult.innerHTML = '<div class="bad">固定雙柱讀取錯誤：' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
-      alert('固定雙柱讀取錯誤：' + (err && err.message ? err.message : String(err)));
+      fixedAlertOnce('fixed-dual-read-error', '固定雙柱讀取錯誤：' + (err && err.message ? err.message : String(err)));
     } finally {
       runBtn.disabled = false;
       runBtn.textContent = '天選雙柱';
@@ -13193,7 +13381,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
       localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
       if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'strictComplement'
-        ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡，且第二、第三柱都必須0～9尾全覆蓋。請按「重新精選立柱」建立新號碼。'
+        ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡、第二／第三柱0～9尾全覆蓋，並禁止單柱3連號與極端和值／大小斷層。請按「重新精選立柱」建立新號碼。'
         : (selectedMode === 'fullBalanced'
           ? '已切換為<b>第三模式｜全面均衡</b>：第一柱維持尾數＋頭數均衡，第二柱盡量達到大小7:7、單雙7:7；第三柱盡量達到大小7:8、單雙7:8。請按「重新精選立柱」建立這個模式的號碼。'
           : (selectedMode === 'tailBalanced'
