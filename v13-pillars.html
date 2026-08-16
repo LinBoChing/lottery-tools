@@ -1020,6 +1020,18 @@
 @media (max-width:768px){
   .learn-tools-body{ grid-template-columns:1fr; }
 }
+
+.head-pattern-maint-grid{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;}
+.head-pattern-maint-card{background:#020617;border:1px solid rgba(245,158,11,.42);border-radius:13px;padding:10px;min-width:0;}
+.head-pattern-maint-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.head-pattern-maint-title{font-weight:1000;color:#fcd34d;font-size:15px;}
+.head-pattern-copy-btn{width:auto !important;min-height:36px !important;padding:7px 10px !important;font-size:12px !important;}
+.head-pattern-ten{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
+.head-pattern-ten-chip{text-align:center;border-radius:9px;padding:6px 3px;font-size:11px;font-weight:900;line-height:1.25;border:1px solid var(--border);background:#0b1220;}
+.head-pattern-ten-chip.pass{color:#86efac;border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.10);}
+.head-pattern-ten-chip.fail{color:#fca5a5;border-color:rgba(239,68,68,.48);background:rgba(239,68,68,.10);}
+.head-pattern-maint-meta{margin-top:7px;color:#94a3b8;font-size:11px;line-height:1.5;}
+@media (max-width:768px){.head-pattern-maint-grid{grid-template-columns:1fr;}}
 .daily-agent-box.clean-two-box{
   border-color:rgba(245,158,11,.55);
   background:linear-gradient(135deg, rgba(15,23,42,.94), rgba(88,28,135,.28));
@@ -1770,8 +1782,9 @@
               <option value="tailBalanced">尾數＋頭數均衡（各尾1支／各頭2～3支）</option>
               <option value="fullBalanced">第三模式｜第一柱尾／頭均衡＋二三柱大小單雙均衡</option>
               <option value="strictComplement">第四模式｜嚴格互補：避遺漏前10＋各尾1支＋雙組0～1重複</option>
+              <option value="headPattern">第五模式｜0～3頭固定牌型：頭數＋剩餘單＋剩餘雙</option>
             </select>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -10922,7 +10935,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedFirstPillarMode() {
     const v = localStorage.getItem(FIRST_PILLAR_MODE_KEY);
-    return (v === 'tailBalanced' || v === 'fullBalanced' || v === 'strictComplement') ? v : 'original';
+    return (v === 'tailBalanced' || v === 'fullBalanced' || v === 'strictComplement' || v === 'headPattern') ? v : 'original';
   }
   function fixedUseTailBalanced(mode = currentGameMode()) {
     return getBallMax(mode) === 39 && (fixedFirstPillarMode() === 'tailBalanced' || fixedFirstPillarMode() === 'fullBalanced');
@@ -10933,12 +10946,15 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedUseStrictComplement(mode = currentGameMode()) {
     return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'strictComplement';
   }
+  function fixedUseHeadPattern(mode = currentGameMode()) {
+    return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'headPattern';
+  }
   function fixedDualStorageKey(mode = currentGameMode()) {
     const pillarMode = fixedFirstPillarMode();
     // 極端牌型防護 v2 手機加速版：39球 A～C 的第二、三柱新增「禁止3連號」與「和值/大小斷層防護」。
     // 更換固定立柱儲存鍵，避免新版仍讀到舊版已存在 localStorage 的號碼。
     const guardSuffix = getBallMax(mode) === 39 ? '_extremeGuard_v2_fast' : '';
-    const suffix = pillarMode === 'strictComplement' ? '_strictComplement_v5_allTails23_extremeGuardFast' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix));
+    const suffix = pillarMode === 'headPattern' ? '_headPattern_v1' : (pillarMode === 'strictComplement' ? '_strictComplement_v5_allTails23_extremeGuardFast' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix)));
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
@@ -10950,11 +10966,12 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedHistoryStorageKey(mode = currentGameMode(), draws = null) {
     const fp = fixedDrawsFingerprint(draws || getBacktestDraws());
-    const variant = fixedUseStrictComplement(mode) ? 'strictComplement_v2_missSameSource' : (fixedUseFullBalanced(mode) ? 'fullBalanced' : (fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original'));
+    const variant = fixedUseHeadPattern(mode) ? 'headPattern_v1' : (fixedUseStrictComplement(mode) ? 'strictComplement_v2_missSameSource' : (fixedUseFullBalanced(mode) ? 'fullBalanced' : (fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original')));
     return `${FIXED_DUAL_HISTORY_PREFIX}_${mode}_${variant}_${hashString(fp)}`;
   }
 
   function fixedSaveHistorySnapshot(pack, mode = currentGameMode(), draws = null) {
+    if (fixedUseHeadPattern(mode)) return; // 第五模式為固定數學牌型，不需要保存逐期生成快照。
     if (!pack || !Array.isArray(pack.pairs) || pack.pairs.length !== 5) return;
     try {
       const key = fixedHistoryStorageKey(mode, draws || getBacktestDraws());
@@ -11213,7 +11230,218 @@ ${settleRecord.analysisLines.join('\n')}`;
     return pack;
   }
 
+
+  // ===== 第五模式：0～3頭固定牌型 =====
+  // A1 = 0頭、A2 = 1頭、B1 = 2頭、B2 = 3頭。
+  // 第一柱 = 該頭全部號碼；第二柱 = 其餘全部單數；第三柱 = 其餘全部雙數。
+  // 因為是固定數學分區，不跑任何搜尋，手機上幾乎是即時完成。
+  function fixedHeadPatternRange(headIndex) {
+    const h = Number(headIndex);
+    if (h === 0) return Array.from({ length: 9 }, (_, i) => i + 1);      // 01～09
+    const start = h * 10;
+    return Array.from({ length: 10 }, (_, i) => start + i);              // 10～19 / 20～29 / 30～39
+  }
+
+  function fixedBuildHeadPatternGroups(headIndex) {
+    const head = fixedHeadPatternRange(headIndex);
+    const headSet = new Set(head);
+    const rest = Array.from({ length: 39 }, (_, i) => i + 1).filter(n => !headSet.has(n));
+    const odd = rest.filter(n => n % 2 === 1);
+    const even = rest.filter(n => n % 2 === 0);
+    return [head, odd, even].map(g => g.slice().sort((a, b) => a - b));
+  }
+
+  function fixedGenerateHeadPatternPack(mode = currentGameMode()) {
+    const make = (label, headIndex) => ({
+      groups: fixedBuildHeadPatternGroups(headIndex),
+      label,
+      headIndex,
+      type: 'headPattern'
+    });
+    return {
+      version: 5,
+      mode,
+      pillarMode: 'headPattern',
+      type: 'headPattern',
+      createdAt: new Date().toISOString(),
+      pairs: [
+        { label: 'A', type: 'headPattern', pair: [make('A1', 0), make('A2', 1)], mode },
+        { label: 'B', type: 'headPattern', pair: [make('B1', 2), make('B2', 3)], mode }
+      ]
+    };
+  }
+
+  function fixedHeadPatternPackValid(raw, mode = currentGameMode()) {
+    if (!raw || raw.mode !== mode || raw.type !== 'headPattern' || !Array.isArray(raw.pairs) || raw.pairs.length !== 2) return false;
+    const flat = raw.pairs.flatMap(p => Array.isArray(p.pair) ? p.pair : []);
+    if (flat.length !== 4) return false;
+    return flat.every((x, idx) => {
+      const expected = fixedBuildHeadPatternGroups(idx);
+      return Array.isArray(x.groups) && x.groups.length === 3 &&
+        x.groups.every((g, gi) => Array.isArray(g) && g.join(',') === expected[gi].join(','));
+    });
+  }
+
+  function fixedHeadPatternRecentResult(groups, draw) {
+    const r = fixedHitScoreForGroupsDirect(groups, draw);
+    return { ...r, pass: (r.score || 0) > 0 };
+  }
+
+  function fixedHeadPatternReminder(pack, draws) {
+    if (!fixedUseHeadPattern(currentGameMode())) return;
+    const recent = (draws || []).slice(0, 2);
+    if (recent.length < 2) return;
+    const items = (pack && pack.pairs ? pack.pairs : []).flatMap(p => p.pair || []);
+    const down = [];
+    items.forEach(item => {
+      const twoDown = recent.every(draw => !fixedHeadPatternRecentResult(item.groups || [], draw).pass);
+      if (twoDown) {
+        const h = Number(item.headIndex);
+        down.push(`${h}頭（${item.label}）`);
+      }
+    });
+    if (!down.length) return;
+
+    // 同一組「最新兩期」只提醒一次；有新一期開獎後 fingerprint 改變，才會再次提醒。
+    const fp = recent.map(d => (d || []).map(Number).join('-')).join('|');
+    const key = `xj_head_pattern_recent2_alert_${currentGameMode()}`;
+    try {
+      if (localStorage.getItem(key) === fp) return;
+      localStorage.setItem(key, fp);
+    } catch (e) {}
+    alert(`第五模式提醒：${down.join('、')} 最近兩期都是倒。`);
+  }
+
+  function fixedBuildHeadPatternRecent10HTML(item, draws) {
+    const list = (draws || []).slice(0, 10);
+    const headIndex = Number(item.headIndex);
+    const rows = list.map((draw, idx) => {
+      const result = fixedHeadPatternRecentResult(item.groups || [], draw);
+      const hits = result.hits || [0, 0, 0];
+      const cls = result.pass ? 'recent10-pass' : 'recent10-fail';
+      return `<div class="recent10-row">
+        <div>${idx === 0 ? '最新' : '第' + (idx + 1) + '期'}</div>
+        <div class="${cls}">${result.pass ? '過' : '倒'}</div>
+        <div><span class="recent10-hit">${hits.join('-')}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}</span></div>
+      </div>`;
+    }).join('');
+    return `<div class="recent10-box">
+      <div class="recent10-title">${headIndex}頭｜最近10期過倒</div>
+      ${rows || '<div class="fixed-quick5-empty">目前資料不足。</div>'}
+    </div>`;
+  }
+
+  function fixedBuildHeadPatternCardHTML(item, draws) {
+    const headIndex = Number(item.headIndex);
+    const list = (draws || []).slice(0, 10);
+    const passCount = list.filter(draw => fixedHeadPatternRecentResult(item.groups || [], draw).pass).length;
+    const downCount = list.length - passCount;
+    const counts = (item.groups || []).map(g => (g || []).length).join('-');
+    return `<div class="fixed-pair-card">
+      <div class="fixed-pair-head">
+        <div class="fixed-pair-title">${item.label}｜${headIndex}頭固定牌型</div>
+        <div class="fixed-pair-summary">近10期：過 ${passCount}｜倒 ${downCount}</div>
+      </div>
+      <div class="small-note">固定規格：${counts}｜第一柱=${headIndex}頭全部號碼；第二柱=其餘單數；第三柱=其餘雙數。</div>
+      ${fixedBuildHeadPatternRecent10HTML(item, draws)}
+      <div class="fixed-two-grid" style="grid-template-columns:1fr;">
+        <div class="fixed-sub-card">
+          <div class="clean-two-card">
+            <div class="pillars">${(item.groups || []).map((g, gi) => `<div class="pillar"><div class="pillar-title">第${gi + 1}柱（${g.length}支）</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+
+  function fixedBuildHeadPatternMaintenanceHTML(items, draws) {
+    const list = (draws || []).slice(0, 10);
+    return `<div class="fixed-quick5-title">第五模式｜0～3頭最近10期快速過倒</div>
+      <div class="head-pattern-maint-grid">
+        ${(items || []).map((item, itemIndex) => {
+          const headIndex = Number(item.headIndex);
+          const results = list.map((draw, idx) => {
+            const r = fixedHeadPatternRecentResult(item.groups || [], draw);
+            return `<div class="head-pattern-ten-chip ${r.pass ? 'pass' : 'fail'}">
+              <div>${idx === 0 ? '最新' : '第' + (idx + 1)}</div>
+              <div>${r.pass ? '過' : '倒'}</div>
+            </div>`;
+          }).join('');
+          const passCount = list.filter(draw => fixedHeadPatternRecentResult(item.groups || [], draw).pass).length;
+          const downCount = list.length - passCount;
+          return `<div class="head-pattern-maint-card">
+            <div class="head-pattern-maint-head">
+              <div class="head-pattern-maint-title">${item.label}｜${headIndex}頭</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                <div style="font-size:12px;font-weight:900;color:#cbd5e1;">近10期：過 ${passCount}｜倒 ${downCount}</div>
+                <button type="button" class="btn btn-secondary head-pattern-copy-btn" data-head-pattern-copy-index="${itemIndex}">複製該組立柱</button>
+              </div>
+            </div>
+            <div class="head-pattern-ten">
+              ${results || '<div class="fixed-quick5-empty">資料不足</div>'}
+            </div>
+            <div class="head-pattern-maint-meta">規格 ${(item.groups || []).map(g => g.length).join('-')}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function fixedBindHeadPatternMaintenanceCopy(items) {
+    if (!fixedQuick5Summary) return;
+    fixedQuick5Summary.querySelectorAll('[data-head-pattern-copy-index]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = Number(btn.getAttribute('data-head-pattern-copy-index'));
+        const item = (items || [])[idx];
+        if (!item || !Array.isArray(item.groups)) return;
+        const headIndex = Number(item.headIndex);
+        const oldText = btn.textContent;
+        try {
+          await copyTextSmart(exportText(item.groups), `已複製 ${item.label}｜${headIndex}頭整組立柱`);
+          btn.textContent = '已複製';
+          setTimeout(() => { btn.textContent = oldText; }, 1200);
+        } catch (e) {
+          console.error(e);
+          btn.textContent = '複製失敗';
+          setTimeout(() => { btn.textContent = oldText; }, 1600);
+        }
+      });
+    });
+  }
+
+  function fixedRenderHeadPatternPack(pack, draws) {
+    if (!dailyAgentResult) return;
+    const items = (pack && pack.pairs ? pack.pairs : []).flatMap(p => p.pair || []);
+    fixedDisplayedPackCache = fixedClonePack(pack);
+    lastFixedDaily = items.map(item => fixedItemFromGroups(item.groups, draws, item.label, { type: 'headPattern' }));
+    lastDailyTwo = lastFixedDaily.slice(0, 2);
+    lastAI = lastFixedDaily.slice(0, 1);
+    lastAnti = lastFixedDaily.slice(1, 2);
+    lastReverse = [];
+    lastRandom = [];
+    lastRecommended = lastFixedDaily.slice();
+
+    const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW', { hour12: false }) : '固定';
+    if (fixedQuick5Summary) {
+      fixedQuick5Summary.innerHTML = fixedBuildHeadPatternMaintenanceHTML(items, draws);
+      fixedBindHeadPatternMaintenanceCopy(items);
+    }
+    dailyAgentResult.innerHTML = `
+      <div class="daily-agent-kpi">
+        <div>目前彩種<br><b>${gameLabel(currentGameMode())}</b></div>
+        <div>第五模式<br><b>0～3頭</b></div>
+        <div>固定牌型<br><b>A1/A2/B1/B2</b></div>
+        <div>建立時間<br><b>${created}</b></div>
+      </div>
+      <div class="small-note">A1=0頭、A2=1頭、B1=2頭、B2=3頭。此模式不做隨機搜尋、不套用第四模式條件，只固定分成「該頭全部號碼＋剩餘單數＋剩餘雙數」，專門查看最近10期過倒。</div>
+      <div class="fixed-five-wrap">${items.map(item => fixedBuildHeadPatternCardHTML(item, draws)).join('')}</div>`;
+    fixedHeadPatternReminder(pack, draws);
+  }
+
   function fixedNormalizePack(raw, mode = currentGameMode()) {
+    if (fixedUseHeadPattern(mode)) {
+      return fixedHeadPatternPackValid(raw, mode) ? raw : null;
+    }
     if (!raw || raw.mode !== mode || !Array.isArray(raw.pairs) || raw.pairs.length !== 5) return null;
     fixedApplyComparisonDOverride(raw, mode);
     // 舊版本若仍保存 D 雙柱 10-14-15，載入時直接遷移成單一 D 10-10-19。
@@ -11465,6 +11693,13 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedGetOrCreatePack(mode = currentGameMode()) {
     const currentDraws = getBacktestDraws();
+    if (fixedUseHeadPattern(mode)) {
+      const existingHead = fixedNormalizePack(fixedLoadRawPack(mode), mode);
+      if (existingHead) return existingHead;
+      const headPack = fixedGenerateHeadPatternPack(mode);
+      fixedSavePack(headPack, mode);
+      return headPack;
+    }
     const existing = fixedNormalizePack(fixedLoadRawPack(mode), mode);
 
     // 539 / 天天樂：沒按「重新精選立柱」就固定沿用同一批 A～E。
@@ -13252,6 +13487,10 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedRenderPack(pack, draws) {
     if (!dailyAgentResult) return;
     const mode = currentGameMode();
+    if (fixedUseHeadPattern(mode) && pack && pack.type === 'headPattern') {
+      fixedRenderHeadPatternPack(pack, draws);
+      return;
+    }
     fixedApplyComparisonDOverride(pack, mode);
     fixedDisplayedPackCache = fixedClonePack(pack);
     lastFixedDaily = pack && Array.isArray(pack.pairs)
@@ -13298,6 +13537,16 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   async function runReselectFixedPillars() {
     const mode = currentGameMode();
+    if (fixedUseHeadPattern(mode)) {
+      const pack = fixedGenerateHeadPatternPack(mode);
+      try { localStorage.removeItem(fixedDualStorageKey(mode)); } catch (e) {}
+      fixedSavePack(pack, mode);
+      const draws = getBacktestDraws();
+      fixedRenderHeadPatternPack(pack, draws);
+      resetLog();
+      log('第五模式為固定牌型：A1=0頭、A2=1頭、B1=2頭、B2=3頭；不需要搜尋，已立即重建。');
+      return;
+    }
     // 按下後直接重新精選，不再跳出二次確認；只影響目前彩種。
     // 重新精選只影響下一期開始使用的新批 A～E；歷史已封存過倒不清除，避免舊期對照被回頭改寫。
     const clearedRecent10 = 0;
@@ -13351,15 +13600,20 @@ ${settleRecord.analysisLines.join('\n')}`;
       const mode = currentGameMode();
       const pack = fixedGetOrCreatePack(mode);
       fixedRenderPack(pack, draws);
-      lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
-      lastAI = lastDailyTwo[0] ? [lastDailyTwo[0]] : [];
-      lastAnti = lastDailyTwo[1] ? [lastDailyTwo[1]] : [];
-      lastReverse = [];
-      lastRandom = [];
-      lastRecommended = pack.pairs.flatMap(p => p.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`)));
-      log(`天選雙柱已讀取：${gameLabel(mode)} 固定 A～E 雙柱。`);
-      log(`每個大組 = 兩組 10-14-15；近10期顯示為雙過 / 單過 / 雙倒。`);
-      log(`若要換一批 A～E 雙柱，請按「重新精選立柱」；未重選前，新增開獎只會封存並對照開獎前那批雙柱，不會回頭改柱。`);
+      if (fixedUseHeadPattern(mode)) {
+        log(`第五模式已讀取：A1=0頭、A2=1頭、B1=2頭、B2=3頭。`);
+        log(`固定分法 = 該頭全部號碼＋剩餘單數＋剩餘雙數；只查看最近10期過倒，不執行搜尋。`);
+      } else {
+        lastDailyTwo = pack.pairs[0].pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `A${idx + 1}`, { omitted: x.omitted || [], omittedInfo: x.omittedInfo || [] }));
+        lastAI = lastDailyTwo[0] ? [lastDailyTwo[0]] : [];
+        lastAnti = lastDailyTwo[1] ? [lastDailyTwo[1]] : [];
+        lastReverse = [];
+        lastRandom = [];
+        lastRecommended = pack.pairs.flatMap(p => p.pair.map((x, idx) => fixedItemFromGroups(x.groups, draws, `${p.label}${idx + 1}`)));
+        log(`天選雙柱已讀取：${gameLabel(mode)} 固定 A～E 雙柱。`);
+        log(`每個大組 = 兩組 10-14-15；近10期顯示為雙過 / 單過 / 雙倒。`);
+        log(`若要換一批 A～E 雙柱，請按「重新精選立柱」；未重選前，新增開獎只會封存並對照開獎前那批雙柱，不會回頭改柱。`);
+      }
     } catch (err) {
       console.error(err);
       log('固定雙柱讀取錯誤：' + (err && err.message ? err.message : String(err)));
@@ -13375,15 +13629,17 @@ ${settleRecord.analysisLines.join('\n')}`;
   if (firstPillarModeSelect) {
     firstPillarModeSelect.value = fixedFirstPillarMode();
     firstPillarModeSelect.addEventListener('change', () => {
-      const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
+      const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement', 'headPattern'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
       localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
-      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'strictComplement'
+      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'headPattern'
+        ? '已切換為<b>第五模式｜0～3頭固定牌型</b>：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱放該頭全部號碼，第二柱放剩餘單數，第三柱放剩餘雙數。此模式不搜尋，只看最近10期過倒；某頭最近2期都倒會提醒。按「天選雙柱」即可立即顯示。'
+        : (selectedMode === 'strictComplement'
         ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡、第二／第三柱0～9尾全覆蓋，並禁止單柱3連號與極端和值／大小斷層。請按「重新精選立柱」建立新號碼。'
         : (selectedMode === 'fullBalanced'
           ? '已切換為<b>第三模式｜全面均衡</b>：第一柱維持尾數＋頭數均衡，第二柱盡量達到大小7:7、單雙7:7；第三柱盡量達到大小7:8、單雙7:8。請按「重新精選立柱」建立這個模式的號碼。'
           : (selectedMode === 'tailBalanced'
             ? '已切換為<b>尾數＋頭數均衡</b>：539／天天樂 A～C 第一柱固定 0～9 尾各1支，且0～3頭各2～3支。請按「重新精選立柱」建立這個模式的號碼。'
-            : '已切換為<b>原版篩選</b>。四種模式各自保存固定立柱，請按「天選雙柱」讀取，或按「重新精選立柱」換新一批。'));
+            : '已切換為<b>原版篩選</b>。各模式各自保存固定立柱，請按「天選雙柱」讀取，或按「重新精選立柱」換新一批。')));
     });
   }
   runBtn.addEventListener('click', runDailyTwoGroups);
