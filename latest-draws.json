@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-16T21:34:16+00:00",
+  "updated_at": "2026-08-17T02:34:00+00:00",
   "games": {
     "539": {
       "date": "2026/08/15",
@@ -14,13 +14,13 @@
       "source": "https://www.lotto-8.com/listlto539bbk.asp"
     },
     "dayday": {
-      "date": "2026/08/16",
-      "issue": "11970",
+      "date": "2026/08/17",
+      "issue": "11971",
       "nums": [
         2,
-        8,
-        10,
-        23,
+        5,
+        14,
+        31,
         39
       ],
       "source": "https://sc888.net/index.php?s=/LotteryFan/index"
