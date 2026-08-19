@@ -1785,7 +1785,7 @@
               <option value="headPattern">第五模式｜0～3頭固定牌型：頭數＋剩餘單＋剩餘雙</option>
               <option value="omit3pass7">第六模式｜前三期倒＋後七期過：T3起抓10支</option>
             </select>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解自動放寬為6/7。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -11543,7 +11543,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     selected.sort((a, b) => (a.firstPos - b.firstPos) || (a.n - b.n));
     const finalScore = fixedOmit3Pass7FirstScore(selected, draws);
-    if (finalScore.feasible < 6) throw new Error(`第六模式自動放寬後仍找不到至少6/7期可三柱過的第一柱（目前可行 ${finalScore.feasible}/7 期）。`);
+    if (finalScore.feasible < 5) throw new Error(`第六模式自動放寬後仍找不到至少5/7期可三柱過的第一柱（目前可行 ${finalScore.feasible}/7 期）。`);
     return { nums: selected.map(x => x.n).sort((a,b)=>a-b), info: selected, score: finalScore };
   }
 
@@ -11596,7 +11596,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         if (sc.passes === 7 && sc.bal <= 10) break;
       }
     }
-    if (!best || !bestScore || bestScore.passes < 6) throw new Error(`第六模式自動放寬後，剩餘29支仍無法拆成14/15並達到至少6/7期三柱過（目前 ${bestScore ? bestScore.passes : 0}/7）。`);
+    if (!best || !bestScore || bestScore.passes < 5) throw new Error(`第六模式自動放寬後，剩餘29支仍無法拆成14/15並達到至少5/7期三柱過（目前 ${bestScore ? bestScore.passes : 0}/7）。`);
     return { groups: best, score: bestScore };
   }
 
@@ -11617,7 +11617,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       });
     }
     return {
-      version: 7,
+      version: 8,
       mode,
       pillarMode: 'omit3pass7',
       type: 'omit3pass7',
@@ -11628,7 +11628,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fixedOmit3Pass7PackValid(raw, mode = currentGameMode()) {
-    if (!raw || raw.version !== 7 || raw.mode !== mode || raw.type !== 'omit3pass7' || !Array.isArray(raw.pairs) || raw.pairs.length !== 1) return false;
+    if (!raw || raw.version !== 8 || raw.mode !== mode || raw.type !== 'omit3pass7' || !Array.isArray(raw.pairs) || raw.pairs.length !== 1) return false;
     const pair = raw.pairs[0] && raw.pairs[0].pair;
     return Array.isArray(pair) && pair.length === 2 && pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15);
   }
@@ -11647,7 +11647,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     }).join('');
     const p7 = item && item.partitionScore && Number.isFinite(Number(item.partitionScore.passes)) ? Number(item.partitionScore.passes) : 0;
     const relaxed = p7 < 7;
-    return `<div class="recent10-box"><div class="recent10-title">第六模式｜最近10期（7/7優先${relaxed ? '，已自動放寬為6/7' : ''}）</div>${rows}</div>`;
+    return `<div class="recent10-box"><div class="recent10-title">第六模式｜最近10期（7/7優先${relaxed ? `，已自動放寬為${p7}/7` : ''}）</div>${rows}</div>`;
   }
 
   function fixedRenderOmit3Pass7Pack(pack, draws) {
@@ -11662,15 +11662,15 @@ ${settleRecord.analysisLines.join('\n')}`;
     lastRandom = [];
     lastRecommended = lastFixedDaily.slice();
     const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW', { hour12:false }) : '固定';
-    if (fixedQuick5Summary) fixedQuick5Summary.innerHTML = `<div class="fixed-quick5-title">第六模式｜前三期倒、後七期7/7優先</div><div class="fixed-quick5-empty">T0～T2為前三期；第一柱由T3開始抓，不足再往T4、T5…補滿10支；先找T3～T9的7/7全過，找不到時自動放寬為6/7。同等可行時優先讓後7期由更多不同第一柱號碼命中；第二、三柱由剩餘29支均衡拆14／15。</div>`;
+    if (fixedQuick5Summary) fixedQuick5Summary.innerHTML = `<div class="fixed-quick5-title">第六模式｜前三期倒、後七期7/7優先</div><div class="fixed-quick5-empty">T0～T2為前三期；第一柱由T3開始抓，不足再往T4、T5…補滿10支；先找T3～T9的7/7全過，找不到時依序自動放寬為6/7、5/7。同等可行時優先讓後7期由更多不同第一柱號碼命中；第二、三柱由剩餘29支均衡拆14／15。</div>`;
     dailyAgentResult.innerHTML = `
       <div class="daily-agent-kpi">
         <div>目前彩種<br><b>${gameLabel(currentGameMode())}</b></div>
-        <div>第六模式<br><b>7/7優先・6/7放寬</b></div>
+        <div>第六模式<br><b>7/7優先・最低5/7</b></div>
         <div>立柱規格<br><b>10-14-15 × 2</b></div>
         <div>建立時間<br><b>${created}</b></div>
       </div>
-      <div class="small-note">第一柱：T0、T1、T2必掛0；從T3開始抓最短遺漏，不足再往T4、T5…延伸到10支。T3～T9先要求7/7三柱全過；若確實無解，自動放寬為6/7，不再整組停止生成。在不破壞T3起抓的優先順序下，盡量讓這7期由不同第一柱號碼命中。第二、三柱以剩餘29支做大小／單雙／尾數均衡分配。</div>
+      <div class="small-note">第一柱：T0、T1、T2必掛0；從T3開始抓最短遺漏，不足再往T4、T5…延伸到10支。T3～T9先要求7/7三柱全過；若確實無解，先放寬為6/7，再放寬為5/7，不再整組停止生成。在不破壞T3起抓的優先順序下，盡量讓這7期由不同第一柱號碼命中。第二、三柱以剩餘29支做大小／單雙／尾數均衡分配。</div>
       <div class="fixed-five-wrap">${items.map((item, idx) => {
         const firstInfo = (item.firstInfo || []).map(x => `${pad2(x.n)}(T${x.firstPos})`).join(' ');
         const distinct = item.firstScore && item.firstScore.matching != null ? item.firstScore.matching : '-';
@@ -13809,7 +13809,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const draws = getBacktestDraws();
       fixedRenderOmit3Pass7Pack(pack, draws);
       resetLog();
-      log('第六模式已重建：T0～T2倒；T3～T9先找7/7，無解自動放寬6/7；第一柱由T3起補滿10支，並優先分散後7期的第一柱命中號碼。');
+      log('第六模式已重建：T0～T2倒；T3～T9先找7/7，無解依序自動放寬6/7、5/7；第一柱由T3起補滿10支，並優先分散後7期的第一柱命中號碼。');
       return;
     }
     if (fixedUseHeadPattern(mode)) {
@@ -13876,7 +13876,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const pack = fixedGetOrCreatePack(mode);
       fixedRenderPack(pack, draws);
       if (fixedUseOmit3Pass7(mode)) {
-        log('第六模式已讀取：T0～T2倒；T3～T9為後7期，7/7優先，無解自動放寬6/7。');
+        log('第六模式已讀取：T0～T2倒；T3～T9為後7期，7/7優先，無解依序自動放寬6/7、5/7。');
         log('第一柱由T3起往T4、T5…補滿10支；第二、三柱使用剩餘29支做大小、單雙、尾數均衡拆分。');
       } else if (fixedUseHeadPattern(mode)) {
         log(`第五模式已讀取：A1=0頭、A2=1頭、B1=2頭、B2=3頭。`);
@@ -13910,7 +13910,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement', 'headPattern', 'omit3pass7'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
       localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
       if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'omit3pass7'
-        ? '已切換為<b>第六模式｜T0～T2倒＋T3～T9過</b>：第一柱由T3起往T4、T5…補滿10支；後7期先找7/7，無解自動放寬6/7，並優先用不同第一柱號碼過；剩餘29支均衡拆14／15。按「天選雙柱」即可生成／讀取。'
+        ? '已切換為<b>第六模式｜T0～T2倒＋T3～T9過</b>：第一柱由T3起往T4、T5…補滿10支；後7期先找7/7，無解依序自動放寬6/7、5/7，並優先用不同第一柱號碼過；剩餘29支均衡拆14／15。按「天選雙柱」即可生成／讀取。'
         : selectedMode === 'headPattern'
         ? '已切換為<b>第五模式｜0～3頭固定牌型</b>：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱放該頭全部號碼，第二柱放剩餘單數，第三柱放剩餘雙數。此模式不搜尋，只看最近10期過倒；某頭最近2期都倒會提醒。按「天選雙柱」即可立即顯示。'
         : (selectedMode === 'strictComplement'
