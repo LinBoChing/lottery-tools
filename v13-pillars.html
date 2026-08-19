@@ -1783,8 +1783,9 @@
               <option value="fullBalanced">第三模式｜第一柱尾／頭均衡＋二三柱大小單雙均衡</option>
               <option value="strictComplement">第四模式｜嚴格互補：避遺漏前10＋各尾1支＋雙組0～1重複</option>
               <option value="headPattern">第五模式｜0～3頭固定牌型：頭數＋剩餘單＋剩餘雙</option>
+              <option value="omit3pass7">第六模式｜前三期倒＋後七期過：遺漏4起抓10支</option>
             </select>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。第六模式：第一柱必須讓最近1～3期倒；第一柱從「最近出現位置=第4期」的號碼開始抓，不足再依第5、第6期往後補滿10支，並優先讓第4～10期命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。第4～10期先找7/7三柱全過，若無解自動放寬為6/7。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -10935,7 +10936,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedFirstPillarMode() {
     const v = localStorage.getItem(FIRST_PILLAR_MODE_KEY);
-    return (v === 'tailBalanced' || v === 'fullBalanced' || v === 'strictComplement' || v === 'headPattern') ? v : 'original';
+    return (v === 'tailBalanced' || v === 'fullBalanced' || v === 'strictComplement' || v === 'headPattern' || v === 'omit3pass7') ? v : 'original';
   }
   function fixedUseTailBalanced(mode = currentGameMode()) {
     return getBallMax(mode) === 39 && (fixedFirstPillarMode() === 'tailBalanced' || fixedFirstPillarMode() === 'fullBalanced');
@@ -10949,12 +10950,15 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedUseHeadPattern(mode = currentGameMode()) {
     return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'headPattern';
   }
+  function fixedUseOmit3Pass7(mode = currentGameMode()) {
+    return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'omit3pass7';
+  }
   function fixedDualStorageKey(mode = currentGameMode()) {
     const pillarMode = fixedFirstPillarMode();
     // 極端牌型防護 v2 手機加速版：39球 A～C 的第二、三柱新增「禁止3連號」與「和值/大小斷層防護」。
     // 更換固定立柱儲存鍵，避免新版仍讀到舊版已存在 localStorage 的號碼。
     const guardSuffix = getBallMax(mode) === 39 ? '_extremeGuard_v2_fast' : '';
-    const suffix = pillarMode === 'headPattern' ? '_headPattern_v1' : (pillarMode === 'strictComplement' ? '_strictComplement_v5_allTails23_extremeGuardFast' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix)));
+    const suffix = pillarMode === 'omit3pass7' ? '_omit3pass7_v2_distinctHits' : (pillarMode === 'headPattern' ? '_headPattern_v1' : (pillarMode === 'strictComplement' ? '_strictComplement_v5_allTails23_extremeGuardFast' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix))));
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
@@ -10966,12 +10970,12 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedHistoryStorageKey(mode = currentGameMode(), draws = null) {
     const fp = fixedDrawsFingerprint(draws || getBacktestDraws());
-    const variant = fixedUseHeadPattern(mode) ? 'headPattern_v1' : (fixedUseStrictComplement(mode) ? 'strictComplement_v2_missSameSource' : (fixedUseFullBalanced(mode) ? 'fullBalanced' : (fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original')));
+    const variant = fixedUseOmit3Pass7(mode) ? 'omit3pass7_v2_distinctHits' : (fixedUseHeadPattern(mode) ? 'headPattern_v1' : (fixedUseStrictComplement(mode) ? 'strictComplement_v2_missSameSource' : (fixedUseFullBalanced(mode) ? 'fullBalanced' : (fixedUseTailBalanced(mode) ? 'tailBalanced' : 'original'))));
     return `${FIXED_DUAL_HISTORY_PREFIX}_${mode}_${variant}_${hashString(fp)}`;
   }
 
   function fixedSaveHistorySnapshot(pack, mode = currentGameMode(), draws = null) {
-    if (fixedUseHeadPattern(mode)) return; // 第五模式為固定數學牌型，不需要保存逐期生成快照。
+    if (fixedUseHeadPattern(mode) || fixedUseOmit3Pass7(mode)) return; // 第五/六模式使用獨立固定牌型，不保存一般逐期生成快照。
     if (!pack || !Array.isArray(pack.pairs) || pack.pairs.length !== 5) return;
     try {
       const key = fixedHistoryStorageKey(mode, draws || getBacktestDraws());
@@ -11438,7 +11442,256 @@ ${settleRecord.analysisLines.join('\n')}`;
     fixedHeadPatternReminder(pack, draws);
   }
 
+
+  // 第六模式：近3期第一柱掛0、後7期三柱過；第一柱由遺漏4起依序補滿10支。
+  function fixedOmit3Pass7NumberInfo(draws, mode = currentGameMode()) {
+    const max = getBallMax(mode);
+    const list = (draws || []).slice(0, 10).map(d => (d || []).map(Number));
+    const out = [];
+    for (let n = 1; n <= max; n++) {
+      let firstPos = 999;
+      let mask = 0;
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].includes(n)) {
+          if (firstPos === 999) firstPos = i + 1;
+          if (i >= 3 && i <= 9) mask |= (1 << (i - 3));
+        }
+      }
+      // 最近3期出現過的號碼不能進第一柱；其餘由第4期起算的最近出現位置排序。
+      if (firstPos >= 4) out.push({ n, firstPos, mask });
+    }
+    out.sort((a, b) => (a.firstPos - b.firstPos) || (b.mask.toString(2).split('1').length - a.mask.toString(2).split('1').length) || (a.n - b.n));
+    return out;
+  }
+
+  function fixedOmit3Pass7MatchingSize(selected, draws) {
+    const nums = (selected || []).map(x => Number(x.n != null ? x.n : x));
+    const list = (draws || []).slice(3, 10);
+    const matchNumToPeriod = new Map();
+    function dfs(pi, seen) {
+      const draw = list[pi] || [];
+      for (const n of nums) {
+        if (!draw.includes(n) || seen.has(n)) continue;
+        seen.add(n);
+        if (!matchNumToPeriod.has(n) || dfs(matchNumToPeriod.get(n), seen)) {
+          matchNumToPeriod.set(n, pi);
+          return true;
+        }
+      }
+      return false;
+    }
+    let matched = 0;
+    for (let pi = 0; pi < list.length; pi++) if (dfs(pi, new Set())) matched++;
+    return matched;
+  }
+
+  function fixedOmit3Pass7FirstScore(selected, draws) {
+    const list = (draws || []).slice(3, 10);
+    const set = new Set((selected || []).map(x => Number(x.n != null ? x.n : x)));
+    const hitCounts = list.map(d => (d || []).filter(n => set.has(Number(n))).length);
+    const feasible = hitCounts.filter(c => c >= 1 && c <= 3).length; // 需留至少2支給二、三柱
+    const covered = hitCounts.filter(c => c >= 1).length;
+    const over = hitCounts.filter(c => c > 3).length;
+    const positions = (selected || []).map(x => Number(x.firstPos || 999));
+    const maxPos = positions.length ? Math.max(...positions) : 999;
+    const sumPos = positions.reduce((a, b) => a + b, 0);
+    const matching = fixedOmit3Pass7MatchingSize(selected, draws);
+    // 硬優先：7期可三柱過；其次遺漏截止越近越好；再看總遺漏；最後才拉高不同號碼命中分散度。
+    return { feasible, covered, over, maxPos, sumPos, matching, hitCounts };
+  }
+
+  function fixedOmit3Pass7BetterScore(a, b) {
+    if (!b) return true;
+    if (a.feasible !== b.feasible) return a.feasible > b.feasible;
+    if (a.covered !== b.covered) return a.covered > b.covered;
+    if (a.over !== b.over) return a.over < b.over;
+    if (a.maxPos !== b.maxPos) return a.maxPos < b.maxPos;
+    if (a.sumPos !== b.sumPos) return a.sumPos < b.sumPos;
+    if (a.matching !== b.matching) return a.matching > b.matching;
+    return false;
+  }
+
+  function fixedSelectOmit3Pass7First(draws, mode = currentGameMode(), variant = 0) {
+    const info = fixedOmit3Pass7NumberInfo(draws, mode);
+    if (info.length < 10) throw new Error('第六模式可用遺漏號碼不足10支，請確認至少有10期完整開獎資料。');
+    let selected = info.slice(0, 10);
+    let bestScore = fixedOmit3Pass7FirstScore(selected, draws);
+    // 單換號局部搜尋：只在必要時往較長遺漏延伸，先把第4～10期都做到第一柱1～3支命中。
+    for (let round = 0; round < 16; round++) {
+      let bestSel = selected;
+      let roundScore = bestScore;
+      const selectedSet = new Set(selected.map(x => x.n));
+      const outsiders = info.filter(x => !selectedSet.has(x.n));
+      for (let i = 0; i < selected.length; i++) {
+        for (const cand of outsiders) {
+          const trial = selected.slice();
+          trial[i] = cand;
+          const sc = fixedOmit3Pass7FirstScore(trial, draws);
+          if (fixedOmit3Pass7BetterScore(sc, roundScore)) {
+            bestSel = trial;
+            roundScore = sc;
+          } else if (variant > 0 && sc.feasible === roundScore.feasible && sc.covered === roundScore.covered && sc.over === roundScore.over && sc.maxPos === roundScore.maxPos && sc.sumPos === roundScore.sumPos && sc.matching === roundScore.matching) {
+            const keyA = trial.map(x => x.n).sort((a,b)=>a-b).join('-');
+            const keyB = bestSel.map(x => x.n).sort((a,b)=>a-b).join('-');
+            if (keyA > keyB) bestSel = trial;
+          }
+        }
+      }
+      if (bestSel === selected) break;
+      selected = bestSel;
+      bestScore = roundScore;
+    }
+    selected.sort((a, b) => (a.firstPos - b.firstPos) || (a.n - b.n));
+    const finalScore = fixedOmit3Pass7FirstScore(selected, draws);
+    if (finalScore.feasible < 6) throw new Error(`第六模式自動放寬後仍找不到至少6/7期可三柱過的第一柱（目前可行 ${finalScore.feasible}/7 期）。`);
+    return { nums: selected.map(x => x.n).sort((a,b)=>a-b), info: selected, score: finalScore };
+  }
+
+  function fixedOmit3Pass7BalanceScore(group, targetSize) {
+    const g = (group || []).map(Number);
+    const small = g.filter(n => n <= 19).length;
+    const odd = g.filter(n => n % 2 === 1).length;
+    const sizeIdeal = targetSize / 2;
+    const tail = Array(10).fill(0);
+    g.forEach(n => tail[n % 10]++);
+    const maxTail = Math.max(...tail), minTail = Math.min(...tail);
+    const missingTails = tail.filter(c => c === 0).length;
+    return Math.abs(small - sizeIdeal) * 8 + Math.abs(odd - sizeIdeal) * 8 + (maxTail - minTail) * 3 + missingTails * 5;
+  }
+
+  function fixedOmit3Pass7PartitionScore(g1, g2, g3, draws) {
+    const recent7 = (draws || []).slice(3, 10);
+    const s1 = new Set(g1), s2 = new Set(g2), s3 = new Set(g3);
+    let passes = 0;
+    const rows = [];
+    for (const d of recent7) {
+      const h = [s1,s2,s3].map(set => (d || []).filter(n => set.has(Number(n))).length);
+      if (h.every(v => v > 0)) passes++;
+      rows.push(h);
+    }
+    const bal = fixedOmit3Pass7BalanceScore(g2, 14) + fixedOmit3Pass7BalanceScore(g3, 15);
+    return { passes, bal, rows };
+  }
+
+  function fixedBuildOmit3Pass7Groups(firstNums, draws, mode = currentGameMode(), variant = 0) {
+    const firstSet = new Set(firstNums);
+    const rest = fixedRangeForMode(mode).filter(n => !firstSet.has(n));
+    let best = null;
+    let bestScore = null;
+    const seedBase = `${mode}|${firstNums.join('-')}|${fixedDrawsFingerprint((draws || []).slice(0,10))}|${variant}`;
+    const rng = fixedLocalRng(seedBase);
+    // 先做多個輕量洗牌候選；39球只有29支，手機端負擔很低。
+    for (let t = 0; t < 2200; t++) {
+      const a = rest.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      const g2 = a.slice(0, 14).sort((x,y)=>x-y);
+      const g3 = a.slice(14).sort((x,y)=>x-y);
+      const sc = fixedOmit3Pass7PartitionScore(firstNums, g2, g3, draws);
+      if (!bestScore || sc.passes > bestScore.passes || (sc.passes === bestScore.passes && sc.bal < bestScore.bal)) {
+        best = [firstNums.slice().sort((a,b)=>a-b), g2, g3];
+        bestScore = sc;
+        if (sc.passes === 7 && sc.bal <= 10) break;
+      }
+    }
+    if (!best || !bestScore || bestScore.passes < 6) throw new Error(`第六模式自動放寬後，剩餘29支仍無法拆成14/15並達到至少6/7期三柱過（目前 ${bestScore ? bestScore.passes : 0}/7）。`);
+    return { groups: best, score: bestScore };
+  }
+
+  function fixedGenerateOmit3Pass7Pack(mode = currentGameMode()) {
+    const draws = getBacktestDraws();
+    if (!Array.isArray(draws) || draws.length < 10) throw new Error('第六模式至少需要最近10期完整開獎資料。');
+    const items = [];
+    for (let v = 0; v < 2; v++) {
+      const first = fixedSelectOmit3Pass7First(draws, mode, v);
+      const built = fixedBuildOmit3Pass7Groups(first.nums, draws, mode, v);
+      items.push({
+        label: `A${v + 1}`,
+        type: 'omit3pass7',
+        groups: built.groups,
+        firstInfo: first.info,
+        firstScore: first.score,
+        partitionScore: built.score
+      });
+    }
+    return {
+      version: 6,
+      mode,
+      pillarMode: 'omit3pass7',
+      type: 'omit3pass7',
+      createdAt: new Date().toISOString(),
+      sourceFingerprint: fixedDrawsFingerprint(draws.slice(0, 10)),
+      pairs: [{ label: 'A', type: 'omit3pass7', pair: items, mode }]
+    };
+  }
+
+  function fixedOmit3Pass7PackValid(raw, mode = currentGameMode()) {
+    if (!raw || raw.mode !== mode || raw.type !== 'omit3pass7' || !Array.isArray(raw.pairs) || raw.pairs.length !== 1) return false;
+    const pair = raw.pairs[0] && raw.pairs[0].pair;
+    return Array.isArray(pair) && pair.length === 2 && pair.every(x => Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15);
+  }
+
+  function fixedBuildOmit3Pass7RecentHTML(item, draws) {
+    const rows = (draws || []).slice(0, 10).map((draw, idx) => {
+      const r = fixedHitScoreForGroupsDirect(item.groups || [], draw);
+      const pass = (r.score || 0) > 0;
+      const expected = idx < 3 ? !pass : pass;
+      const cls = pass ? 'recent10-pass' : 'recent10-fail';
+      return `<div class="recent10-row">
+        <div>${idx === 0 ? '最新' : '第' + (idx + 1) + '期'}</div>
+        <div class="${cls}">${pass ? '過' : '倒'}${expected ? ' ✓' : ' !'}</div>
+        <div><span class="recent10-hit">${(r.hits || [0,0,0]).join('-')}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}</span></div>
+      </div>`;
+    }).join('');
+    const p7 = item && item.partitionScore && Number.isFinite(Number(item.partitionScore.passes)) ? Number(item.partitionScore.passes) : 0;
+    const relaxed = p7 < 7;
+    return `<div class="recent10-box"><div class="recent10-title">第六模式｜最近10期（7/7優先${relaxed ? '，已自動放寬為6/7' : ''}）</div>${rows}</div>`;
+  }
+
+  function fixedRenderOmit3Pass7Pack(pack, draws) {
+    if (!dailyAgentResult) return;
+    const items = (pack && pack.pairs && pack.pairs[0] && pack.pairs[0].pair) || [];
+    fixedDisplayedPackCache = fixedClonePack(pack);
+    lastFixedDaily = items.map(item => fixedItemFromGroups(item.groups, draws, item.label, { type: 'omit3pass7' }));
+    lastDailyTwo = lastFixedDaily.slice();
+    lastAI = lastFixedDaily.slice(0,1);
+    lastAnti = lastFixedDaily.slice(1,2);
+    lastReverse = [];
+    lastRandom = [];
+    lastRecommended = lastFixedDaily.slice();
+    const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW', { hour12:false }) : '固定';
+    if (fixedQuick5Summary) fixedQuick5Summary.innerHTML = `<div class="fixed-quick5-title">第六模式｜前三期倒、後七期7/7優先</div><div class="fixed-quick5-empty">第一柱由遺漏4起依序補滿10支；先找第4～10期7/7全過，找不到時自動放寬為6/7。同等可行時優先讓後7期由更多不同第一柱號碼命中；第二、三柱由剩餘29支均衡拆14／15。</div>`;
+    dailyAgentResult.innerHTML = `
+      <div class="daily-agent-kpi">
+        <div>目前彩種<br><b>${gameLabel(currentGameMode())}</b></div>
+        <div>第六模式<br><b>7/7優先・6/7放寬</b></div>
+        <div>立柱規格<br><b>10-14-15 × 2</b></div>
+        <div>建立時間<br><b>${created}</b></div>
+      </div>
+      <div class="small-note">第一柱：最近1～3期必掛0；從最近出現位置第4期開始抓最短遺漏，不足再往第5、第6期延伸到10支。第4～10期先要求7/7三柱全過；若確實無解，自動放寬為6/7，不再整組停止生成。在不破壞遺漏優先順序下，盡量讓這7期由不同第一柱號碼命中。第二、三柱以剩餘29支做大小／單雙／尾數均衡分配。</div>
+      <div class="fixed-five-wrap">${items.map((item, idx) => {
+        const firstInfo = (item.firstInfo || []).map(x => `${pad2(x.n)}(第${x.firstPos}期)`).join(' ');
+        const distinct = item.firstScore && item.firstScore.matching != null ? item.firstScore.matching : '-';
+        const pass7 = item.partitionScore && item.partitionScore.passes != null ? Number(item.partitionScore.passes) : 0;
+        const relaxText = pass7 >= 7 ? '7過0倒' : `${pass7}過${7-pass7}倒（自動放寬）`;
+        return `<div class="fixed-pair-card">
+          <div class="fixed-pair-head"><div class="fixed-pair-title">${item.label}｜第六模式</div><div class="fixed-pair-summary">後7期：${relaxText}｜不同號碼可分配：${distinct}/7</div></div>
+          <div class="small-note">第一柱遺漏來源：${firstInfo || '依目前10期計算'}</div>
+          ${fixedBuildOmit3Pass7RecentHTML(item, draws)}
+          <div class="fixed-two-grid" style="grid-template-columns:1fr;"><div class="fixed-sub-card"><div class="clean-two-card">
+            <div class="pillars">${(item.groups || []).map((g,gi)=>`<div class="pillar"><div class="pillar-title">第${gi+1}柱（${g.length}支）</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}</div>
+            <div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="${idx}" type="button">複製${item.label}</button></div>
+          </div></div></div>
+        </div>`;
+      }).join('')}</div>`;
+  }
+
   function fixedNormalizePack(raw, mode = currentGameMode()) {
+    if (fixedUseOmit3Pass7(mode)) {
+      return fixedOmit3Pass7PackValid(raw, mode) ? raw : null;
+    }
     if (fixedUseHeadPattern(mode)) {
       return fixedHeadPatternPackValid(raw, mode) ? raw : null;
     }
@@ -11693,6 +11946,14 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedGetOrCreatePack(mode = currentGameMode()) {
     const currentDraws = getBacktestDraws();
+    if (fixedUseOmit3Pass7(mode)) {
+      const existingSix = fixedNormalizePack(fixedLoadRawPack(mode), mode);
+      const fp = fixedDrawsFingerprint((currentDraws || []).slice(0, 10));
+      if (existingSix && existingSix.sourceFingerprint === fp) return existingSix;
+      const sixPack = fixedGenerateOmit3Pass7Pack(mode);
+      fixedSavePack(sixPack, mode);
+      return sixPack;
+    }
     if (fixedUseHeadPattern(mode)) {
       const existingHead = fixedNormalizePack(fixedLoadRawPack(mode), mode);
       if (existingHead) return existingHead;
@@ -13487,6 +13748,10 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedRenderPack(pack, draws) {
     if (!dailyAgentResult) return;
     const mode = currentGameMode();
+    if (fixedUseOmit3Pass7(mode) && pack && pack.type === 'omit3pass7') {
+      fixedRenderOmit3Pass7Pack(pack, draws);
+      return;
+    }
     if (fixedUseHeadPattern(mode) && pack && pack.type === 'headPattern') {
       fixedRenderHeadPatternPack(pack, draws);
       return;
@@ -13537,6 +13802,16 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   async function runReselectFixedPillars() {
     const mode = currentGameMode();
+    if (fixedUseOmit3Pass7(mode)) {
+      const pack = fixedGenerateOmit3Pass7Pack(mode);
+      try { localStorage.removeItem(fixedDualStorageKey(mode)); } catch (e) {}
+      fixedSavePack(pack, mode);
+      const draws = getBacktestDraws();
+      fixedRenderOmit3Pass7Pack(pack, draws);
+      resetLog();
+      log('第六模式已重建：最近3期倒；後7期先找7/7，無解自動放寬6/7；第一柱由遺漏4起補滿10支，並優先分散後7期的第一柱命中號碼。');
+      return;
+    }
     if (fixedUseHeadPattern(mode)) {
       const pack = fixedGenerateHeadPatternPack(mode);
       try { localStorage.removeItem(fixedDualStorageKey(mode)); } catch (e) {}
@@ -13600,7 +13875,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       const mode = currentGameMode();
       const pack = fixedGetOrCreatePack(mode);
       fixedRenderPack(pack, draws);
-      if (fixedUseHeadPattern(mode)) {
+      if (fixedUseOmit3Pass7(mode)) {
+        log('第六模式已讀取：最近3期倒；後7期7/7優先，無解自動放寬6/7。');
+        log('第一柱由遺漏4起往後補10支；第二、三柱使用剩餘29支做大小、單雙、尾數均衡拆分。');
+      } else if (fixedUseHeadPattern(mode)) {
         log(`第五模式已讀取：A1=0頭、A2=1頭、B1=2頭、B2=3頭。`);
         log(`固定分法 = 該頭全部號碼＋剩餘單數＋剩餘雙數；只查看最近10期過倒，不執行搜尋。`);
       } else {
@@ -13629,9 +13907,11 @@ ${settleRecord.analysisLines.join('\n')}`;
   if (firstPillarModeSelect) {
     firstPillarModeSelect.value = fixedFirstPillarMode();
     firstPillarModeSelect.addEventListener('change', () => {
-      const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement', 'headPattern'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
+      const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement', 'headPattern', 'omit3pass7'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
       localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
-      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'headPattern'
+      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'omit3pass7'
+        ? '已切換為<b>第六模式｜前三期倒＋後七期7/7優先</b>：第一柱由遺漏4起往後補滿10支；後7期先找7/7，無解自動放寬6/7，並優先用不同第一柱號碼過；剩餘29支均衡拆14／15。按「天選雙柱」即可生成／讀取。'
+        : selectedMode === 'headPattern'
         ? '已切換為<b>第五模式｜0～3頭固定牌型</b>：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱放該頭全部號碼，第二柱放剩餘單數，第三柱放剩餘雙數。此模式不搜尋，只看最近10期過倒；某頭最近2期都倒會提醒。按「天選雙柱」即可立即顯示。'
         : (selectedMode === 'strictComplement'
         ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡、第二／第三柱0～9尾全覆蓋，並禁止單柱3連號與極端和值／大小斷層。請按「重新精選立柱」建立新號碼。'
