@@ -1748,6 +1748,7 @@
               <option value="headPattern">第五模式｜0～3頭固定牌型：頭數＋剩餘單＋剩餘雙</option>
               <option value="omit3pass7">第六模式｜前三期倒＋後七期過：T3起抓10支</option>
               <option value="hotColdRoad">第七模式｜版路冷熱分柱法：熱10＋中14＋冷15</option>
+              <option value="hotCold66Zero">第八模式｜66期冷熱：熱10避最新期＋次熱14＋冷15</option>
             </select>
             <div id="hotColdWindowWrap" style="display:none; margin-top:10px;">
               <div class="field-label">第七模式統計期數</div>
@@ -1756,7 +1757,7 @@
                 <option value="50">近50期</option>
               </select>
             </div>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近66期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -10661,7 +10662,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedFirstPillarMode() {
     const v = localStorage.getItem(FIRST_PILLAR_MODE_KEY);
-    return (v === 'tailBalanced' || v === 'fullBalanced' || v === 'strictComplement' || v === 'headPattern' || v === 'omit3pass7' || v === 'hotColdRoad') ? v : 'original';
+    return (v === 'tailBalanced' || v === 'fullBalanced' || v === 'strictComplement' || v === 'headPattern' || v === 'omit3pass7' || v === 'hotColdRoad' || v === 'hotCold66Zero') ? v : 'original';
   }
   function fixedUseTailBalanced(mode = currentGameMode()) {
     return getBallMax(mode) === 39 && (fixedFirstPillarMode() === 'tailBalanced' || fixedFirstPillarMode() === 'fullBalanced');
@@ -10686,12 +10687,15 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedUseHotColdRoad(mode = currentGameMode()) {
     return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'hotColdRoad';
   }
+  function fixedUseHotCold66Zero(mode = currentGameMode()) {
+    return getBallMax(mode) === 39 && fixedFirstPillarMode() === 'hotCold66Zero';
+  }
   function fixedDualStorageKey(mode = currentGameMode()) {
     const pillarMode = fixedFirstPillarMode();
     // 極端牌型防護 v2 手機加速版：39球 A～C 的第二、三柱新增「禁止3連號」與「和值/大小斷層防護」。
     // 更換固定立柱儲存鍵，避免新版仍讀到舊版已存在 localStorage 的號碼。
     const guardSuffix = getBallMax(mode) === 39 ? '_extremeGuard_v2_fast' : '';
-    const suffix = pillarMode === 'hotColdRoad' ? `_hotColdRoad_v1_${fixedHotColdWindow()}` : (pillarMode === 'omit3pass7' ? '_omit3pass7_v2_distinctHits' : (pillarMode === 'headPattern' ? '_headPattern_v1' : (pillarMode === 'strictComplement' ? '_strictComplement_v5_allTails23_extremeGuardFast' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix)))));
+    const suffix = pillarMode === 'hotCold66Zero' ? '_hotCold66Zero_v1_66' : (pillarMode === 'hotColdRoad' ? `_hotColdRoad_v1_${fixedHotColdWindow()}` : (pillarMode === 'omit3pass7' ? '_omit3pass7_v2_distinctHits' : (pillarMode === 'headPattern' ? '_headPattern_v1' : (pillarMode === 'strictComplement' ? '_strictComplement_v5_allTails23_extremeGuardFast' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix))))));
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
@@ -11535,7 +11539,139 @@ ${settleRecord.analysisLines.join('\n')}`;
       </div></div>`;
   }
 
+
+
+  // ===== 第八模式：66期冷熱＋第一柱避最新期 =====
+  // 1) 固定以最近66期計算01～39熱門排行（開出次數高優先；同次數時最近有開者優先；再依號碼小到大）。
+  // 2) 原熱門前10先視為第一柱候選；凡出現在最新一期者剔除，依第11熱、第12熱…往後補，直到第一柱滿10支且最新期命中0支。
+  // 3) 被剔除的「原熱門前10」優先放第二柱，再依66期熱門排行中尚未使用的號碼依序補滿14支。
+  // 4) 剩餘15支全部放第三柱，形成冷門柱。三柱完整覆蓋01～39且互不重複。
+  const HOT_COLD_66_WINDOW = 66;
+
+  function fixedBuildHotCold66ZeroGroups(draws, mode = currentGameMode()) {
+    if (getBallMax(mode) !== 39) throw new Error('第八模式僅適用539／天天樂（01～39）。');
+    if (!Array.isArray(draws) || draws.length < HOT_COLD_66_WINDOW) throw new Error('第八模式需要至少66期完整開獎資料，才能依固定66期做冷熱排名。');
+    const stats = fixedHotColdStats(draws, mode, HOT_COLD_66_WINDOW);
+    const hotRank = stats.slice().sort((a,b) => (b.freq-a.freq) || (a.miss-b.miss) || (a.n-b.n));
+    const latest = new Set(((draws && draws[0]) || []).map(Number).filter(n => Number.isFinite(n)));
+    const originalTop10 = hotRank.slice(0, 10);
+    const kicked = originalTop10.filter(x => latest.has(x.n));
+
+    const firstInfo = [];
+    for (const x of hotRank) {
+      if (latest.has(x.n)) continue;
+      firstInfo.push(x);
+      if (firstInfo.length === 10) break;
+    }
+    if (firstInfo.length !== 10) throw new Error('第八模式第一柱無法避開最新期並補滿10支。');
+
+    const firstSet = new Set(firstInfo.map(x => x.n));
+    const secondInfo = [];
+    const secondSet = new Set();
+    const pushSecond = (x) => {
+      if (!x || firstSet.has(x.n) || secondSet.has(x.n) || secondInfo.length >= 14) return;
+      secondInfo.push(x); secondSet.add(x.n);
+    };
+    kicked.forEach(pushSecond);
+    hotRank.forEach(pushSecond);
+    if (secondInfo.length !== 14) throw new Error('第八模式第二柱無法補滿14支。');
+
+    const thirdInfo = hotRank.filter(x => !firstSet.has(x.n) && !secondSet.has(x.n));
+    if (thirdInfo.length !== 15) throw new Error(`第八模式第三柱數量異常：${thirdInfo.length}支。`);
+
+    const groups = [firstInfo.map(x=>x.n), secondInfo.map(x=>x.n), thirdInfo.map(x=>x.n)]
+      .map(g => g.slice().sort((a,b)=>a-b));
+    const latestHitsFirst = groups[0].filter(n => latest.has(n));
+    if (latestHitsFirst.length) throw new Error('第八模式驗證失敗：第一柱仍包含最新期開獎號。');
+    const all = groups.flat();
+    if (new Set(all).size !== 39) throw new Error('第八模式驗證失敗：三柱未完整且唯一覆蓋01～39。');
+
+    return {
+      groups, hotRank, originalTop10, kicked, firstInfo, secondInfo, thirdInfo,
+      latestDraw: Array.from(latest), windowSize: HOT_COLD_66_WINDOW,
+      sourceCount: Math.min((draws || []).length, HOT_COLD_66_WINDOW)
+    };
+  }
+
+  function fixedGenerateHotCold66ZeroPack(mode = currentGameMode()) {
+    const draws = getBacktestDraws();
+    const built = fixedBuildHotCold66ZeroGroups(draws, mode);
+    const item = {
+      label:'A1', type:'hotCold66Zero', groups:built.groups,
+      hotRank:built.hotRank, originalTop10:built.originalTop10, kicked:built.kicked,
+      firstInfo:built.firstInfo, secondInfo:built.secondInfo, thirdInfo:built.thirdInfo,
+      latestDraw:built.latestDraw, windowSize:built.windowSize, sourceCount:built.sourceCount
+    };
+    return {
+      version:8, mode, pillarMode:'hotCold66Zero', type:'hotCold66Zero',
+      createdAt:new Date().toISOString(), windowSize:HOT_COLD_66_WINDOW,
+      sourceFingerprint:fixedDrawsFingerprint((draws || []).slice(0, HOT_COLD_66_WINDOW)),
+      pairs:[{ label:'A', type:'hotCold66Zero', pair:[item], mode }]
+    };
+  }
+
+  function fixedHotCold66ZeroPackValid(raw, mode = currentGameMode()) {
+    if (!raw || raw.version !== 8 || raw.mode !== mode || raw.type !== 'hotCold66Zero') return false;
+    const pair = raw.pairs && raw.pairs[0] && raw.pairs[0].pair;
+    const x = Array.isArray(pair) ? pair[0] : null;
+    return !!(x && Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15);
+  }
+
+  function fixedBuildHotCold66RecentHTML(item, draws) {
+    const rows = (draws || []).slice(0, 10).map((draw, idx) => {
+      const r = fixedHitScoreForGroupsDirect(item.groups || [], draw);
+      const pass = (r.score || 0) > 0;
+      return `<div class="recent10-row">
+        <div>T${idx}${idx===0?'（最新）':''}</div>
+        <div class="${pass?'recent10-pass':'recent10-fail'}">${pass?'過':'倒'}</div>
+        <div><span class="recent10-hit">${(r.hits || [0,0,0]).join('-')}</span><span class="recent10-draw">｜${(draw || []).map(pad2).join(' ')}</span></div>
+      </div>`;
+    }).join('');
+    return `<div class="recent10-box"><div class="recent10-title">第八模式｜目前立柱最近10期過倒</div>${rows}</div>`;
+  }
+
+  function fixedRenderHotCold66ZeroPack(pack, draws) {
+    if (!dailyAgentResult) return;
+    const item = pack && pack.pairs && pack.pairs[0] && pack.pairs[0].pair && pack.pairs[0].pair[0];
+    if (!item) return;
+    fixedDisplayedPackCache = fixedClonePack(pack);
+    lastFixedDaily = [fixedItemFromGroups(item.groups, draws, item.label, { type:'hotCold66Zero' })];
+    lastDailyTwo = lastFixedDaily.slice();
+    lastAI = lastFixedDaily.slice(); lastAnti=[]; lastReverse=[]; lastRandom=[]; lastRecommended=lastFixedDaily.slice();
+    const created = pack.createdAt ? new Date(pack.createdAt).toLocaleString('zh-TW',{hour12:false}) : '固定';
+    const used = Number(item.sourceCount || 0);
+    const kickedNums = (item.kicked || []).map(x=>pad2(x.n)).join(' ') || '無';
+    const latestNums = (item.latestDraw || []).slice().sort((a,b)=>a-b).map(pad2).join(' ');
+    const top10Text = fixedHotColdInfoText(item.originalTop10 || []);
+    if (fixedQuick5Summary) fixedQuick5Summary.innerHTML = `<div class="fixed-quick5-title">第八模式｜66期冷熱＋第一柱避最新期</div><div class="fixed-quick5-empty">固定統計近66期（目前可用${used}期）。原熱門前10若撞最新期即剔除，再依第11熱、第12熱…補滿第一柱10支；被剔除號碼優先放第二柱。</div>`;
+    dailyAgentResult.innerHTML = `
+      <div class="daily-agent-kpi">
+        <div>目前彩種<br><b>${gameLabel(currentGameMode())}</b></div>
+        <div>第八模式<br><b>66期冷熱避T0</b></div>
+        <div>統計範圍<br><b>近66期</b></div>
+        <div>立柱規格<br><b>10-14-15</b></div>
+      </div>
+      <div class="small-note">第一柱＝66期熱門順位中避開最新一期後的前10支，因此T0第一柱固定0支；第二柱＝原熱門前10中被T0剔除者優先，再接續熱門排行補滿14支；第三柱＝剩餘15支冷門號。三柱完整覆蓋01～39且不重複。</div>
+      <div class="fixed-five-wrap"><div class="fixed-pair-card">
+        <div class="fixed-pair-head"><div class="fixed-pair-title">A1｜第八模式</div><div class="fixed-pair-summary">資料：${used}/66期｜建立：${created}</div></div>
+        <div class="small-note"><b style="color:#fecaca">最新期：</b>${latestNums || '—'}</div>
+        <div class="small-note"><b style="color:#fcd34d">原熱門前10：</b>${top10Text}</div>
+        <div class="small-note"><b style="color:#fb7185">因最新期剔除→第二柱優先：</b>${kickedNums}</div>
+        <div class="small-note"><b style="color:#86efac">第一柱實際熱門：</b>${fixedHotColdInfoText(item.firstInfo || [])}</div>
+        <div class="small-note"><b style="color:#7dd3fc">第二柱次熱：</b>${fixedHotColdInfoText(item.secondInfo || [])}</div>
+        <div class="small-note"><b style="color:#c4b5fd">第三柱冷門：</b>${fixedHotColdInfoText(item.thirdInfo || [])}</div>
+        ${fixedBuildHotCold66RecentHTML(item, draws)}
+        <div class="fixed-two-grid" style="grid-template-columns:1fr;"><div class="fixed-sub-card"><div class="clean-two-card">
+          <div class="pillars">${(item.groups || []).map((g,gi)=>`<div class="pillar"><div class="pillar-title">第${gi+1}柱（${g.length}支）｜${gi===0?'熱門避最新':gi===1?'次熱門':'冷門號'}</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}</div>
+          <div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="0" type="button">複製A1</button></div>
+        </div></div></div>
+      </div></div>`;
+  }
+
   function fixedNormalizePack(raw, mode = currentGameMode()) {
+    if (fixedUseHotCold66Zero(mode)) {
+      return fixedHotCold66ZeroPackValid(raw, mode) ? raw : null;
+    }
     if (fixedUseHotColdRoad(mode)) {
       return fixedHotColdRoadPackValid(raw, mode) ? raw : null;
     }
@@ -11796,6 +11932,14 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedGetOrCreatePack(mode = currentGameMode()) {
     const currentDraws = getBacktestDraws();
+    if (fixedUseHotCold66Zero(mode)) {
+      const existingEight = fixedNormalizePack(fixedLoadRawPack(mode), mode);
+      const fp = fixedDrawsFingerprint((currentDraws || []).slice(0, HOT_COLD_66_WINDOW));
+      if (existingEight && existingEight.sourceFingerprint === fp) return existingEight;
+      const eightPack = fixedGenerateHotCold66ZeroPack(mode);
+      fixedSavePack(eightPack, mode);
+      return eightPack;
+    }
     if (fixedUseHotColdRoad(mode)) {
       const existingHotCold = fixedNormalizePack(fixedLoadRawPack(mode), mode);
       const win = fixedHotColdWindow();
@@ -13607,6 +13751,10 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedRenderPack(pack, draws) {
     if (!dailyAgentResult) return;
     const mode = currentGameMode();
+    if (fixedUseHotCold66Zero(mode) && pack && pack.type === 'hotCold66Zero') {
+      fixedRenderHotCold66ZeroPack(pack, draws);
+      return;
+    }
     if (fixedUseHotColdRoad(mode) && pack && pack.type === 'hotColdRoad') {
       fixedRenderHotColdRoadPack(pack, draws);
       return;
@@ -13665,6 +13813,15 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   async function runReselectFixedPillars() {
     const mode = currentGameMode();
+    if (fixedUseHotCold66Zero(mode)) {
+      const pack = fixedGenerateHotCold66ZeroPack(mode);
+      try { localStorage.removeItem(fixedDualStorageKey(mode)); } catch (e) {}
+      fixedSavePack(pack, mode);
+      fixedRenderHotCold66ZeroPack(pack, getBacktestDraws());
+      resetLog();
+      log('第八模式已重建：固定近66期；第一柱熱門10且避開最新期，被剔除的原前10熱門優先進第二柱，再依熱門順位補滿14支，第三柱為剩餘15支。');
+      return;
+    }
     if (fixedUseHotColdRoad(mode)) {
       const pack = fixedGenerateHotColdRoadPack(mode);
       try { localStorage.removeItem(fixedDualStorageKey(mode)); } catch (e) {}
@@ -13747,7 +13904,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       const mode = currentGameMode();
       const pack = fixedGetOrCreatePack(mode);
       fixedRenderPack(pack, draws);
-      if (fixedUseHotColdRoad(mode)) {
+      if (fixedUseHotCold66Zero(mode)) {
+        log('第八模式已讀取：固定近66期，第一柱熱門10且最新期命中固定0支。');
+        log('原熱門前10若撞最新期會剔除並優先移到第二柱；第一柱由後續熱門順位補滿10支，第二柱再補到14支，第三柱為剩餘15支。');
+      } else if (fixedUseHotColdRoad(mode)) {
         log(`第七模式已讀取：統計近${fixedHotColdWindow()}期，第一柱熱門10、第二柱中溫14、第三柱冷門15。`);
         log('熱門依頻率高到低；冷門依頻率低到高，同頻率再看遺漏期數。');
       } else if (fixedUseOmit3Pass7(mode)) {
@@ -13796,10 +13956,12 @@ ${settleRecord.analysisLines.join('\n')}`;
   if (firstPillarModeSelect) {
     firstPillarModeSelect.value = fixedFirstPillarMode();
     firstPillarModeSelect.addEventListener('change', () => {
-      const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement', 'headPattern', 'omit3pass7', 'hotColdRoad'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
+      const selectedMode = ['tailBalanced', 'fullBalanced', 'strictComplement', 'headPattern', 'omit3pass7', 'hotColdRoad', 'hotCold66Zero'].includes(firstPillarModeSelect.value) ? firstPillarModeSelect.value : 'original';
       localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
       syncHotColdWindowUI();
-      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'hotColdRoad'
+      if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'hotCold66Zero'
+        ? '已切換為<b>第八模式｜66期冷熱避最新期</b>：固定統計近66期；原熱門前10若撞最新期就剔除，依第11熱、第12熱…補滿第一柱10支；被剔除熱門號優先進第二柱，再依熱門順位補滿14支，第三柱為剩餘15支。按「天選雙柱」立即計算。'
+        : selectedMode === 'hotColdRoad'
         ? `已切換為<b>第七模式｜版路冷熱分柱法</b>：目前統計近${fixedHotColdWindow()}期；第一柱熱門前10、第二柱中溫14、第三柱冷門15。可在上方切換近20／50期，按「天選雙柱」立即依最新資料重算。`
         : selectedMode === 'omit3pass7' 
         ? '已切換為<b>第六模式｜T0～T2倒＋T3～T9過</b>：第一柱由T3起往T4、T5…補滿10支；後7期先找7/7，無解依序自動放寬6/7、5/7，並優先用不同第一柱號碼過；剩餘29支均衡拆14／15。按「天選雙柱」即可生成／讀取。'
