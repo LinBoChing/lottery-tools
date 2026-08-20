@@ -528,16 +528,6 @@
 
     .weekly-calc-card { margin-bottom: 16px; }
     .weekly-note { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 10px; }
-    .auto-settlement-box { margin:10px 0 12px; padding:12px 14px; border:1px solid rgba(56,189,248,.48); border-radius:13px; background:linear-gradient(135deg,rgba(56,189,248,.10),rgba(34,197,94,.08)); color:#cbd5e1; font-size:13px; line-height:1.7; }
-    .auto-settlement-box b { color:#f8fafc; }
-    .auto-settlement-box.ok { border-color:rgba(34,197,94,.58); color:#bbf7d0; }
-    .auto-settlement-box.warn { border-color:rgba(245,158,11,.58); color:#fde68a; }
-    .auto-stake-control { display:flex; align-items:end; gap:10px; flex-wrap:wrap; margin:10px 0 4px; padding:11px 12px; border:1px solid rgba(245,158,11,.46); border-radius:13px; background:rgba(245,158,11,.08); }
-    .auto-stake-field { flex:1; min-width:160px; }
-    .auto-stake-label { color:#fde68a; font-size:13px; font-weight:900; margin-bottom:6px; }
-    .auto-stake-input { width:100%; min-height:44px; background:#020617; color:#f8fafc; border:1px solid rgba(245,158,11,.58); border-radius:11px; padding:10px 12px; font-size:17px; font-weight:900; text-align:center; }
-    .auto-stake-note { flex:2; min-width:240px; color:#cbd5e1; font-size:12px; line-height:1.6; }
-    @media(max-width:768px){ .auto-stake-control{align-items:stretch}.auto-stake-field,.auto-stake-note{min-width:100%;} }
     .weekly-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; }
     .weekly-table { width: 100%; border-collapse: collapse; background: #020617; font-size: 15px; }
     .weekly-table th, .weekly-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: center; white-space: nowrap; }
@@ -1498,7 +1488,7 @@
 /* 已移除：財神立柱記憶資料庫與右側記憶庫快捷按鈕 */
 #goMemoryDbBtn, #memoryDbWrap, .memory-db-card { display:none !important; }
 
-/* 539／天天樂自動更新 */
+/* 539／天天樂手動開獎資料區 */
 .auto-draw-panel{margin-top:12px;padding:12px;border:1px solid rgba(56,189,248,.48);border-radius:14px;background:linear-gradient(135deg,rgba(56,189,248,.10),rgba(34,197,94,.08));}
 .auto-draw-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;}
 .auto-draw-status{color:#cbd5e1;font-size:13px;line-height:1.65;word-break:break-word;}
@@ -1544,8 +1534,6 @@
 @media(max-width:768px){
   .t0-auto-search-actions{grid-template-columns:1fr;}
 }
-.auto-settlement-actions{display:flex;justify-content:flex-end;margin:9px 0 2px;}
-.auto-settlement-actions .btn{width:auto;padding:9px 12px;font-size:13px;}
 
 </style>
 </head>
@@ -1554,23 +1542,12 @@
     <div class="title">吸金穩贏 APP｜固定雙柱精選版</div>
     <div class="sub">
       主畫面固定五組：A～C 維持雙柱 10-14-15；D、E 改為四柱 9-10-10-10 倒牌組。<br>
-      <b>資料保存說明：</b>彩種資料庫與損益試算仍存在這台裝置的瀏覽器 localStorage；本版只簡化畫面與出戰邏輯，不破壞原資料。
+      <b>資料保存說明：</b>彩種資料庫與手動損益資料仍存在這台裝置的瀏覽器 localStorage；開獎號碼與每日損益皆由你手動輸入。
     </div>
 
     <div class="card weekly-calc-card">
       <div class="section-title">每日結算損益表</div>
-      <div class="weekly-note">改成一天一結算格式，直接填當天各項收入/損益，複製到 LINE 會更清楚。贏錢填正數，輸錢填負數。</div>
-      <div class="auto-stake-control">
-        <div class="auto-stake-field">
-          <div class="auto-stake-label">今日下注金額（元）</div>
-          <input id="autoSettlementStakeInput" class="auto-stake-input" type="number" inputmode="decimal" min="0.01" step="0.01" value="10">
-        </div>
-        <div class="auto-stake-note">預設 10 元。每次複製立柱時，會把當下金額一起保存；之後再改金額，不會影響已登記的組別。成本與三星獎金都按「下注金額 ÷ 10」同比例計算。</div>
-      </div>
-      <div id="autoSettlementStatus" class="auto-settlement-box">自動結算：尚未登記今日下注。複製 10-14-15 或 10-10-19 立柱後，系統會記住；新增開獎號碼時自動結算並寫入本表。</div>
-      <div class="auto-settlement-actions">
-        <button class="btn btn-danger" id="clearTodayAutoBetsBtn" type="button">清除今日下注號碼</button>
-      </div>
+      <div class="weekly-note">純手動一天一結算：自行輸入天天樂、539、金富翁與工作收入/損益。贏錢填正數，輸錢填負數；不會因新增開獎號碼自動改動損益。</div>
       <div class="weekly-summary-grid">
         <div class="weekly-summary-box">
           <div class="weekly-summary-title" id="weeklyTodayMorningLabel">今日天天樂損益</div>
@@ -1581,16 +1558,6 @@
           <div class="weekly-summary-title" id="weeklyTodayNightLabel">今日539損益</div>
           <input id="weeklyTodayNightInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
           <div class="weekly-mini-total">539合計：<b id="weeklyNightSummary">0</b></div>
-        </div>
-        <div class="weekly-summary-box">
-          <div class="weekly-summary-title" id="weeklyTodayBltLabel">今日大樂透損益</div>
-          <input id="weeklyTodayBltInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
-          <div class="weekly-mini-total">大樂透合計：<b id="weeklyBltSummary">0</b></div>
-        </div>
-        <div class="weekly-summary-box">
-          <div class="weekly-summary-title" id="weeklyTodaySixLabel">今日六合彩損益</div>
-          <input id="weeklyTodaySixInput" class="weekly-summary-input" type="number" inputmode="decimal" placeholder="0">
-          <div class="weekly-mini-total">六合彩合計：<b id="weeklySixSummary">0</b></div>
         </div>
         <div class="weekly-summary-box">
           <div class="weekly-summary-title" id="weeklyTodayGoldLabel">今日金富翁遊戲損益</div>
@@ -1639,8 +1606,6 @@
                 <th>天數</th>
                 <th>天天樂損益</th>
                 <th>539損益</th>
-                <th>大樂透損益</th>
-                <th>六合彩損益</th>
                 <th>金富翁遊戲損益</th>
                 <th>幫哥工作</th>
                 <th>當日小計</th>
@@ -1652,8 +1617,6 @@
                 <th>合計</th>
                 <th id="weeklyMorningTotal">0</th>
                 <th id="weeklyNightTotal">0</th>
-                <th id="weeklyBltTotal">0</th>
-                <th id="weeklySixTotal">0</th>
                 <th id="weeklyGoldTotal">0</th>
                 <th id="weeklyWorkTotal">0</th>
                 <th id="weeklyGrandTotal">0</th>
@@ -1791,8 +1754,8 @@
           <div class="clean-tools">
             <button id="clearLockBtn" type="button" style="display:none;"></button>
           </div>
-          <details class="learn-tools-panel" open>
-            <summary>固定立柱維護工具（已展開，可點標題收合）</summary>
+          <details class="learn-tools-panel">
+            <summary>固定立柱維護工具（點開後使用，預設收起）</summary>
             <div class="learn-tools-body">
               <button class="btn btn-secondary" id="backtrain50Btn" type="button">重新精選立柱</button>
               <div id="fixedQuick5Summary" class="fixed-quick5-box">
@@ -1969,28 +1932,24 @@
   const clearWeeklyCalcBtn = document.getElementById('clearWeeklyCalcBtn');
   const weeklyMorningTotal = document.getElementById('weeklyMorningTotal');
   const weeklyNightTotal = document.getElementById('weeklyNightTotal');
-  const weeklyBltTotal = document.getElementById('weeklyBltTotal');
-  const weeklySixTotal = document.getElementById('weeklySixTotal');
   const weeklyGoldTotal = document.getElementById('weeklyGoldTotal');
+  const weeklyWorkTotal = document.getElementById('weeklyWorkTotal');
   const weeklyGrandTotal = document.getElementById('weeklyGrandTotal');
   const weeklyMorningSummary = document.getElementById('weeklyMorningSummary');
   const weeklyNightSummary = document.getElementById('weeklyNightSummary');
-  const weeklyBltSummary = document.getElementById('weeklyBltSummary');
-  const weeklySixSummary = document.getElementById('weeklySixSummary');
   const weeklyGoldSummary = document.getElementById('weeklyGoldSummary');
+  const weeklyWorkSummary = document.getElementById('weeklyWorkSummary');
   const weeklyGrandSummary = document.getElementById('weeklyGrandSummary');
   const weeklyAfterSettlementSummary = document.getElementById('weeklyAfterSettlementSummary');
   const weeklyTodayMorningInput = document.getElementById('weeklyTodayMorningInput');
   const weeklyTodayNightInput = document.getElementById('weeklyTodayNightInput');
-  const weeklyTodayBltInput = document.getElementById('weeklyTodayBltInput');
-  const weeklyTodaySixInput = document.getElementById('weeklyTodaySixInput');
   const weeklyTodayGoldInput = document.getElementById('weeklyTodayGoldInput');
+  const weeklyTodayWorkInput = document.getElementById('weeklyTodayWorkInput');
   const weeklySettlementInput = document.getElementById('weeklySettlementInput');
   const weeklyTodayMorningLabel = document.getElementById('weeklyTodayMorningLabel');
   const weeklyTodayNightLabel = document.getElementById('weeklyTodayNightLabel');
-  const weeklyTodayBltLabel = document.getElementById('weeklyTodayBltLabel');
-  const weeklyTodaySixLabel = document.getElementById('weeklyTodaySixLabel');
   const weeklyTodayGoldLabel = document.getElementById('weeklyTodayGoldLabel');
+  const weeklyTodayWorkLabel = document.getElementById('weeklyTodayWorkLabel');
   const weeklyInputPanel = document.getElementById('weeklyInputPanel');
   const weeklyTableWrap = document.getElementById('weeklyTableWrap');
   const weeklyTodayNote = document.getElementById('weeklyTodayNote');
@@ -2207,7 +2166,7 @@
   }
 
   function emptyWeeklyCalcData() {
-    return WEEKLY_DAYS.map(() => ({ morning: '', night: '', blt: '', six: '', gold: '', work: '' }));
+    return WEEKLY_DAYS.map(() => ({ morning: '', night: '', gold: '', work: '' }));
   }
 
   function normalizeWeeklyCalcData(data) {
@@ -2215,8 +2174,6 @@
     return WEEKLY_DAYS.map((_, idx) => ({
       morning: String(data[idx]?.morning || ''),
       night: String(data[idx]?.night || ''),
-      blt: String(data[idx]?.blt || ''),
-      six: String(data[idx]?.six || ''),
       gold: String(data[idx]?.gold || ''),
       work: String(data[idx]?.work || '')
     }));
@@ -2228,7 +2185,7 @@
 
   function calcWeeklyDataTotal(data) {
     return normalizeWeeklyCalcData(data).reduce((sum, row) => {
-      return sum + parseMoneyValue(row.morning) + parseMoneyValue(row.night) + parseMoneyValue(row.blt) + parseMoneyValue(row.six) + parseMoneyValue(row.gold) + parseMoneyValue(row.work);
+      return sum + parseMoneyValue(row.morning) + parseMoneyValue(row.night) + parseMoneyValue(row.gold) + parseMoneyValue(row.work);
     }, 0);
   }
 
@@ -2311,216 +2268,6 @@
     saveWeeklyCalcPayload(payload);
   }
 
-  const AUTO_BET_STORAGE_KEY = 'pillar_auto_bets_v1';
-  const AUTO_SETTLED_STORAGE_KEY = 'pillar_auto_settled_v1';
-  const AUTO_STAKE_STORAGE_KEY = 'pillar_auto_stake_v1';
-  const AUTO_DEFAULT_STAKE = 10;
-  const AUTO_PRIZE_PER_3STAR = 5700;
-  const AUTO_GROUP_COSTS = { '10-14-15': 13125, '10-10-19': 11875 };
-  // 539 退水只在「有中三星獎金」時反映於淨獲利；倒牌仍輸原本完整成本。
-  // 天天樂維持原算法，不套用此調整。
-  const AUTO_539_WIN_COST_RATE = 0.9992;
-
-  function autoBaseSettlementCost(type, stake) {
-    const multiplier = autoNormalizeStake(stake) / AUTO_DEFAULT_STAKE;
-    return Number(AUTO_GROUP_COSTS[type] || 0) * multiplier;
-  }
-
-  function autoSettlementCost(type, stake, mode, hasPrize = false) {
-    const baseCost = autoBaseSettlementCost(type, stake);
-    if (mode === '539' && hasPrize) return Math.round(baseCost * AUTO_539_WIN_COST_RATE * 100) / 100;
-    return baseCost;
-  }
-
-  function autoTodayKey() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-
-  function autoNormalizeGroups(groups) {
-    return (groups || []).slice(0, 3).map(g => [...new Set((g || []).map(Number).filter(Number.isFinite))].sort((a,b)=>a-b));
-  }
-
-  function autoGroupType(groups) {
-    const normalized = autoNormalizeGroups(groups);
-    const key = normalized.map(g => g.length).join('-');
-    return AUTO_GROUP_COSTS[key] ? key : '';
-  }
-
-  function autoReadJson(key, fallback) {
-    try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? fallback : v; } catch (e) { return fallback; }
-  }
-
-  function autoWriteJson(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
-  }
-
-  function autoCurrentMode() {
-    return (document.getElementById('gameMode') || {}).value || '539';
-  }
-
-  function autoNormalizeStake(value) {
-    const n = Number(value);
-    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : AUTO_DEFAULT_STAKE;
-  }
-
-  function autoCurrentStake() {
-    const input = document.getElementById('autoSettlementStakeInput');
-    return autoNormalizeStake(input ? input.value : localStorage.getItem(AUTO_STAKE_STORAGE_KEY));
-  }
-
-  function autoInitStakeControl() {
-    const input = document.getElementById('autoSettlementStakeInput');
-    if (!input) return;
-    input.value = String(autoNormalizeStake(localStorage.getItem(AUTO_STAKE_STORAGE_KEY) || AUTO_DEFAULT_STAKE));
-    if (input.dataset.autoStakeReady === '1') return;
-    input.dataset.autoStakeReady = '1';
-    const save = () => {
-      const stake = autoNormalizeStake(input.value);
-      input.value = String(stake);
-      try { localStorage.setItem(AUTO_STAKE_STORAGE_KEY, String(stake)); } catch (e) {}
-      autoRenderSettlementStatus();
-    };
-    input.addEventListener('change', save);
-    input.addEventListener('blur', save);
-  }
-
-  function autoBetBucketKey(mode, dateKey = autoTodayKey()) { return `${dateKey}|${mode}`; }
-
-  function autoRenderSettlementStatus(message, cls) {
-    const box = document.getElementById('autoSettlementStatus');
-    if (!box) return;
-    if (message) {
-      box.innerHTML = message;
-      box.className = `auto-settlement-box ${cls || ''}`.trim();
-      return;
-    }
-    const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
-    const mode = autoCurrentMode();
-    const bets = store[autoBetBucketKey(mode)] || [];
-    if (!bets.length) {
-      box.innerHTML = `自動結算：<b>${gameLabel ? gameLabel(mode) : mode}</b> 今日尚未登記下注。複製 10-14-15 或 10-10-19 立柱後會自動記住。`;
-      box.className = 'auto-settlement-box';
-      return;
-    }
-    const totalCost = bets.reduce((sum,b)=>sum + Number(b.cost || 0), 0);
-    const types = bets.map(b=>`${b.type}／${autoNormalizeStake(b.stake)}元`).join('、');
-    box.innerHTML = `自動結算：今日 <b>${gameLabel ? gameLabel(mode) : mode}</b> 已登記 <b>${bets.length} 組</b>（${types}），總成本 <b>${formatMoneyValue(totalCost)}</b> 元；等待輸入開獎號碼。`;
-    box.className = 'auto-settlement-box warn';
-  }
-
-  function autoBetSignature(groups) {
-    return autoNormalizeGroups(groups).map(g => g.join(',')).join('+');
-  }
-
-  window.recordAutoSettlementBet = function(groups, label = '') {
-    const normalized = autoNormalizeGroups(groups);
-    const type = autoGroupType(normalized);
-    if (!type) return false;
-    const mode = autoCurrentMode();
-    const stake = autoCurrentStake();
-    const multiplier = stake / AUTO_DEFAULT_STAKE;
-    const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
-    const key = autoBetBucketKey(mode);
-    const list = Array.isArray(store[key]) ? store[key] : [];
-    const signature = autoBetSignature(normalized);
-    const duplicated = list.some(b => (b.signature || autoBetSignature(b.groups || [])) === signature);
-    if (duplicated) {
-      autoRenderSettlementStatus(`重複複製已忽略：<b>${gameLabel ? gameLabel(mode) : mode}</b> 這組立柱今天已登記，不會重複計入成本。`, 'warn');
-      return false;
-    }
-    list.push({
-      id: `bet_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-      label: label || `第${list.length + 1}組`,
-      type,
-      groups: normalized,
-      signature,
-      cost: autoSettlementCost(type, stake, mode, false),
-      baseCost: AUTO_GROUP_COSTS[type],
-      stake,
-      copiedAt: new Date().toISOString()
-    });
-    store[key] = list;
-    autoWriteJson(AUTO_BET_STORAGE_KEY, store);
-    autoRenderSettlementStatus();
-    return true;
-  };
-
-  window.clearTodayAutoSettlementBets = function() {
-    const mode = autoCurrentMode();
-    const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
-    const key = autoBetBucketKey(mode);
-    const list = Array.isArray(store[key]) ? store[key] : [];
-    if (!list.length) {
-      autoRenderSettlementStatus(`自動結算：<b>${gameLabel ? gameLabel(mode) : mode}</b> 今日沒有可清除的下注號碼。`, '');
-      return false;
-    }
-    if (!confirm(`確定清除今日 ${gameLabel ? gameLabel(mode) : mode} 已登記的 ${list.length} 組下注號碼？\n清除後不會自動結算這些組別。`)) return false;
-    delete store[key];
-    autoWriteJson(AUTO_BET_STORAGE_KEY, store);
-    autoRenderSettlementStatus(`已清除今日 <b>${gameLabel ? gameLabel(mode) : mode}</b> 的 ${list.length} 組下注號碼。`, 'ok');
-    return true;
-  };
-
-  function autoWeeklyFieldForMode(mode) {
-    return mode === 'dayday' ? 'morning' : mode === '539' ? 'night' : mode === 'blt' ? 'blt' : mode === 'six' ? 'six' : '';
-  }
-
-  window.autoSettlePillarBets = function(mode, drawNums, drawDate = '') {
-    try {
-      const draw = [...new Set((drawNums || []).map(Number).filter(Number.isFinite))];
-      if (!draw.length) return null;
-      const dateKey = autoTodayKey();
-      const bucketKey = autoBetBucketKey(mode, dateKey);
-      const store = autoReadJson(AUTO_BET_STORAGE_KEY, {});
-      const bets = Array.isArray(store[bucketKey]) ? store[bucketKey] : [];
-      if (!bets.length) return null;
-      const drawKey = `${mode}|${draw.slice().sort((a,b)=>a-b).join('-')}|${drawDate || dateKey}`;
-      const settled = autoReadJson(AUTO_SETTLED_STORAGE_KEY, {});
-      if (settled[drawKey]) return settled[drawKey];
-      const drawSet = new Set(draw);
-      const details = bets.map((bet, idx) => {
-        const hits = (bet.groups || []).slice(0,3).map(g => (g || []).filter(n => drawSet.has(Number(n))).length);
-        const threeStarHits = hits.length === 3 ? hits[0] * hits[1] * hits[2] : 0;
-        const stake = autoNormalizeStake(bet.stake || AUTO_DEFAULT_STAKE);
-        const multiplier = stake / AUTO_DEFAULT_STAKE;
-        const prize = threeStarHits * AUTO_PRIZE_PER_3STAR * multiplier;
-        // 539：有中獎時才套用退水後成本；若倒牌（三星獎金為0），仍扣原本完整成本。天天樂完全維持原算法。
-        const cost = autoSettlementCost(bet.type, stake, mode, prize > 0);
-        return { label: bet.label || `第${idx+1}組`, type: bet.type, stake, hits, threeStarHits, prize, cost, profit: prize - cost };
-      });
-      const totalPrize = details.reduce((s,x)=>s+x.prize,0);
-      const totalCost = details.reduce((s,x)=>s+x.cost,0);
-      const profit = totalPrize - totalCost;
-      const field = autoWeeklyFieldForMode(mode);
-      if (field) {
-        const data = loadWeeklyCalcData();
-        const todayIdx = getTodayWeeklyIndex();
-        data[todayIdx][field] = String(profit);
-        saveWeeklyCalcData(data);
-        updateWeeklyCalcTotals();
-        try { recordProfitHistorySnapshot(); } catch (e) {}
-      }
-      const result = { drawKey, mode, draw, drawDate, details, totalPrize, totalCost, profit, settledAt: new Date().toISOString() };
-      settled[drawKey] = result;
-      autoWriteJson(AUTO_SETTLED_STORAGE_KEY, settled);
-      delete store[bucketKey];
-      autoWriteJson(AUTO_BET_STORAGE_KEY, store);
-      const detailText = details.map(x => `${x.label} ${x.type}（${x.stake}元）：${x.hits.join('+')}＝${x.threeStarHits}碰`).join('；');
-      autoRenderSettlementStatus(`已自動結算 <b>${gameLabel ? gameLabel(mode) : mode}</b>：${detailText}<br>獎金 <b>${formatMoneyValue(totalPrize)}</b>－成本 <b>${formatMoneyValue(totalCost)}</b>＝損益 <b>${formatMoneyValue(profit)}</b> 元，已寫入每日結算損益。`, profit >= 0 ? 'ok' : 'warn');
-      return result;
-    } catch (e) {
-      console.warn('auto settlement failed', e);
-      return null;
-    }
-  };
-
-  const clearTodayAutoBetsBtn = document.getElementById('clearTodayAutoBetsBtn');
-  if (clearTodayAutoBetsBtn) clearTodayAutoBetsBtn.addEventListener('click', () => window.clearTodayAutoSettlementBets());
-
   function renderWeeklyCalcTable() {
     if (!weeklyCalcBody) return;
     const data = loadWeeklyCalcData();
@@ -2530,8 +2277,6 @@
         <th>${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(idx) : day}${idx === todayIdx ? '（今天）' : ''}</th>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="morning" placeholder="0" value="${data[idx].morning}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="night" placeholder="0" value="${data[idx].night}"></td>
-        <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="blt" placeholder="0" value="${data[idx].blt}"></td>
-        <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="six" placeholder="0" value="${data[idx].six}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="gold" placeholder="0" value="${data[idx].gold}"></td>
         <td><input class="weekly-input" type="number" inputmode="decimal" data-weekly-day="${idx}" data-weekly-field="work" placeholder="0" value="${data[idx].work || ""}"></td>
         <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
@@ -2539,14 +2284,10 @@
     `).join('');
     if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}天天樂損益`;
     if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}539損益`;
-    if (weeklyTodayBltLabel) weeklyTodayBltLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}大樂透損益`;
-    if (weeklyTodaySixLabel) weeklyTodaySixLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}六合彩損益`;
     if (weeklyTodayGoldLabel) weeklyTodayGoldLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}金富翁遊戲損益`;
     if (weeklyTodayNote) weeklyTodayNote.textContent = `整週明細：目前今天是 ${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}。`;
     applyWeeklyViewMode();
     updateWeeklyCalcTotals();
-    try { autoInitStakeControl(); } catch (e) {}
-    try { autoRenderSettlementStatus(); } catch (e) {}
   }
 
   function applyWeeklyViewMode() {
@@ -2558,22 +2299,16 @@
     const data = loadWeeklyCalcData();
     let morningTotal = 0;
     let nightTotal = 0;
-    let bltTotal = 0;
-    let sixTotal = 0;
     let goldTotal = 0;
     let workTotal = 0;
     data.forEach((row, idx) => {
       const morning = parseMoneyValue(row.morning);
       const night = parseMoneyValue(row.night);
-      const blt = parseMoneyValue(row.blt);
-      const six = parseMoneyValue(row.six);
       const gold = parseMoneyValue(row.gold);
       const work = parseMoneyValue(row.work);
-      const dayTotal = morning + night + blt + six + gold + work;
+      const dayTotal = morning + night + gold + work;
       morningTotal += morning;
       nightTotal += night;
-      bltTotal += blt;
-      sixTotal += six;
       goldTotal += gold;
       workTotal += work;
       const cell = document.getElementById(`weeklyDayTotal${idx}`);
@@ -2585,24 +2320,20 @@
     const todayIdx = getTodayWeeklyIndex();
     if (weeklyTodayMorningInput && document.activeElement !== weeklyTodayMorningInput) weeklyTodayMorningInput.value = data[todayIdx]?.morning || '';
     if (weeklyTodayNightInput && document.activeElement !== weeklyTodayNightInput) weeklyTodayNightInput.value = data[todayIdx]?.night || '';
-    if (weeklyTodayBltInput && document.activeElement !== weeklyTodayBltInput) weeklyTodayBltInput.value = data[todayIdx]?.blt || '';
-    if (weeklyTodaySixInput && document.activeElement !== weeklyTodaySixInput) weeklyTodaySixInput.value = data[todayIdx]?.six || '';
     if (weeklyTodayGoldInput && document.activeElement !== weeklyTodayGoldInput) weeklyTodayGoldInput.value = data[todayIdx]?.gold || '';
     if (weeklyTodayWorkInput && document.activeElement !== weeklyTodayWorkInput) weeklyTodayWorkInput.value = data[todayIdx]?.work || '';
     if (weeklyTodayMorningInput) weeklyTodayMorningInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.morning))}`;
     if (weeklyTodayNightInput) weeklyTodayNightInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.night))}`;
-    if (weeklyTodayBltInput) weeklyTodayBltInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.blt))}`;
-    if (weeklyTodaySixInput) weeklyTodaySixInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.six))}`;
     if (weeklyTodayGoldInput) weeklyTodayGoldInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.gold))}`;
     if (weeklyTodayWorkInput) weeklyTodayWorkInput.className = `weekly-summary-input ${moneyClass(parseMoneyValue(data[todayIdx]?.work))}`;
-    const grandTotal = morningTotal + nightTotal + bltTotal + sixTotal + goldTotal + workTotal;
+    const grandTotal = morningTotal + nightTotal + goldTotal + workTotal;
     const settlementTotal = loadWeeklySettlementTotal();
     const afterSettlementTotal = settlementTotal + grandTotal;
     if (weeklySettlementInput && document.activeElement !== weeklySettlementInput) weeklySettlementInput.value = settlementTotal || '';
     if (weeklySettlementInput) weeklySettlementInput.className = `weekly-summary-input ${moneyClass(settlementTotal)}`;
     const pairs = [
-      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyBltTotal, bltTotal], [weeklySixTotal, sixTotal], [weeklyGoldTotal, goldTotal], [weeklyWorkTotal, workTotal], [weeklyGrandTotal, grandTotal],
-      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyBltSummary, bltTotal], [weeklySixSummary, sixTotal], [weeklyGoldSummary, goldTotal], [weeklyWorkSummary, workTotal], [weeklyGrandSummary, grandTotal],
+      [weeklyMorningTotal, morningTotal], [weeklyNightTotal, nightTotal], [weeklyGoldTotal, goldTotal], [weeklyWorkTotal, workTotal], [weeklyGrandTotal, grandTotal],
+      [weeklyMorningSummary, morningTotal], [weeklyNightSummary, nightTotal], [weeklyGoldSummary, goldTotal], [weeklyWorkSummary, workTotal], [weeklyGrandSummary, grandTotal],
       [weeklyAfterSettlementSummary, afterSettlementTotal]
     ];
     pairs.forEach(([el, value]) => {
@@ -2632,18 +2363,14 @@
       const dateLabel = typeof shortDateLabelFromDate === 'function' ? `${shortDateLabelFromDate(d)}（${getWeekdayNameFromDate(d).replace('星期','週')}）` : day;
       const morning = parseMoneyValue(data[idx]?.morning);
       const night = parseMoneyValue(data[idx]?.night);
-      const blt = parseMoneyValue(data[idx]?.blt);
-      const six = parseMoneyValue(data[idx]?.six);
       const gold = parseMoneyValue(data[idx]?.gold);
       const work = parseMoneyValue(data[idx]?.work || 0);
-      const total = morning + night + blt + six + gold + work;
+      const total = morning + night + gold + work;
       grandTotal += total;
 
       rows.push(dateLabel);
       if (morning !== 0) rows.push(`天天樂：${morning > 0 ? '+' : ''}${formatMoneyValue(morning)}`);
       if (night !== 0) rows.push(`539：${night > 0 ? '+' : ''}${formatMoneyValue(night)}`);
-      if (blt !== 0) rows.push(`大樂透：${blt > 0 ? '+' : ''}${formatMoneyValue(blt)}`);
-      if (six !== 0) rows.push(`六合彩：${six > 0 ? '+' : ''}${formatMoneyValue(six)}`);
       if (gold !== 0) rows.push(`金富翁：${gold > 0 ? '+' : ''}${formatMoneyValue(gold)}`);
       if (work !== 0) rows.push(`幫哥工作：${work > 0 ? '+' : ''}${formatMoneyValue(work)}`);
       rows.push(`今日總計：${total > 0 ? '+' : ''}${formatMoneyValue(total)}`);
@@ -2654,11 +2381,9 @@
     // 週結算摘要：彩球類與金富翁分開計算，方便貼到 LINE 對帳。
     const morningTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.morning), 0);
     const nightTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.night), 0);
-    const bltTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.blt), 0);
-    const sixTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.six), 0);
     const goldTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.gold), 0);
     const workTotal = data.reduce((sum, row) => sum + parseMoneyValue(row?.work), 0);
-    const lotteryTotal = morningTotal + nightTotal + bltTotal + sixTotal;
+    const lotteryTotal = morningTotal + nightTotal;
     const settlementTotal = loadWeeklySettlementTotal();
     const afterSettlementTotal = settlementTotal + grandTotal;
     const signedMoney = value => `${value > 0 ? '+' : ''}${formatMoneyValue(value)}`;
@@ -2666,8 +2391,6 @@
     rows.push('📌 本週分類結算');
     if (morningTotal !== 0) rows.push(`天天樂${signedMoney(morningTotal)}`);
     if (nightTotal !== 0) rows.push(`539${signedMoney(nightTotal)}`);
-    if (bltTotal !== 0) rows.push(`大樂透${signedMoney(bltTotal)}`);
-    if (sixTotal !== 0) rows.push(`六合彩${signedMoney(sixTotal)}`);
     rows.push(`彩球共${signedMoney(lotteryTotal)}`);
     rows.push(`金富翁${signedMoney(goldTotal)}`);
     if (workTotal !== 0) rows.push(`幫哥工作${signedMoney(workTotal)}`);
@@ -3551,7 +3274,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const day = Number(input.dataset.weeklyDay);
       const field = input.dataset.weeklyField;
       const data = loadWeeklyCalcData();
-      if (Number.isInteger(day) && data[day] && ['morning','night','blt','six','gold','work'].includes(field)) {
+      if (Number.isInteger(day) && data[day] && ['morning','night','gold','work'].includes(field)) {
         data[day][field] = input.value;
         saveWeeklyCalcData(data);
         updateWeeklyCalcTotals();
@@ -3573,12 +3296,6 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     if (weeklyTodayNightInput) {
       weeklyTodayNightInput.addEventListener('input', () => saveTodaySummaryInput('night', weeklyTodayNightInput.value));
-    }
-    if (weeklyTodayBltInput) {
-      weeklyTodayBltInput.addEventListener('input', () => saveTodaySummaryInput('blt', weeklyTodayBltInput.value));
-    }
-    if (weeklyTodaySixInput) {
-      weeklyTodaySixInput.addEventListener('input', () => saveTodaySummaryInput('six', weeklyTodaySixInput.value));
     }
     if (weeklyTodayGoldInput) {
       weeklyTodayGoldInput.addEventListener('input', () => saveTodaySummaryInput('gold', weeklyTodayGoldInput.value));
@@ -8035,7 +7752,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
-  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); if (typeof window.autoSettlePillarBets === 'function') window.autoSettlePillarBets(modeBeforeAdd, nums, newDrawDate.value); addRecordToDb(nums, newDrawDate.value, modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
+  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); addRecordToDb(nums, newDrawDate.value, modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
 
   if (copyLatestXDrawsBtn) copyLatestXDrawsBtn.addEventListener('click', copyLatestXDraws);
@@ -14038,7 +13755,6 @@ ${settleRecord.analysisLines.join('\n')}`;
       ? groups.map(g => (g || []).map(pad2).join(',')).join('+')
       : exportText(groups);
     await copyTextSmart(text, `第 ${index + 1} 組已複製`);
-    if (typeof window.recordAutoSettlementBet === 'function') window.recordAutoSettlementBet(groups, `${labelPrefix || ''}第${index + 1}組`);
   }
 
   function addGroupToFirstPillarCheck(items, rawIndex) {
@@ -16386,11 +16102,6 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       const text = [firstGroupText, secondGroupText, thirdGroupText].filter(Boolean).join('\n\n');
       try {
         await copyText(text);
-        if (typeof window.recordAutoSettlementBet === 'function') {
-          window.recordAutoSettlementBet(groups[a]?.pillars || [], `比對第${a + 1}組`);
-          window.recordAutoSettlementBet(groups[b]?.pillars || [], `比對第${b + 1}組`);
-          window.recordAutoSettlementBet(dGroups, 'D組');
-        }
         copyDBtn.textContent = '✓ 已複製三組立柱';
         copyDBtn.classList.add('copied');
         setTimeout(() => {
@@ -16421,7 +16132,6 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
       }
       try {
         await copyText(dGroups.map(fmtComma).join('+'));
-        if (typeof window.recordAutoSettlementBet === 'function') window.recordAutoSettlementBet(dGroups, 'D組');
         applyBtn.textContent = '✓ 已套用並複製D組';
         applyBtn.classList.add('copied');
         setTimeout(() => {
@@ -16443,7 +16153,6 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
     const originalText = btn.textContent;
     try {
       await copyText(group.raw);
-      if (typeof window.recordAutoSettlementBet === 'function') window.recordAutoSettlementBet(group.pillars || [], `比對第${index + 1}組`);
       btn.textContent = `✓ 已複製第${index + 1}組`;
       btn.classList.add('copied');
       setTimeout(() => {
