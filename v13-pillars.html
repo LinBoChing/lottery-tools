@@ -1748,7 +1748,7 @@
               <option value="headPattern">第五模式｜0～3頭固定牌型：頭數＋剩餘單＋剩餘雙</option>
               <option value="omit3pass7">第六模式｜前三期倒＋後七期過：T3起抓10支</option>
               <option value="hotColdRoad">第七模式｜版路冷熱分柱法：熱10＋中14＋冷15</option>
-              <option value="hotCold66Zero">第八模式｜66期冷熱：熱10避最新期＋次熱14＋冷15</option>
+              <option value="hotCold66Zero">第八模式｜33期冷熱：熱10避最新期＋次熱14＋冷15</option>
             </select>
             <div id="hotColdWindowWrap" style="display:none; margin-top:10px;">
               <div class="field-label">第七模式統計期數</div>
@@ -1757,7 +1757,7 @@
                 <option value="50">近50期</option>
               </select>
             </div>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近66期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱固定該頭全部號碼，第二柱固定剩餘單數，第三柱固定剩餘雙數，只查看最近10期過／倒；若某頭最近2期都倒則提醒。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近33期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -10695,7 +10695,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     // 極端牌型防護 v2 手機加速版：39球 A～C 的第二、三柱新增「禁止3連號」與「和值/大小斷層防護」。
     // 更換固定立柱儲存鍵，避免新版仍讀到舊版已存在 localStorage 的號碼。
     const guardSuffix = getBallMax(mode) === 39 ? '_extremeGuard_v2_fast' : '';
-    const suffix = pillarMode === 'hotCold66Zero' ? '_hotCold66Zero_v1_66' : (pillarMode === 'hotColdRoad' ? `_hotColdRoad_v1_${fixedHotColdWindow()}` : (pillarMode === 'omit3pass7' ? '_omit3pass7_v2_distinctHits' : (pillarMode === 'headPattern' ? '_headPattern_v1' : (pillarMode === 'strictComplement' ? '_strictComplement_v5_allTails23_extremeGuardFast' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix))))));
+    const suffix = pillarMode === 'hotCold66Zero' ? '_hotCold66Zero_v1_33' : (pillarMode === 'hotColdRoad' ? `_hotColdRoad_v1_${fixedHotColdWindow()}` : (pillarMode === 'omit3pass7' ? '_omit3pass7_v2_distinctHits' : (pillarMode === 'headPattern' ? '_headPattern_v1' : (pillarMode === 'strictComplement' ? '_strictComplement_v5_allTails23_extremeGuardFast' : (pillarMode === 'fullBalanced' ? '_fullBalanced_extremeGuard' : (pillarMode === 'tailBalanced' ? '_tailBalanced_extremeGuard' : guardSuffix))))));
     return `${FIXED_DUAL_STORAGE_PREFIX}_${mode}${suffix}`;
   }
 
@@ -11541,16 +11541,16 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
 
-  // ===== 第八模式：66期冷熱＋第一柱避最新期 =====
-  // 1) 固定以最近66期計算01～39熱門排行（開出次數高優先；同次數時最近有開者優先；再依號碼小到大）。
+  // ===== 第八模式：33期冷熱＋第一柱避最新期 =====
+  // 1) 固定以最近33期計算01～39熱門排行（開出次數高優先；同次數時最近有開者優先；再依號碼小到大）。
   // 2) 原熱門前10先視為第一柱候選；凡出現在最新一期者剔除，依第11熱、第12熱…往後補，直到第一柱滿10支且最新期命中0支。
-  // 3) 被剔除的「原熱門前10」優先放第二柱，再依66期熱門排行中尚未使用的號碼依序補滿14支。
+  // 3) 被剔除的「原熱門前10」優先放第二柱，再依33期熱門排行中尚未使用的號碼依序補滿14支。
   // 4) 剩餘15支全部放第三柱，形成冷門柱。三柱完整覆蓋01～39且互不重複。
-  const HOT_COLD_66_WINDOW = 66;
+  const HOT_COLD_66_WINDOW = 33;
 
   function fixedBuildHotCold66ZeroGroups(draws, mode = currentGameMode()) {
     if (getBallMax(mode) !== 39) throw new Error('第八模式僅適用539／天天樂（01～39）。');
-    if (!Array.isArray(draws) || draws.length < HOT_COLD_66_WINDOW) throw new Error('第八模式需要至少66期完整開獎資料，才能依固定66期做冷熱排名。');
+    if (!Array.isArray(draws) || draws.length < HOT_COLD_66_WINDOW) throw new Error('第八模式需要至少33期完整開獎資料，才能依固定33期做冷熱排名。');
     const stats = fixedHotColdStats(draws, mode, HOT_COLD_66_WINDOW);
     const hotRank = stats.slice().sort((a,b) => (b.freq-a.freq) || (a.miss-b.miss) || (a.n-b.n));
     const latest = new Set(((draws && draws[0]) || []).map(Number).filter(n => Number.isFinite(n)));
@@ -11643,17 +11643,17 @@ ${settleRecord.analysisLines.join('\n')}`;
     const kickedNums = (item.kicked || []).map(x=>pad2(x.n)).join(' ') || '無';
     const latestNums = (item.latestDraw || []).slice().sort((a,b)=>a-b).map(pad2).join(' ');
     const top10Text = fixedHotColdInfoText(item.originalTop10 || []);
-    if (fixedQuick5Summary) fixedQuick5Summary.innerHTML = `<div class="fixed-quick5-title">第八模式｜66期冷熱＋第一柱避最新期</div><div class="fixed-quick5-empty">固定統計近66期（目前可用${used}期）。原熱門前10若撞最新期即剔除，再依第11熱、第12熱…補滿第一柱10支；被剔除號碼優先放第二柱。</div>`;
+    if (fixedQuick5Summary) fixedQuick5Summary.innerHTML = `<div class="fixed-quick5-title">第八模式｜33期冷熱＋第一柱避最新期</div><div class="fixed-quick5-empty">固定統計近33期（目前可用${used}期）。原熱門前10若撞最新期即剔除，再依第11熱、第12熱…補滿第一柱10支；被剔除號碼優先放第二柱。</div>`;
     dailyAgentResult.innerHTML = `
       <div class="daily-agent-kpi">
         <div>目前彩種<br><b>${gameLabel(currentGameMode())}</b></div>
-        <div>第八模式<br><b>66期冷熱避T0</b></div>
-        <div>統計範圍<br><b>近66期</b></div>
+        <div>第八模式<br><b>33期冷熱避T0</b></div>
+        <div>統計範圍<br><b>近33期</b></div>
         <div>立柱規格<br><b>10-14-15</b></div>
       </div>
-      <div class="small-note">第一柱＝66期熱門順位中避開最新一期後的前10支，因此T0第一柱固定0支；第二柱＝原熱門前10中被T0剔除者優先，再接續熱門排行補滿14支；第三柱＝剩餘15支冷門號。三柱完整覆蓋01～39且不重複。</div>
+      <div class="small-note">第一柱＝33期熱門順位中避開最新一期後的前10支，因此T0第一柱固定0支；第二柱＝原熱門前10中被T0剔除者優先，再接續熱門排行補滿14支；第三柱＝剩餘15支冷門號。三柱完整覆蓋01～39且不重複。</div>
       <div class="fixed-five-wrap"><div class="fixed-pair-card">
-        <div class="fixed-pair-head"><div class="fixed-pair-title">A1｜第八模式</div><div class="fixed-pair-summary">資料：${used}/66期｜建立：${created}</div></div>
+        <div class="fixed-pair-head"><div class="fixed-pair-title">A1｜第八模式</div><div class="fixed-pair-summary">資料：${used}/33期｜建立：${created}</div></div>
         <div class="small-note"><b style="color:#fecaca">最新期：</b>${latestNums || '—'}</div>
         <div class="small-note"><b style="color:#fcd34d">原熱門前10：</b>${top10Text}</div>
         <div class="small-note"><b style="color:#fb7185">因最新期剔除→第二柱優先：</b>${kickedNums}</div>
@@ -13819,7 +13819,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       fixedSavePack(pack, mode);
       fixedRenderHotCold66ZeroPack(pack, getBacktestDraws());
       resetLog();
-      log('第八模式已重建：固定近66期；第一柱熱門10且避開最新期，被剔除的原前10熱門優先進第二柱，再依熱門順位補滿14支，第三柱為剩餘15支。');
+      log('第八模式已重建：固定近33期；第一柱熱門10且避開最新期，被剔除的原前10熱門優先進第二柱，再依熱門順位補滿14支，第三柱為剩餘15支。');
       return;
     }
     if (fixedUseHotColdRoad(mode)) {
@@ -13905,7 +13905,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const pack = fixedGetOrCreatePack(mode);
       fixedRenderPack(pack, draws);
       if (fixedUseHotCold66Zero(mode)) {
-        log('第八模式已讀取：固定近66期，第一柱熱門10且最新期命中固定0支。');
+        log('第八模式已讀取：固定近33期，第一柱熱門10且最新期命中固定0支。');
         log('原熱門前10若撞最新期會剔除並優先移到第二柱；第一柱由後續熱門順位補滿10支，第二柱再補到14支，第三柱為剩餘15支。');
       } else if (fixedUseHotColdRoad(mode)) {
         log(`第七模式已讀取：統計近${fixedHotColdWindow()}期，第一柱熱門10、第二柱中溫14、第三柱冷門15。`);
@@ -13960,7 +13960,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       localStorage.setItem(FIRST_PILLAR_MODE_KEY, selectedMode);
       syncHotColdWindowUI();
       if (dailyAgentResult) dailyAgentResult.innerHTML = selectedMode === 'hotCold66Zero'
-        ? '已切換為<b>第八模式｜66期冷熱避最新期</b>：固定統計近66期；原熱門前10若撞最新期就剔除，依第11熱、第12熱…補滿第一柱10支；被剔除熱門號優先進第二柱，再依熱門順位補滿14支，第三柱為剩餘15支。按「天選雙柱」立即計算。'
+        ? '已切換為<b>第八模式｜33期冷熱避最新期</b>：固定統計近33期；原熱門前10若撞最新期就剔除，依第11熱、第12熱…補滿第一柱10支；被剔除熱門號優先進第二柱，再依熱門順位補滿14支，第三柱為剩餘15支。按「天選雙柱」立即計算。'
         : selectedMode === 'hotColdRoad'
         ? `已切換為<b>第七模式｜版路冷熱分柱法</b>：目前統計近${fixedHotColdWindow()}期；第一柱熱門前10、第二柱中溫14、第三柱冷門15。可在上方切換近20／50期，按「天選雙柱」立即依最新資料重算。`
         : selectedMode === 'omit3pass7' 
