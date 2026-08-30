@@ -11617,6 +11617,56 @@ ${settleRecord.analysisLines.join('\n')}`;
     return !!(x && Array.isArray(x.groups) && x.groups.length === 3 && x.groups[0].length === 10 && x.groups[1].length === 14 && x.groups[2].length === 15);
   }
 
+  // 第八模式固定九組對照立柱：使用使用者提供的01起始母版，依序平移成02～09起始。
+  const EIGHTH_COMPARE_BASE_FIRST = [1,4,7,10,13,22,25,28,31,34];
+  const EIGHTH_COMPARE_BASE_SECOND = [2,5,6,9,11,14,17,20,23,24,27,30,33,36];
+  let eighthCompareCopyPayloads = [];
+
+  function fixedShift39Num(n, offset) {
+    return ((Number(n) - 1 + Number(offset)) % 39) + 1;
+  }
+
+  function fixedBuildEighthCompareTemplates() {
+    const all = Array.from({length:39}, (_,i)=>i+1);
+    return Array.from({length:9}, (_,offset) => {
+      const first = EIGHTH_COMPARE_BASE_FIRST.map(n=>fixedShift39Num(n, offset)).sort((a,b)=>a-b);
+      const second = EIGHTH_COMPARE_BASE_SECOND.map(n=>fixedShift39Num(n, offset)).sort((a,b)=>a-b);
+      const used = new Set([...first, ...second]);
+      const third = all.filter(n=>!used.has(n));
+      return {
+        label: pad2(offset + 1) + '起始',
+        start: offset + 1,
+        groups: [first, second, third]
+      };
+    });
+  }
+
+  function fixedBuildEighthCompareHTML(currentFirst) {
+    const currentSet = new Set((currentFirst || []).map(Number));
+    const templates = fixedBuildEighthCompareTemplates().map(t => {
+      const overlap = (t.groups[0] || []).filter(n=>currentSet.has(Number(n)));
+      return {...t, overlap, overlapCount: overlap.length};
+    });
+    const minOverlap = templates.length ? Math.min(...templates.map(t=>t.overlapCount)) : 0;
+    const best = templates.filter(t=>t.overlapCount===minOverlap);
+    eighthCompareCopyPayloads = best.map(t => (t.groups || []).map(g=>g.map(pad2).join(',')).join('+'));
+    const cards = best.map((t,idx) => `
+      <div class="fixed-sub-card" style="border-color:rgba(34,197,94,.52);">
+        <div class="clean-two-card">
+          <div class="clean-two-card-title"><span>${t.label}｜固定對照組</span><span class="badge badge-ai">最低重複 ${t.overlapCount}支</span></div>
+          <div class="small-note"><b style="color:#86efac">與第八模式第一柱重複：</b>${t.overlap.length ? t.overlap.map(pad2).join(' ') : '0支（無重複）'}</div>
+          <div class="pillars">${t.groups.map((g,gi)=>`<div class="pillar"><div class="pillar-title">第${gi+1}柱（${g.length}支）</div><div class="nums">${g.map(pad2).join(' ')}</div></div>`).join('')}</div>
+          <div class="clean-result-actions"><button class="btn btn-secondary eighth-template-copy-btn" data-eighth-copy-index="${idx}" type="button">複製${t.label}完整立柱</button></div>
+        </div>
+      </div>`).join('');
+    return `
+      <div class="recent10-box" style="border-color:rgba(34,197,94,.55);">
+        <div class="recent10-title" style="color:#86efac;background:rgba(34,197,94,.10);">第八模式｜固定九組第一柱最低重複比對</div>
+        <div class="fixed-quick5-empty">以本次第八模式第一柱，逐一比對01～09起始共9組固定模板的第一柱；目前最低為 <b style="color:#86efac">${minOverlap}支</b>${best.length>1?`，共有 ${best.length} 組並列最低。`:'。'}</div>
+        <div class="fixed-two-grid" style="padding:10px;${best.length===1?'grid-template-columns:1fr;':''}">${cards}</div>
+      </div>`;
+  }
+
   function fixedBuildHotCold66RecentHTML(item, draws) {
     const rows = (draws || []).slice(0, 10).map((draw, idx) => {
       const r = fixedHitScoreForGroupsDirect(item.groups || [], draw);
@@ -11661,6 +11711,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div class="small-note"><b style="color:#7dd3fc">第二柱次熱：</b>${fixedHotColdInfoText(item.secondInfo || [])}</div>
         <div class="small-note"><b style="color:#c4b5fd">第三柱冷門：</b>${fixedHotColdInfoText(item.thirdInfo || [])}</div>
         ${fixedBuildHotCold66RecentHTML(item, draws)}
+        ${fixedBuildEighthCompareHTML((item.groups || [])[0] || [])}
         <div class="fixed-two-grid" style="grid-template-columns:1fr;"><div class="fixed-sub-card"><div class="clean-two-card">
           <div class="pillars">${(item.groups || []).map((g,gi)=>`<div class="pillar"><div class="pillar-title">第${gi+1}柱（${g.length}支）｜${gi===0?'熱門避最新':gi===1?'次熱門':'冷門號'}</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}</div>
           <div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="0" type="button">複製A1</button></div>
@@ -15029,6 +15080,15 @@ ${settleRecord.analysisLines.join('\n')}`;
       const text = manualRiskCopyPayloads[riskCopyBtn.dataset.riskCopyId] || '';
       if (!text) { alert('找不到可複製的內容，請重新按一次分析。'); return; }
       await copyTextSmart(text, '致命倒牌分析已複製');
+      return;
+    }
+
+    const eighthTemplateCopyBtn = e.target.closest('.eighth-template-copy-btn');
+    if (eighthTemplateCopyBtn) {
+      const idx = Number(eighthTemplateCopyBtn.dataset.eighthCopyIndex);
+      const text = eighthCompareCopyPayloads && eighthCompareCopyPayloads[idx];
+      if (!text) { alert('找不到可複製的第八模式固定對照組，請重新生成第八模式。'); return; }
+      await copyTextSmart(text, '第八模式最低重複固定立柱已複製');
       return;
     }
 
