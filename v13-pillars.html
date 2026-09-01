@@ -11621,6 +11621,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   const EIGHTH_COMPARE_BASE_FIRST = [1,4,7,10,13,22,25,28,31,34];
   const EIGHTH_COMPARE_BASE_SECOND = [2,5,6,9,11,14,17,20,23,24,27,30,33,36];
   let eighthCompareCopyPayloads = [];
+  let eighthDefenseCopyPayloads = [];
 
   function fixedShift39Num(n, offset) {
     return ((Number(n) - 1 + Number(offset)) % 39) + 1;
@@ -11641,7 +11642,105 @@ ${settleRecord.analysisLines.join('\n')}`;
     });
   }
 
-  function fixedBuildEighthCompareHTML(currentFirst) {
+  function fixedEighthHits(groups, draw) {
+    const ds = new Set((draw || []).map(Number));
+    return (groups || []).map(g => (g || []).reduce((c,n)=>c + (ds.has(Number(n)) ? 1 : 0), 0));
+  }
+
+  function fixedEighthDefenseMetrics(groups, conditionDraws, allDraws) {
+    const evalSet = (arr) => {
+      let fail = 0, firstZero = 0, product = 0;
+      (arr || []).forEach(draw => {
+        const h = fixedEighthHits(groups, draw);
+        if (h.some(x=>x===0)) fail++;
+        if (h[0]===0) firstZero++;
+        product += h.reduce((a,b)=>a*b,1);
+      });
+      const n = (arr || []).length;
+      return { n, fail, failRate:n ? fail/n : 1, firstZero, firstZeroRate:n ? firstZero/n : 1, avgProduct:n ? product/n : 0 };
+    };
+    return { conditional:evalSet(conditionDraws), overall:evalSet(allDraws) };
+  }
+
+  // 固定對照第一柱假設0支時，該10支視為條件死號；其餘29支才是有效號。
+  // 新立柱仍完整10-14-15，但有效29支刻意分成10/9/10，死號5/5分散到第二、三柱，
+  // 再以歷史「該固定第一柱真的0支」的樣本做局部搜尋，直接最小化三柱任一柱0支的條件倒率。
+  function fixedBuildEighthDefenseForTemplate(template, draws) {
+    const allNums = Array.from({length:39}, (_,i)=>i+1);
+    const dead = (template.groups && template.groups[0] || []).slice().map(Number).sort((a,b)=>a-b);
+    const deadSet = new Set(dead);
+    const live = allNums.filter(n=>!deadSet.has(n));
+    const conditionDraws = (draws || []).filter(draw => (draw || []).every(n=>!deadSet.has(Number(n))));
+    const history = (draws || []).slice();
+
+    const freq = new Map(live.map(n=>[n,0]));
+    conditionDraws.forEach((draw,idx)=>{
+      const w = 1 + Math.max(0, 20-idx) * 0.025;
+      (draw || []).forEach(n=>{ n=Number(n); if(freq.has(n)) freq.set(n, freq.get(n)+w); });
+    });
+
+    // 用條件頻率蛇形分配，先建立一個三柱有效號都能承接歷史開獎的起始解。
+    const ranked = live.slice().sort((a,b)=>(freq.get(b)-freq.get(a)) || (a-b));
+    const liveGroups=[[],[],[]], caps=[10,9,10];
+    ranked.forEach((n,idx)=>{
+      const choices=[0,1,2].filter(g=>liveGroups[g].length<caps[g]);
+      choices.sort((a,b)=>{
+        const sa=liveGroups[a].reduce((x,v)=>x+freq.get(v),0)/(liveGroups[a].length+1);
+        const sb=liveGroups[b].reduce((x,v)=>x+freq.get(v),0)/(liveGroups[b].length+1);
+        return sa-sb || liveGroups[a].length-liveGroups[b].length;
+      });
+      liveGroups[choices[0]].push(n);
+    });
+
+    // 死號分成5/5，優先讓一般歷史下二、三柱的結構不要過度偏斜。
+    const deadFreq = new Map(dead.map(n=>[n,0]));
+    history.forEach(draw=>(draw||[]).forEach(n=>{n=Number(n);if(deadFreq.has(n))deadFreq.set(n,deadFreq.get(n)+1);}));
+    const deadRank=dead.slice().sort((a,b)=>(deadFreq.get(b)-deadFreq.get(a)) || (a-b));
+    const dead2=[], dead3=[];
+    deadRank.forEach(n=>{
+      const target = dead2.length<5 && (dead3.length>=5 || dead2.reduce((s,x)=>s+deadFreq.get(x),0) <= dead3.reduce((s,x)=>s+deadFreq.get(x),0)) ? dead2 : dead3;
+      target.push(n);
+    });
+
+    const compose = lg => [
+      lg[0].slice().sort((a,b)=>a-b),
+      lg[1].concat(dead2).sort((a,b)=>a-b),
+      lg[2].concat(dead3).sort((a,b)=>a-b)
+    ];
+    const cost = groups => {
+      const m=fixedEighthDefenseMetrics(groups, conditionDraws, history);
+      // 條件倒率絕對第一；條件第一柱0再第二；一般倒率僅做同分保護，避免假設錯時太脆弱。
+      return m.conditional.fail*1000000 + m.conditional.firstZero*10000 + m.overall.fail*100 + Math.round((10-m.conditional.avgProduct)*10);
+    };
+
+    let bestLive=liveGroups.map(g=>g.slice());
+    let bestGroups=compose(bestLive), bestCost=cost(bestGroups);
+    // 確定性局部交換，不用純隨機，讓同一份資料每次結果一致。
+    for(let round=0; round<5; round++){
+      let improved=false;
+      for(let a=0;a<3;a++) for(let b=a+1;b<3;b++){
+        for(let i=0;i<bestLive[a].length;i++) for(let j=0;j<bestLive[b].length;j++){
+          const cand=bestLive.map(g=>g.slice());
+          [cand[a][i],cand[b][j]]=[cand[b][j],cand[a][i]];
+          const cg=compose(cand), cc=cost(cg);
+          if(cc<bestCost){ bestLive=cand; bestGroups=cg; bestCost=cc; improved=true; }
+        }
+      }
+      if(!improved) break;
+    }
+
+    const metrics=fixedEighthDefenseMetrics(bestGroups, conditionDraws, history);
+    return {
+      label:template.label,
+      sourceTemplate:template,
+      groups:bestGroups,
+      dead, live,
+      conditionCount:conditionDraws.length,
+      metrics
+    };
+  }
+
+  function fixedBuildEighthCompareHTML(currentFirst, draws) {
     const currentSet = new Set((currentFirst || []).map(Number));
     const templates = fixedBuildEighthCompareTemplates().map(t => {
       const overlap = (t.groups[0] || []).filter(n=>currentSet.has(Number(n)));
@@ -11650,19 +11749,36 @@ ${settleRecord.analysisLines.join('\n')}`;
     const minOverlap = templates.length ? Math.min(...templates.map(t=>t.overlapCount)) : 0;
     const best = templates.filter(t=>t.overlapCount===minOverlap);
     eighthCompareCopyPayloads = best.map(t => (t.groups || []).map(g=>g.map(pad2).join(',')).join('+'));
-    const cards = best.map((t,idx) => `
+    const defenses = best.map(t => fixedBuildEighthDefenseForTemplate(t, draws || []));
+    eighthDefenseCopyPayloads = defenses.map(d => (d.groups || []).map(g=>g.map(pad2).join(',')).join('+'));
+    const cards = best.map((t,idx) => {
+      const d=defenses[idx];
+      const cm=d.metrics.conditional, om=d.metrics.overall;
+      const condRate=cm.n ? (cm.failRate*100).toFixed(1)+'%' : '樣本不足';
+      const overallRate=om.n ? (om.failRate*100).toFixed(1)+'%' : '—';
+      return `
       <div class="fixed-sub-card" style="border-color:rgba(34,197,94,.52);">
         <div class="clean-two-card">
           <div class="clean-two-card-title"><span>${t.label}｜固定對照組</span><span class="badge badge-ai">最低重複 ${t.overlapCount}支</span></div>
           <div class="small-note"><b style="color:#86efac">與第八模式第一柱重複：</b>${t.overlap.length ? t.overlap.map(pad2).join(' ') : '0支（無重複）'}</div>
           <div class="pillars">${t.groups.map((g,gi)=>`<div class="pillar"><div class="pillar-title">第${gi+1}柱（${g.length}支）</div><div class="nums">${g.map(pad2).join(' ')}</div></div>`).join('')}</div>
           <div class="clean-result-actions"><button class="btn btn-secondary eighth-template-copy-btn" data-eighth-copy-index="${idx}" type="button">複製${t.label}完整立柱</button></div>
+
+          <div class="recent10-box" style="margin-top:12px;border-color:rgba(56,189,248,.55);">
+            <div class="recent10-title" style="color:#7dd3fc;background:rgba(56,189,248,.10);">${t.label}｜第一柱假設0支 → 專屬防倒10-14-15</div>
+            <div class="fixed-quick5-empty">只針對「${t.label}固定對照第一柱10支全部不出」這個假設個別優化；不是與其他固定組一起假設0支。條件有效29支分配為 <b>10／9／10</b>，固定第一柱10支再分成5／5補回第二、三柱，因此完整規格仍是10-14-15。</div>
+            <div class="small-note"><b style="color:#fca5a5">假設不出10支：</b>${d.dead.map(pad2).join(' ')}</div>
+            <div class="small-note"><b style="color:#86efac">歷史條件樣本：</b>${cm.n}期　<b style="color:#86efac">條件倒率：</b>${condRate}　<b style="color:#cbd5e1">一般歷史倒率：</b>${overallRate}</div>
+            <div class="pillars">${d.groups.map((g,gi)=>`<div class="pillar"><div class="pillar-title">防倒第${gi+1}柱（${g.length}支）${gi===0?'｜有效10支':gi===1?'｜有效9支＋假設不出5支':'｜有效10支＋假設不出5支'}</div><div class="nums">${g.map(pad2).join(' ')}</div></div>`).join('')}</div>
+            <div class="clean-result-actions"><button class="btn btn-primary eighth-defense-copy-btn" data-eighth-defense-index="${idx}" type="button">複製${t.label}專屬防倒組</button></div>
+          </div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     return `
       <div class="recent10-box" style="border-color:rgba(34,197,94,.55);">
-        <div class="recent10-title" style="color:#86efac;background:rgba(34,197,94,.10);">第八模式｜固定九組第一柱最低重複比對</div>
-        <div class="fixed-quick5-empty">以本次第八模式第一柱，逐一比對01～09起始共9組固定模板的第一柱；目前最低為 <b style="color:#86efac">${minOverlap}支</b>${best.length>1?`，共有 ${best.length} 組並列最低。`:'。'}</div>
+        <div class="recent10-title" style="color:#86efac;background:rgba(34,197,94,.10);">第八模式｜固定九組第一柱最低重複比對＋條件式防倒</div>
+        <div class="fixed-quick5-empty">以本次第八模式第一柱，逐一比對01～09起始共9組固定模板的第一柱；目前最低為 <b style="color:#86efac">${minOverlap}支</b>${best.length>1?`，共有 ${best.length} 組並列最低，以下每一組都分開建立自己的0支假設防倒立柱。`:'，並為此組個別建立0支假設防倒立柱。'}</div>
         <div class="fixed-two-grid" style="padding:10px;${best.length===1?'grid-template-columns:1fr;':''}">${cards}</div>
       </div>`;
   }
@@ -11711,7 +11827,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div class="small-note"><b style="color:#7dd3fc">第二柱次熱：</b>${fixedHotColdInfoText(item.secondInfo || [])}</div>
         <div class="small-note"><b style="color:#c4b5fd">第三柱冷門：</b>${fixedHotColdInfoText(item.thirdInfo || [])}</div>
         ${fixedBuildHotCold66RecentHTML(item, draws)}
-        ${fixedBuildEighthCompareHTML((item.groups || [])[0] || [])}
+        ${fixedBuildEighthCompareHTML((item.groups || [])[0] || [], draws)}
         <div class="fixed-two-grid" style="grid-template-columns:1fr;"><div class="fixed-sub-card"><div class="clean-two-card">
           <div class="pillars">${(item.groups || []).map((g,gi)=>`<div class="pillar"><div class="pillar-title">第${gi+1}柱（${g.length}支）｜${gi===0?'熱門避最新':gi===1?'次熱門':'冷門號'}</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}</div>
           <div class="clean-result-actions"><button class="btn btn-secondary single-copy-btn" data-copy-type="fixedDaily" data-copy-index="0" type="button">複製A1</button></div>
@@ -15080,6 +15196,15 @@ ${settleRecord.analysisLines.join('\n')}`;
       const text = manualRiskCopyPayloads[riskCopyBtn.dataset.riskCopyId] || '';
       if (!text) { alert('找不到可複製的內容，請重新按一次分析。'); return; }
       await copyTextSmart(text, '致命倒牌分析已複製');
+      return;
+    }
+
+    const eighthDefenseCopyBtn = e.target.closest('.eighth-defense-copy-btn');
+    if (eighthDefenseCopyBtn) {
+      const idx = Number(eighthDefenseCopyBtn.dataset.eighthDefenseIndex);
+      const text = eighthDefenseCopyPayloads && eighthDefenseCopyPayloads[idx];
+      if (!text) { alert('找不到第八模式專屬防倒立柱，請重新生成第八模式。'); return; }
+      await copyTextSmart(text, '第八模式專屬防倒立柱已複製');
       return;
     }
 
