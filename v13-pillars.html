@@ -11622,6 +11622,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   const EIGHTH_COMPARE_BASE_SECOND = [2,5,6,9,11,14,17,20,23,24,27,30,33,36];
   let eighthCompareCopyPayloads = [];
   let eighthDefenseCopyPayloads = [];
+  let eighthBattleCopyPayloads = [];
 
   function fixedShift39Num(n, offset) {
     return ((Number(n) - 1 + Number(offset)) % 39) + 1;
@@ -11842,6 +11843,118 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
+  function fixedEighthOutcomeType(groups, draw) {
+    const h = fixedEighthHits(groups, draw);
+    if (h.length !== 3 || h.some(x => x === 0)) return 'down';
+    const product = h.reduce((a,b)=>a*b,1);
+    return product >= 4 ? 'four' : 'three';
+  }
+
+  function fixedEighthOutcomeProfit(type) {
+    if (type === 'four') return 9650;
+    if (type === 'three') return 3950;
+    return -13200;
+  }
+
+  function fixedEighthStrategyMetrics(groupList, draws, limit) {
+    const arr = (draws || []).slice(0, Math.min(Number(limit)||100, (draws || []).length));
+    const n = arr.length;
+    let totalProfit=0, positiveDays=0, allDown=0, maxDrawdown=0, equity=0, peak=0;
+    const patternCounts = {};
+    arr.forEach(draw => {
+      const types = (groupList || []).map(g => fixedEighthOutcomeType(g, draw));
+      const order = { four:0, three:1, down:2 };
+      const key = types.slice().sort((a,b)=>order[a]-order[b]).join('-');
+      patternCounts[key]=(patternCounts[key]||0)+1;
+      const dayProfit = types.reduce((sum,t)=>sum+fixedEighthOutcomeProfit(t),0);
+      totalProfit += dayProfit;
+      if (dayProfit > 0) positiveDays++;
+      if (types.length && types.every(t=>t==='down')) allDown++;
+      equity += dayProfit;
+      peak = Math.max(peak, equity);
+      maxDrawdown = Math.max(maxDrawdown, peak-equity);
+    });
+    const costPerDay = 13200 * Math.max(1,(groupList||[]).length);
+    return {
+      n,
+      totalProfit,
+      avgProfit:n ? totalProfit/n : -Infinity,
+      roi:n ? totalProfit/(costPerDay*n) : -Infinity,
+      positiveRate:n ? positiveDays/n : 0,
+      allDownRate:n ? allDown/n : 1,
+      maxDrawdown,
+      patternCounts
+    };
+  }
+
+  function fixedEighthBlendMetrics(groupList, draws) {
+    const windows=[{n:100,w:.50},{n:50,w:.30},{n:20,w:.20}];
+    const parts=windows.map(x=>({ ...x, m:fixedEighthStrategyMetrics(groupList, draws, x.n) }));
+    const valid=parts.filter(x=>x.m.n>0);
+    const wsum=valid.reduce((s,x)=>s+x.w,0)||1;
+    const blend=(field)=>valid.reduce((s,x)=>s+x.w*(Number(x.m[field])||0),0)/wsum;
+    return {
+      parts,
+      roi:blend('roi'),
+      avgProfit:blend('avgProfit'),
+      positiveRate:blend('positiveRate'),
+      allDownRate:blend('allDownRate'),
+      maxDrawdown:Math.max(0,...valid.map(x=>x.m.maxDrawdown||0)),
+      m100:parts[0].m
+    };
+  }
+
+  function fixedEighthCompareBattleChoice(a,b) {
+    // 先看每投入1元的效率；若ROI差距在0.25個百分點內，改看賺錢日率，再看全倒與絕對平均盈虧。
+    const roiGap=(a.metrics.roi||0)-(b.metrics.roi||0);
+    if (Math.abs(roiGap) > 0.0025) return roiGap > 0 ? -1 : 1;
+    const winGap=(a.metrics.positiveRate||0)-(b.metrics.positiveRate||0);
+    if (Math.abs(winGap) > 0.01) return winGap > 0 ? -1 : 1;
+    const downGap=(a.metrics.allDownRate||0)-(b.metrics.allDownRate||0);
+    if (Math.abs(downGap) > 0.005) return downGap < 0 ? -1 : 1;
+    return (b.metrics.avgProfit||-Infinity)-(a.metrics.avgProfit||-Infinity);
+  }
+
+  function fixedBuildEighthBattleRecommendation(originalGroups, bestTemplates, defenses, draws) {
+    const candidates=[];
+    // 一組只需算一次；固定候選名稱不影響原始組。
+    candidates.push({ count:1, label:'只下原始第八', templateIndex:-1, groups:[originalGroups], metrics:fixedEighthBlendMetrics([originalGroups],draws) });
+    (bestTemplates||[]).forEach((t,idx)=>{
+      const d=defenses[idx];
+      candidates.push({ count:2, label:`原始＋${t.label}固定`, templateIndex:idx, groups:[originalGroups,t.groups], metrics:fixedEighthBlendMetrics([originalGroups,t.groups],draws) });
+      if (d && Array.isArray(d.groups)) candidates.push({ count:3, label:`原始＋${t.label}固定＋防倒`, templateIndex:idx, groups:[originalGroups,t.groups,d.groups], metrics:fixedEighthBlendMetrics([originalGroups,t.groups,d.groups],draws) });
+    });
+    candidates.sort(fixedEighthCompareBattleChoice);
+    const pick=candidates[0];
+    eighthBattleCopyPayloads=(pick && pick.groups || []).map(g=>(g||[]).map(x=>x.map(pad2).join(',')).join('+'));
+    return { pick, candidates };
+  }
+
+  function fixedBuildEighthBattleHTML(originalGroups, bestTemplates, defenses, draws) {
+    const result=fixedBuildEighthBattleRecommendation(originalGroups,bestTemplates,defenses,draws);
+    const p=result.pick;
+    if(!p) return '';
+    const pct=v=>Number.isFinite(v)?(v*100).toFixed(1)+'%':'—';
+    const money=v=>Number.isFinite(v)?Math.round(v).toLocaleString('zh-TW'):'—';
+    const idx=p.templateIndex;
+    const fixedName=idx>=0 && bestTemplates[idx] ? bestTemplates[idx].label : '—';
+    const buttons=(p.groups||[]).map((g,i)=>{
+      const names=p.count===1?['複製原始第八']:p.count===2?['複製原始第八',`複製${fixedName}固定`]:['複製原始第八',`複製${fixedName}固定`,`複製${fixedName}防倒`];
+      return `<button class="btn ${i===0?'btn-secondary':i===1?'btn-dark':'btn-primary'} eighth-battle-copy-btn" data-eighth-battle-index="${i}" type="button">${names[i]}</button>`;
+    }).join('');
+    const top3=result.candidates.slice(0,3).map((x,i)=>`<div class="small-note">${i+1}. <b>${x.label}</b>｜ROI ${pct(x.metrics.roi)}｜賺錢日 ${pct(x.metrics.positiveRate)}｜全倒 ${pct(x.metrics.allDownRate)}｜加權平均/期 ${money(x.metrics.avgProfit)}</div>`).join('');
+    return `
+      <div class="recent10-box" style="margin:10px;border-color:rgba(245,158,11,.72);background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(34,197,94,.08));">
+        <div class="recent10-title" style="color:#fcd34d;background:rgba(245,158,11,.12);">今日出戰推薦｜集中複製</div>
+        <div class="fixed-quick5-empty"><b style="color:#86efac;font-size:16px;">推薦 ${p.count} 組：${p.label}</b><br>候選只在第八模式原始結果生成完成後比較，<b>不參與、不回寫、不改動原始第八模式選號</b>。評分採近100期50%＋近50期30%＋近20期20%，先比較ROI；差距很小時再比較賺錢日率、全倒率與平均盈虧。</div>
+        <div class="clean-result-actions" style="padding:0 10px 10px;display:grid;grid-template-columns:repeat(${Math.max(1,p.count)},minmax(0,1fr));gap:8px;">${buttons}</div>
+        <div style="padding:0 10px 10px;">
+          <div class="small-note"><b>推薦組合：</b>ROI ${pct(p.metrics.roi)}｜賺錢日 ${pct(p.metrics.positiveRate)}｜全倒 ${pct(p.metrics.allDownRate)}｜加權平均/期 ${money(p.metrics.avgProfit)}｜最大回撤約 ${money(p.metrics.maxDrawdown)}</div>
+          <details style="margin-top:6px;"><summary style="cursor:pointer;color:#7dd3fc;font-weight:900;">查看候選排名</summary>${top3}</details>
+        </div>
+      </div>`;
+  }
+
   function fixedBuildEighthCompareHTML(currentGroups, draws) {
     const originalGroups = Array.isArray(currentGroups) && Array.isArray(currentGroups[0]) ? currentGroups : [[],[],[]];
     const currentFirst = originalGroups[0] || [];
@@ -11855,6 +11968,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     eighthCompareCopyPayloads = best.map(t => (t.groups || []).map(g=>g.map(pad2).join(',')).join('+'));
     const defenses = best.map(t => fixedBuildEighthDefenseForTemplate(t, originalGroups, draws || []));
     eighthDefenseCopyPayloads = defenses.map(d => (d.groups || []).map(g=>g.map(pad2).join(',')).join('+'));
+    const battleHTML = fixedBuildEighthBattleHTML(originalGroups, best, defenses, draws || []);
     const pct = v => Number.isFinite(v) ? (v*100).toFixed(1)+'%' : '—';
     const cards = best.map((t,idx) => {
       const d=defenses[idx];
@@ -11893,6 +12007,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="recent10-box" style="border-color:rgba(34,197,94,.55);">
         <div class="recent10-title" style="color:#86efac;background:rgba(34,197,94,.10);">第八模式｜固定九組最低重複＋雙0三角互鎖防守</div>
         <div class="fixed-quick5-empty">先以第八模式第一柱比對01～09起始共9組固定模板；目前最低為 <b style="color:#86efac">${minOverlap}支</b>${best.length>1?`，共有 ${best.length} 組並列最低。每一組都分開做「原始第一柱0＋該固定第一柱0」的雙0防守與「防倒第一柱0」反向救援。`:'。此組個別建立雙0防守與反向救援。'}</div>
+        ${battleHTML}
         <div class="fixed-two-grid" style="padding:10px;${best.length===1?'grid-template-columns:1fr;':''}">${cards}</div>
       </div>`;
   }
@@ -15310,6 +15425,15 @@ ${settleRecord.analysisLines.join('\n')}`;
       const text = manualRiskCopyPayloads[riskCopyBtn.dataset.riskCopyId] || '';
       if (!text) { alert('找不到可複製的內容，請重新按一次分析。'); return; }
       await copyTextSmart(text, '致命倒牌分析已複製');
+      return;
+    }
+
+    const eighthBattleCopyBtn = e.target.closest('.eighth-battle-copy-btn');
+    if (eighthBattleCopyBtn) {
+      const idx = Number(eighthBattleCopyBtn.dataset.eighthBattleIndex);
+      const text = eighthBattleCopyPayloads && eighthBattleCopyPayloads[idx];
+      if (!text) { alert('找不到今日推薦出戰立柱，請重新生成第八模式。'); return; }
+      await copyTextSmart(text, `今日推薦第 ${idx + 1} 組已複製`);
       return;
     }
 
