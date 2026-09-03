@@ -1,9 +1,9 @@
-const CACHE_VERSION = 'xijin-v20260703-001';
+const CACHE_VERSION = 'xijin-v20260903-pwa-001';
 
 const APP_SHELL = [
   './',
   './v13-pillars.html',
-  './manifest.json',
+  './manifest-pillars.json',
   './caishen-192.png',
   './caishen-512.png'
 ];
@@ -34,7 +34,7 @@ self.addEventListener('fetch', event => {
   if (
     req.mode === 'navigate' ||
     url.pathname.endsWith('/v13-pillars.html') ||
-    url.pathname.endsWith('/manifest.json') ||
+    url.pathname.endsWith('/manifest-pillars.json') ||
     url.pathname.endsWith('/sw.js')
   ) {
     event.respondWith(

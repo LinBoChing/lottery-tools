@@ -1,7 +1,7 @@
 {
   "name": "吸金穩贏模組",
   "short_name": "吸金穩贏",
-  "start_url": "./v13-pillars.html?v=20260703-001",
+  "start_url": "./v13-pillars.html",
   "display": "standalone",
   "background_color": "#111111",
   "theme_color": "#111111",
@@ -16,5 +16,11 @@
       "sizes": "512x512",
       "type": "image/png"
     }
+  ],
+  "id": "./v13-pillars.html",
+  "scope": "./",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
   ]
 }

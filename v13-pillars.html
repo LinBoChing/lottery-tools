@@ -4,7 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>｜固定雙柱精選版</title>
-  <style>
+    <meta name="theme-color" content="#111111" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="吸金穩贏" />
+  <link rel="manifest" href="./manifest-pillars.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./caishen-192.png" />
+  <link rel="apple-touch-icon" href="./caishen-192.png" />
+<style>
     :root {
       --bg: #0f172a;
       --card: #111827;
@@ -16985,6 +16993,18 @@ const battleSetBtn=e.target.closest('.memory-battle-btn');
 
 <!-- 自動抓號／排程已移除：改為手動新增開獎號碼 -->
 
+
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .catch(function (err) {
+        console.error('Service Worker registration failed:', err);
+      });
+  });
+}
+</script>
 
 </body>
 </html>
