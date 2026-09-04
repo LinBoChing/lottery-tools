@@ -1,7 +1,7 @@
 {
   "name": "福運長紅",
   "short_name": "福運長紅",
-  "start_url": "./",
+  "start_url": "./v13-pillars.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#020617",
@@ -18,5 +18,6 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "id": "./v13-pillars.html"
 }
