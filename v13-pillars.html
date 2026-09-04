@@ -1765,7 +1765,7 @@
                 <option value="50">近50期</option>
               </select>
             </div>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：保留0～3頭固定牌型回測；每天依近期過關表現推薦2組「某頭＋剩餘單＋剩餘雙」，另推薦1組「10支頭號＋10支頭號＋剩餘19支」，天選雙柱後集中提供3顆複製按鈕；若某頭最近2期都倒仍會提醒。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近33期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：保留0～3頭固定牌型回測；推薦改採「機率回補」：先比較各牌型自身理論過關率與百期實績缺口，再看近30／20／10期是否正在回升，優先挑長期偏低但近期開始收斂的2組「某頭＋剩餘單＋剩餘雙」；第三組從0～3頭任兩頭的6種組合中用同一套回補邏輯選1組，0頭參與時自然為9+10+20，其餘為10+10+19；天選雙柱後集中提供3顆複製按鈕。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近33期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -11035,25 +11035,78 @@ ${settleRecord.analysisLines.join('\n')}`;
     return { ...r, pass: (r.score || 0) > 0 };
   }
 
-  // 第五模式每日推薦評分：只用已存在的歷史開獎，不偷看未來資料。
-  // 越近期的過關權重越高；最新兩期連倒會扣分，碰數較高則小幅加分。
-  function fixedHeadPatternRecommendationScore(groups, draws) {
-    const list = (draws || []).slice(0, 10);
-    if (!list.length) return 0;
-    const weights = [18,15,12,10,8,6,5,4,3,2];
-    let score = 0;
-    list.forEach((draw, idx) => {
-      const r = fixedHeadPatternRecentResult(groups || [], draw);
-      if (r.pass) score += (weights[idx] || 1) * 10 + Math.min(12, Number(r.score || 0));
-      else score -= (weights[idx] || 1) * 4;
-    });
-    if (list.length >= 2) {
-      const r0 = fixedHeadPatternRecentResult(groups || [], list[0]);
-      const r1 = fixedHeadPatternRecentResult(groups || [], list[1]);
-      if (!r0.pass && !r1.pass) score -= 90;
-      else if (r0.pass && r1.pass) score += 35;
-    }
-    return score;
+  // 第五模式回補型推薦：長期低於理論基準，但近30／20／10期開始往基準收斂時優先。
+  // 這不是「欠久必補」；只把長期缺口與近期改善同時納入評分，並對尚未轉強與過熱追高降權。
+  function fixedCombination(n, k) {
+    n = Number(n); k = Number(k);
+    if (!Number.isFinite(n) || !Number.isFinite(k) || k < 0 || n < k) return 0;
+    k = Math.min(k, n - k);
+    let out = 1;
+    for (let i = 1; i <= k; i++) out = out * (n - k + i) / i;
+    return out;
+  }
+
+  function fixedTheoreticalPassRate(groups) {
+    const sizes = (groups || []).slice(0, 3).map(g => Array.isArray(g) ? g.length : 0);
+    if (sizes.length < 3 || sizes.reduce((a,b) => a + b, 0) !== 39) return 0;
+    const total = fixedCombination(39, 5);
+    // 容斥：5個開獎號碼三柱都至少命中1支。
+    const missOne = sizes.reduce((sum, size) => sum + fixedCombination(39 - size, 5), 0);
+    const onlyOne = sizes.reduce((sum, size) => sum + fixedCombination(size, 5), 0);
+    return total > 0 ? (total - missOne + onlyOne) / total : 0;
+  }
+
+  function fixedHeadPatternRate(groups, draws, windowSize) {
+    const list = (draws || []).slice(0, Math.max(0, Number(windowSize) || 0));
+    if (!list.length) return { rate: 0, pass: 0, total: 0 };
+    const pass = list.filter(d => fixedHeadPatternRecentResult(groups || [], d).pass).length;
+    return { rate: pass / list.length, pass, total: list.length };
+  }
+
+  function fixedClamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function fixedHeadPatternRecoveryStage(stats) {
+    const { theory, r100, r30, r20, r10 } = stats;
+    const gap = theory - r100;
+    if (r10 >= theory + 0.12 || r30 >= theory + 0.10) return { key:'hot', label:'偏熱', icon:'🔴' };
+    if (gap > 0 && r30 > r100 + 0.02 && r20 > r100 + 0.02 && r10 >= r100) return { key:'confirmed', label:'回補確認', icon:'🟢' };
+    if (gap > 0 && r30 > r100 + 0.015) return { key:'sprout', label:'回補萌芽', icon:'🟡' };
+    if (gap > 0 && Math.abs(r30 - theory) <= 0.03) return { key:'near', label:'接近正常', icon:'🟠' };
+    return { key:'idle', label:'未啟動', icon:'🔵' };
+  }
+
+  function fixedHeadPatternRecoveryStats(groups, draws) {
+    const theory = fixedTheoreticalPassRate(groups || []);
+    const s100 = fixedHeadPatternRate(groups, draws, 100);
+    const s30 = fixedHeadPatternRate(groups, draws, 30);
+    const s20 = fixedHeadPatternRate(groups, draws, 20);
+    const s10 = fixedHeadPatternRate(groups, draws, 10);
+    const r100 = s100.rate, r30 = s30.rate, r20 = s20.rate, r10 = s10.rate;
+    const gap = theory - r100;
+    const improve30 = r30 - r100;
+    const improve20 = r20 - r100;
+    const improve10 = r10 - r100;
+
+    // 35% 長期缺口 + 30% 近30改善 + 20% 近20改善 + 15% 近10確認。
+    // 15個百分點視為一個完整缺口／改善單位；近10波動較大，用20個百分點做縮放。
+    let score =
+      35 * fixedClamp(gap / 0.15, -1, 1) +
+      30 * fixedClamp(improve30 / 0.15, -1, 1) +
+      20 * fixedClamp(improve20 / 0.15, -1, 1) +
+      15 * fixedClamp(improve10 / 0.20, -1, 1);
+
+    // 真正回補必須「長期有缺口＋近期開始轉強」。
+    if (gap > 0 && improve30 > 0.015 && improve20 > 0.01) score += 12;
+    if (r30 <= r100) score -= 20;                    // 還沒啟動，不因為長期很低就硬推。
+    if (r10 > theory + 0.12) score -= 15;            // 短期過熱，避免追高。
+    if (r30 > theory + 0.10) score -= 10;
+
+    // 百期樣本不足時降低可信度，但仍可顯示供參考。
+    const confidence = Math.min(1, s100.total / 100);
+    score *= (0.70 + 0.30 * confidence);
+
+    const base = { theory, r100, r30, r20, r10, s100, s30, s20, s10, gap, improve30, improve20, improve10, score };
+    return { ...base, stage: fixedHeadPatternRecoveryStage(base) };
   }
 
   function fixedBuildDoubleHead101019(headA, headB) {
@@ -11064,59 +11117,80 @@ ${settleRecord.analysisLines.join('\n')}`;
     return [a.slice(), b.slice(), rest].map(g => g.slice().sort((x, y) => x - y));
   }
 
+  function fixedRecoveryRankCompare(a, b) {
+    const stageRank = { confirmed:5, sprout:4, near:3, idle:2, hot:1 };
+    return (Number(b.recovery.score) - Number(a.recovery.score)) ||
+      ((stageRank[b.recovery.stage.key] || 0) - (stageRank[a.recovery.stage.key] || 0)) ||
+      (Number(b.recovery.gap) - Number(a.recovery.gap)) ||
+      (Number(a.item && a.item.headIndex || a.headA || 0) - Number(b.item && b.item.headIndex || b.headA || 0));
+  }
+
   function fixedPickHeadPatternRecommendations(items, draws) {
-    const ranked = (items || []).map(item => ({
-      item,
-      score: fixedHeadPatternRecommendationScore(item.groups || [], draws),
-      pass10: (draws || []).slice(0,10).filter(d => fixedHeadPatternRecentResult(item.groups || [], d).pass).length
-    })).sort((a,b) => (b.score - a.score) || (b.pass10 - a.pass10) || (Number(a.item.headIndex) - Number(b.item.headIndex)));
+    const ranked = (items || []).map(item => {
+      const recovery = fixedHeadPatternRecoveryStats(item.groups || [], draws);
+      return { item, recovery };
+    }).sort(fixedRecoveryRankCompare);
 
     const topTwo = ranked.slice(0, 2).map((x, idx) => ({
       ...x.item,
       recommendType: 'headOddEven',
       recommendRank: idx + 1,
-      recommendScore: x.score,
-      pass10: x.pass10
+      recovery: x.recovery,
+      recommendScore: x.recovery.score,
+      pass10: x.recovery.s10.pass
     }));
 
-    const pairCandidates = [[1,2],[1,3],[2,3]].map(([a,b]) => {
+    // 0頭也參與第三組：0頭只有9支，因此自然形成9+10+20；其餘為10+10+19。
+    const pairCandidates = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]].map(([a,b]) => {
       const groups = fixedBuildDoubleHead101019(a,b);
+      const recovery = fixedHeadPatternRecoveryStats(groups, draws);
       return {
         label: `${a}頭＋${b}頭`,
         headA: a,
         headB: b,
         groups,
-        recommendType: 'doubleHead101019',
-        recommendScore: fixedHeadPatternRecommendationScore(groups, draws),
-        pass10: (draws || []).slice(0,10).filter(d => fixedHeadPatternRecentResult(groups, d).pass).length
+        recommendType: 'doubleHeadRecovery',
+        recovery,
+        recommendScore: recovery.score,
+        pass10: recovery.s10.pass
       };
-    }).sort((a,b) => (b.recommendScore - a.recommendScore) || (b.pass10 - a.pass10) || (a.headA - b.headA) || (a.headB - b.headB));
+    }).sort((a,b) => fixedRecoveryRankCompare({recovery:a.recovery,headA:a.headA},{recovery:b.recovery,headA:b.headA}));
 
-    return { topTwo, third: pairCandidates[0] || null };
+    return { topTwo, third: pairCandidates[0] || null, ranked, pairCandidates };
   }
+
+  function fixedPct(v) { return `${(Number(v || 0) * 100).toFixed(1)}%`; }
 
   function fixedBuildHeadPatternRecommendationHTML(recs, draws) {
     const all = [].concat(recs && recs.topTwo || [], recs && recs.third ? [recs.third] : []);
     if (!all.length) return '<div class="fixed-warning">目前沒有足夠資料產生第五模式推薦。</div>';
     return `<div class="fixed-pair-card" style="border-color:rgba(34,197,94,.58);background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(2,6,23,.92));">
       <div class="fixed-pair-head">
-        <div class="fixed-pair-title" style="color:#86efac;">今日第五模式推薦｜3組</div>
-        <div class="fixed-pair-summary">依最近10期、近期加權；三柱都至少中1支才算過關</div>
+        <div class="fixed-pair-title" style="color:#86efac;">今日第五模式推薦｜回補型3組</div>
+        <div class="fixed-pair-summary">百期缺口＋30／20／10期回升；三柱都至少中1支才算過關</div>
       </div>
       <div class="fixed-two-grid" style="grid-template-columns:1fr;">
         ${all.map((item, idx) => {
+          const g = item.groups || [];
+          const rec = item.recovery || fixedHeadPatternRecoveryStats(g, draws);
+          const sizes = g.map(x => x.length).join('+');
           const title = idx < 2
             ? `推薦${idx + 1}｜${Number(item.headIndex)}頭＋剩餘單＋剩餘雙`
-            : `推薦3｜${item.headA}頭10支＋${item.headB}頭10支＋剩餘19支`;
-          const passCount = Number(item.pass10 || 0);
+            : `推薦3｜${item.headA}頭＋${item.headB}頭｜${sizes}`;
+          const sampleNote = rec.s100.total < 100 ? `（目前${rec.s100.total}期）` : '';
           return `<div class="fixed-sub-card">
             <div class="clean-two-card ${idx === 2 ? 'defense' : ''}">
-              <div class="clean-two-card-title"><span>${title}</span><span class="badge ${idx === 2 ? 'badge-random' : 'badge-ai'}">近10過 ${passCount}</span></div>
-              <div class="pillars">${(item.groups || []).map((g,gi) => `<div class="pillar"><div class="pillar-title">第${gi+1}柱（${g.length}支）</div><div class="nums">${formatNumsHighlighted(g)}</div></div>`).join('')}</div>
+              <div class="clean-two-card-title"><span>${title}</span><span class="badge ${rec.stage.key === 'confirmed' ? 'badge-ai' : 'badge-random'}">${rec.stage.icon} ${rec.stage.label}</span></div>
+              <div class="clean-two-meta">
+                理論 ${fixedPct(rec.theory)} ｜ 百期 ${fixedPct(rec.r100)}${sampleNote} ｜ 缺口 ${rec.gap >= 0 ? '+' : ''}${fixedPct(rec.gap)}<br>
+                近30 ${fixedPct(rec.r30)} ｜ 近20 ${fixedPct(rec.r20)} ｜ 近10 ${fixedPct(rec.r10)} ｜ 回補分 ${rec.score.toFixed(1)}
+              </div>
+              <div class="pillars">${g.map((col,gi) => `<div class="pillar"><div class="pillar-title">第${gi+1}柱（${col.length}支）</div><div class="nums">${formatNumsHighlighted(col)}</div></div>`).join('')}</div>
             </div>
           </div>`;
         }).join('')}
       </div>
+      <div class="small-note" style="margin-top:10px;">優先找「長期低於自身理論值、近30／20／10期開始回升」的牌型；若近期仍弱或已明顯過熱會降權，不把單純久未過視為必然回補。</div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
       </div>
@@ -14366,7 +14440,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const draws = getBacktestDraws();
       fixedRenderHeadPatternPack(pack, draws);
       resetLog();
-      log('第五模式已重建：依近10期近期加權推薦2組頭碰單雙，另推薦1組10+10+19；三組複製按鈕集中顯示。');
+      log('第五模式已重建：依理論過關率＋百期缺口＋近30/20/10期回補趨勢推薦2組頭碰單雙；第三組由6種雙頭組合（含0頭9+10+20）擇優；三組複製按鈕集中顯示。');
       return;
     }
     // 按下後直接重新精選，不再跳出二次確認；只影響目前彩種。
@@ -14484,7 +14558,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         : selectedMode === 'omit3pass7' 
         ? '已切換為<b>第六模式｜T0～T2倒＋T3～T9過</b>：第一柱由T3起往T4、T5…補滿10支；後7期先找7/7，無解依序自動放寬6/7、5/7，並優先用不同第一柱號碼過；剩餘29支均衡拆14／15。按「天選雙柱」即可生成／讀取。'
         : selectedMode === 'headPattern'
-        ? '已切換為<b>第五模式｜0～3頭固定牌型</b>：A1=0頭、A2=1頭、B1=2頭、B2=3頭；第一柱放該頭全部號碼，第二柱放剩餘單數，第三柱放剩餘雙數。此模式不搜尋，只看最近10期過倒；某頭最近2期都倒會提醒。按「天選雙柱」即可立即顯示。'
+        ? '已切換為<b>第五模式｜機率回補型推薦</b>：A1=0頭、A2=1頭、B1=2頭、B2=3頭；先以各自理論過關率對照百期實績缺口，再看近30／20／10期是否回升，推薦2組頭碰單雙；第三組從6種雙頭組合中同法選出，0頭參與時可為9+10+20。按「天選雙柱」即可立即顯示。'
         : (selectedMode === 'strictComplement'
         ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡、第二／第三柱0～9尾全覆蓋，並禁止單柱3連號與極端和值／大小斷層。請按「重新精選立柱」建立新號碼。'
         : (selectedMode === 'fullBalanced'
