@@ -1765,7 +1765,7 @@
                 <option value="50">近50期</option>
               </select>
             </div>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：保留0～3頭固定牌型回測；推薦採「機率回補硬門檻」：百期實績必須低於自身理論過關率才進入回補候選，再比較近30／20／10期是否正在縮小缺口；若0～3頭全部百期已達／高於理論，才切換低熱度備援，優先高出理論最少且近期仍有繼續升溫趨勢的2組。第三組對0～3頭任兩頭的6種組合套用相同規則，0頭參與時自然為9+10+20，其餘為10+10+19；天選雙柱後集中提供3顆複製按鈕。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近33期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：保留0～3頭固定牌型回測；推薦採「機率回補硬門檻」：百期實績必須低於自身理論過關率才進入回補候選，再比較近30／20／10期是否正在縮小缺口；排序加入第二層「頭號每期至少出現1支」回補訊號，三柱過關70%、頭號出現30%；若0～3頭全部百期已達／高於理論，才切換低熱度備援，優先高出理論最少且近期仍有繼續升溫趨勢的2組。第三組對0～3頭任兩頭的6種組合套用相同規則，0頭參與時自然為9+10+20，其餘為10+10+19；天選雙柱後集中提供3顆複製按鈕。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近33期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -11063,6 +11063,73 @@ ${settleRecord.analysisLines.join('\n')}`;
     return { rate: pass / list.length, pass, total: list.length };
   }
 
+  // 第五模式第二層訊號：某一頭在一期5碼中「至少出現1支」的回補趨勢。
+  // 0頭只有01~09共9支；1~3頭各10支，因此各自使用自己的理論出現率。
+  function fixedHeadOccurrenceTheory(headIndex) {
+    const size = fixedHeadPatternRange(headIndex).length;
+    const total = fixedCombination(39, 5);
+    return total > 0 ? 1 - (fixedCombination(39 - size, 5) / total) : 0;
+  }
+
+  function fixedHeadOccurrenceRate(headIndex, draws, windowSize) {
+    const headSet = new Set(fixedHeadPatternRange(headIndex).map(Number));
+    const list = (draws || []).slice(0, Math.max(0, Number(windowSize) || 0));
+    if (!list.length) return { rate: 0, hit: 0, total: 0 };
+    const hit = list.filter(draw => (draw || []).some(n => headSet.has(Number(n)))).length;
+    return { rate: hit / list.length, hit, total: list.length };
+  }
+
+  function fixedHeadOccurrenceRecoveryStats(headIndex, draws) {
+    const theory = fixedHeadOccurrenceTheory(headIndex);
+    const s100 = fixedHeadOccurrenceRate(headIndex, draws, 100);
+    const s30 = fixedHeadOccurrenceRate(headIndex, draws, 30);
+    const s20 = fixedHeadOccurrenceRate(headIndex, draws, 20);
+    const s10 = fixedHeadOccurrenceRate(headIndex, draws, 10);
+    const r100 = s100.rate, r30 = s30.rate, r20 = s20.rate, r10 = s10.rate;
+    const gap = theory - r100;
+    const improve30 = r30 - r100;
+    const improve20 = r20 - r100;
+    const improve10 = r10 - r100;
+
+    let score =
+      35 * fixedClamp(gap / 0.15, -1, 1) +
+      30 * fixedClamp(improve30 / 0.15, -1, 1) +
+      20 * fixedClamp(improve20 / 0.15, -1, 1) +
+      15 * fixedClamp(improve10 / 0.20, -1, 1);
+    if (gap > 0 && improve30 > 0.015 && improve20 > 0.01) score += 12;
+    if (r30 <= r100) score -= 20;
+    if (r10 > theory + 0.12) score -= 15;
+    if (r30 > theory + 0.10) score -= 10;
+    const confidence = Math.min(1, s100.total / 100);
+    score *= (0.70 + 0.30 * confidence);
+
+    const excess = Math.max(0, r100 - theory);
+    const recentHeat =
+      Math.max(0, r30 - r100) * 0.50 +
+      Math.max(0, r20 - r100) * 0.30 +
+      Math.max(0, r10 - r100) * 0.20;
+    const latestDistance = Math.abs(r10 - theory);
+    const fallbackScore = 100 - (excess * 500) + (recentHeat * 300) - (latestDistance * 20);
+
+    const base = {
+      headIndex:Number(headIndex), theory, r100, r30, r20, r10, s100, s30, s20, s10,
+      gap, improve30, improve20, improve10, score, excess, recentHeat, fallbackScore
+    };
+    return { ...base, stage: fixedHeadPatternRecoveryStage(base) };
+  }
+
+  function fixedPairOccurrenceRecoveryStats(headA, headB, draws) {
+    const a = fixedHeadOccurrenceRecoveryStats(headA, draws);
+    const b = fixedHeadOccurrenceRecoveryStats(headB, draws);
+    return {
+      a, b,
+      score:(a.score + b.score) / 2,
+      fallbackScore:(a.fallbackScore + b.fallbackScore) / 2,
+      bothRecovery:(a.gap > 0 && b.gap > 0),
+      bothTrending:['confirmed','sprout','near'].includes(a.stage.key) && ['confirmed','sprout','near'].includes(b.stage.key)
+    };
+  }
+
   function fixedClamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
   function fixedHeadPatternRecoveryStage(stats) {
@@ -11140,25 +11207,32 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedRecoveryRankCompare(a, b) {
     const stageRank = { confirmed:6, sprout:5, near:4, weakening:3, idle:2, hot:1, atTheory:0, cooling:0, met:0 };
-    return (Number(b.recovery.score) - Number(a.recovery.score)) ||
+    const scoreA = Number.isFinite(Number(a.compositeRecoveryScore)) ? Number(a.compositeRecoveryScore) : Number(a.recovery.score);
+    const scoreB = Number.isFinite(Number(b.compositeRecoveryScore)) ? Number(b.compositeRecoveryScore) : Number(b.recovery.score);
+    return (scoreB - scoreA) ||
       ((stageRank[b.recovery.stage.key] || 0) - (stageRank[a.recovery.stage.key] || 0)) ||
       (Number(b.recovery.gap) - Number(a.recovery.gap)) ||
       (Number(a.item && a.item.headIndex || a.headA || 0) - Number(b.item && b.item.headIndex || b.headA || 0));
   }
 
   function fixedFallbackRankCompare(a, b) {
-    // 1) 高出理論越少越好；2) 在高出幅度接近時，近期仍持續升溫者優先；3) 最新期離理論過遠時僅小幅扣分。
+    // 備援仍先守住原規則：三柱百期高出理論越少越好；差距接近時，再用70%三柱＋30%頭號出現率的升溫訊號排序。
+    const scoreA = Number.isFinite(Number(a.compositeFallbackScore)) ? Number(a.compositeFallbackScore) : Number(a.recovery.fallbackScore);
+    const scoreB = Number.isFinite(Number(b.compositeFallbackScore)) ? Number(b.compositeFallbackScore) : Number(b.recovery.fallbackScore);
     return (Number(a.recovery.excess) - Number(b.recovery.excess)) ||
+      (scoreB - scoreA) ||
       (Number(b.recovery.recentHeat) - Number(a.recovery.recentHeat)) ||
       (Math.abs(Number(a.recovery.r10) - Number(a.recovery.theory)) - Math.abs(Number(b.recovery.r10) - Number(b.recovery.theory))) ||
-      (Number(b.recovery.fallbackScore) - Number(a.recovery.fallbackScore)) ||
       (Number(a.item && a.item.headIndex || a.headA || 0) - Number(b.item && b.item.headIndex || b.headA || 0));
   }
 
   function fixedPickHeadPatternRecommendations(items, draws) {
     const allHeads = (items || []).map(item => {
       const recovery = fixedHeadPatternRecoveryStats(item.groups || [], draws);
-      return { item, recovery };
+      const occurrence = fixedHeadOccurrenceRecoveryStats(item.headIndex, draws);
+      const compositeRecoveryScore = recovery.score * 0.70 + occurrence.score * 0.30;
+      const compositeFallbackScore = recovery.fallbackScore * 0.70 + occurrence.fallbackScore * 0.30;
+      return { item, recovery, occurrence, compositeRecoveryScore, compositeFallbackScore };
     });
 
     // 硬門檻：百期實績 < 自身理論值，才算真正「回補候選」。
@@ -11183,7 +11257,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       recommendRank: idx + 1,
       selectionMode: x.recovery.gap > 0 ? 'recovery' : 'fallback',
       recovery: x.recovery,
-      recommendScore: x.recovery.gap > 0 ? x.recovery.score : x.recovery.fallbackScore,
+      occurrence: x.occurrence,
+      compositeRecoveryScore: x.compositeRecoveryScore,
+      compositeFallbackScore: x.compositeFallbackScore,
+      recommendScore: x.recovery.gap > 0 ? x.compositeRecoveryScore : x.compositeFallbackScore,
       pass10: x.recovery.s10.pass
     }));
 
@@ -11191,21 +11268,25 @@ ${settleRecord.analysisLines.join('\n')}`;
     const pairAll = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]].map(([a,b]) => {
       const groups = fixedBuildDoubleHead101019(a,b);
       const recovery = fixedHeadPatternRecoveryStats(groups, draws);
+      const occurrencePair = fixedPairOccurrenceRecoveryStats(a, b, draws);
+      const compositeRecoveryScore = recovery.score * 0.70 + occurrencePair.score * 0.30;
+      const compositeFallbackScore = recovery.fallbackScore * 0.70 + occurrencePair.fallbackScore * 0.30;
       return {
         label: `${a}頭＋${b}頭`, headA: a, headB: b, groups,
-        recommendType: 'doubleHeadRecovery', recovery,
-        recommendScore: recovery.score, pass10: recovery.s10.pass
+        recommendType: 'doubleHeadRecovery', recovery, occurrencePair,
+        compositeRecoveryScore, compositeFallbackScore,
+        recommendScore: compositeRecoveryScore, pass10: recovery.s10.pass
       };
     });
     const pairRecovery = pairAll.filter(x => x.recovery.gap > 0)
-      .sort((a,b) => fixedRecoveryRankCompare({recovery:a.recovery,headA:a.headA},{recovery:b.recovery,headA:b.headA}));
+      .sort((a,b) => fixedRecoveryRankCompare(a,b));
     const pairFallback = pairAll.filter(x => x.recovery.gap <= 0)
-      .sort((a,b) => fixedFallbackRankCompare({recovery:a.recovery,headA:a.headA},{recovery:b.recovery,headA:b.headA}));
+      .sort((a,b) => fixedFallbackRankCompare(a,b));
     const thirdRaw = pairRecovery[0] || pairFallback[0] || null;
     const third = thirdRaw ? {
       ...thirdRaw,
       selectionMode: thirdRaw.recovery.gap > 0 ? 'recovery' : 'fallback',
-      recommendScore: thirdRaw.recovery.gap > 0 ? thirdRaw.recovery.score : thirdRaw.recovery.fallbackScore
+      recommendScore: thirdRaw.recovery.gap > 0 ? thirdRaw.compositeRecoveryScore : thirdRaw.compositeFallbackScore
     } : null;
     const thirdMode = pairRecovery.length ? 'recovery' : 'fallback';
 
@@ -11237,7 +11318,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `<div class="fixed-pair-card" style="border-color:rgba(34,197,94,.58);background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(2,6,23,.92));">
       <div class="fixed-pair-head">
         <div class="fixed-pair-title" style="color:#86efac;">今日第五模式推薦｜回補優先3組</div>
-        <div class="fixed-pair-summary">硬門檻：百期低於自身理論值才算回補；無回補候選才啟用低熱度備援</div>
+        <div class="fixed-pair-summary">主判斷仍採百期硬門檻；推薦排序＝三柱過關回補70%＋頭號出現率回補30%</div>
       </div>
       <div class="fixed-warning" style="background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.34);color:#bae6fd;margin-bottom:10px;">
         ${headModeText}<br>${thirdModeText}
@@ -11255,24 +11336,36 @@ ${settleRecord.analysisLines.join('\n')}`;
           const badgeText = isFallback ? '🛡️ 低熱度備援' : `${rec.stage.icon} ${rec.stage.label}`;
           const badgeClass = (!isFallback && rec.stage.key === 'confirmed') ? 'badge-ai' : 'badge-random';
           const metricTail = isFallback
-            ? `備援分 ${rec.fallbackScore.toFixed(1)}`
-            : `回補分 ${rec.score.toFixed(1)}`;
+            ? `綜合備援分 ${Number(item.compositeFallbackScore ?? rec.fallbackScore).toFixed(1)}`
+            : `綜合回補分 ${Number(item.compositeRecoveryScore ?? rec.score).toFixed(1)}`;
           const gapText = rec.gap >= 0
             ? `低於理論 ${fixedPct(rec.gap)}`
             : `高於理論 ${fixedPct(Math.abs(rec.gap))}`;
+          let occurrenceHtml = '';
+          if (idx < 2 && item.occurrence) {
+            const o = item.occurrence;
+            occurrenceHtml = `<br><span style="color:#bae6fd;">頭號出現｜理論 ${fixedPct(o.theory)} ｜ 百期 ${fixedPct(o.r100)} ｜ 近30 ${fixedPct(o.r30)} ｜ 近20 ${fixedPct(o.r20)} ｜ 近10 ${fixedPct(o.r10)} ｜ ${o.stage.icon} ${o.stage.label}</span>`;
+          } else if (idx === 2 && item.occurrencePair) {
+            const oa = item.occurrencePair.a, ob = item.occurrencePair.b;
+            occurrenceHtml = `<br><span style="color:#bae6fd;">${item.headA}頭出現｜理論 ${fixedPct(oa.theory)} ｜ 百期 ${fixedPct(oa.r100)} ｜ 30/20/10 ${fixedPct(oa.r30)}/${fixedPct(oa.r20)}/${fixedPct(oa.r10)} ｜ ${oa.stage.icon} ${oa.stage.label}</span>` +
+              `<br><span style="color:#bae6fd;">${item.headB}頭出現｜理論 ${fixedPct(ob.theory)} ｜ 百期 ${fixedPct(ob.r100)} ｜ 30/20/10 ${fixedPct(ob.r30)}/${fixedPct(ob.r20)}/${fixedPct(ob.r10)} ｜ ${ob.stage.icon} ${ob.stage.label}</span>`;
+          }
+          const dualRecovery = idx < 2 && item.occurrence && rec.gap > 0 && item.occurrence.gap > 0 &&
+            ['confirmed','sprout','near'].includes(rec.stage.key) && ['confirmed','sprout','near'].includes(item.occurrence.stage.key);
+          const dualNote = dualRecovery ? '<br><b style="color:#86efac;">★ 雙回補同向確認</b>' : '';
           return `<div class="fixed-sub-card">
             <div class="clean-two-card ${idx === 2 ? 'defense' : ''}">
               <div class="clean-two-card-title"><span>${title}</span><span class="badge ${badgeClass}">${badgeText}</span></div>
               <div class="clean-two-meta">
-                理論 ${fixedPct(rec.theory)} ｜ 百期 ${fixedPct(rec.r100)}${sampleNote} ｜ ${gapText}<br>
-                近30 ${fixedPct(rec.r30)} ｜ 近20 ${fixedPct(rec.r20)} ｜ 近10 ${fixedPct(rec.r10)} ｜ ${metricTail}
+                三柱過關｜理論 ${fixedPct(rec.theory)} ｜ 百期 ${fixedPct(rec.r100)}${sampleNote} ｜ ${gapText}<br>
+                近30 ${fixedPct(rec.r30)} ｜ 近20 ${fixedPct(rec.r20)} ｜ 近10 ${fixedPct(rec.r10)} ｜ ${metricTail}${occurrenceHtml}${dualNote}
               </div>
               <div class="pillars">${g.map((col,gi) => `<div class="pillar"><div class="pillar-title">第${gi+1}柱（${col.length}支）</div><div class="nums">${formatNumsHighlighted(col)}</div></div>`).join('')}</div>
             </div>
           </div>`;
         }).join('')}
       </div>
-      <div class="small-note" style="margin-top:10px;">回補模式：百期必須低於自身理論值，再比較近30／20／10期是否縮小缺口；若所有候選百期都已達／高於理論，才切換「低熱度備援」，優先高出理論最少，並在差距接近時優先近期仍有繼續升溫趨勢者。高於理論的牌型不再標成回補。</div>
+      <div class="small-note" style="margin-top:10px;">回補模式：三柱過關率仍是硬門檻與主訊號（70%）；新增頭號「每期至少出現1支」的理論／百期／30／20／10期回補訊號（30%）作為確認。0頭理論出現率依9支計算，1～3頭依10支計算。頭號很熱但三柱未回補，不會因此跨過百期硬門檻；兩者同向時才提高排序。備援仍先看三柱百期高出理論最少，再用70/30綜合升溫訊號排序。</div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
       </div>
@@ -14522,7 +14615,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const draws = getBacktestDraws();
       fixedRenderHeadPatternPack(pack, draws);
       resetLog();
-      log('第五模式已重建：百期低於自身理論值才進回補池，再看近30/20/10期收斂趨勢；若全部已達／高於理論則自動切換低熱度備援，優先高出理論最少且近期仍升溫者；第三組6種雙頭組合（含0頭9+10+20）同規則；三組複製按鈕集中顯示。');
+      log('第五模式已重建：百期低於自身理論值才進回補池；排序採三柱過關回補70%＋頭號出現率回補30%，再看近30/20/10期收斂；若全部已達／高於理論則切換低熱度備援；第三組6種雙頭組合（含0頭9+10+20）同規則。');
       return;
     }
     // 按下後直接重新精選，不再跳出二次確認；只影響目前彩種。
