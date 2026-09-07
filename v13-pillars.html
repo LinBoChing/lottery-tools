@@ -11205,7 +11205,214 @@ ${settleRecord.analysisLines.join('\n')}`;
     return [a.slice(), b.slice(), rest].map(g => g.slice().sort((x, y) => x - y));
   }
 
+
+  // ===== 第五模式 v2：原系統55%＋新增分析45%（只評分，不改任何柱內號碼） =====
+  // 新增45%：頭數轉移15%＋近期號虛擬排除7%＋極端狀態延續8%＋滾動回測15%。
+  // 方法9只是最後排名輸出，不另佔權重。
+  function fixedHeadCountInDraw(headIndex, draw) {
+    const set = new Set(fixedHeadPatternRange(headIndex).map(Number));
+    return (draw || []).reduce((sum, n) => sum + (set.has(Number(n)) ? 1 : 0), 0);
+  }
+
+  function fixedCandidateHeads(candidate) {
+    if (candidate && Number.isFinite(Number(candidate.headIndex))) return [Number(candidate.headIndex)];
+    if (candidate && Number.isFinite(Number(candidate.headA)) && Number.isFinite(Number(candidate.headB))) return [Number(candidate.headA), Number(candidate.headB)];
+    return [];
+  }
+
+  function fixedTransitionStats(groups, heads, draws, windowSize = 100) {
+    const list = (draws || []).slice(0, Math.max(2, Number(windowSize) || 100));
+    if (list.length < 2) return { score:50, rate:0, sample:0, overall:0, condition:'資料不足' };
+    const currentPrev = list[0];
+    const cond = (heads || []).map(h => fixedHeadCountInDraw(h, currentPrev));
+    let match = 0, pass = 0, total = 0, totalPass = 0;
+    for (let i = 0; i < list.length - 1; i++) {
+      const target = list[i];
+      const prev = list[i + 1];
+      const ok = fixedHeadPatternRecentResult(groups || [], target).pass;
+      total++;
+      if (ok) totalPass++;
+      const c = (heads || []).map(h => fixedHeadCountInDraw(h, prev));
+      if (c.length === cond.length && c.every((v, k) => v === cond[k])) {
+        match++;
+        if (ok) pass++;
+      }
+    }
+    const overall = total ? totalPass / total : 0;
+    // 小樣本以8期等價先驗向全體平均收縮，避免1~2次巧合把分數拉爆。
+    const prior = 8;
+    const rate = (pass + overall * prior) / Math.max(1, match + prior);
+    return { score: fixedClamp(rate * 100, 0, 100), rate, sample:match, overall, condition:cond.join('/') };
+  }
+
+  function fixedVirtualExcludeStats(groups, draws, windowSize = 100, pillarIndexes = [0]) {
+    const list = (draws || []).slice(0, Math.max(3, Number(windowSize) || 100));
+    if (list.length < 3) return { score:50, rate1:0, rate2:0, baseRate:0, total1:0, total2:0 };
+    let basePass=0, baseTotal=0, p1=0,t1=0,p2=0,t2=0;
+    const pillars = Array.from(new Set((pillarIndexes || [0]).map(Number).filter(i => i >= 0 && i < 3)));
+    for (let i=0; i<list.length-1; i++) {
+      const target=list[i], prev1=list[i+1];
+      const base=fixedHeadPatternRecentResult(groups || [], target).pass;
+      baseTotal++; if(base) basePass++;
+      const ex1=new Set((prev1 || []).map(Number));
+      let vals1=[];
+      pillars.forEach(pi => {
+        const vg=(groups || []).map((g,gi)=> gi===pi ? (g||[]).filter(n=>!ex1.has(Number(n))) : (g||[]).slice());
+        vals1.push(fixedHeadPatternRecentResult(vg,target).pass ? 1 : 0);
+      });
+      if(vals1.length){ t1++; p1 += vals1.reduce((a,b)=>a+b,0)/vals1.length; }
+      if(i<list.length-2){
+        const ex2=new Set([...(prev1||[]), ...(list[i+2]||[])].map(Number));
+        let vals2=[];
+        pillars.forEach(pi => {
+          const vg=(groups || []).map((g,gi)=> gi===pi ? (g||[]).filter(n=>!ex2.has(Number(n))) : (g||[]).slice());
+          vals2.push(fixedHeadPatternRecentResult(vg,target).pass ? 1 : 0);
+        });
+        if(vals2.length){ t2++; p2 += vals2.reduce((a,b)=>a+b,0)/vals2.length; }
+      }
+    }
+    const baseRate=baseTotal?basePass/baseTotal:0;
+    const rate1=t1?p1/t1:baseRate;
+    const rate2=t2?p2/t2:baseRate;
+    // 看「排除近期號後仍能維持多少原始過關能力」；50為中性，越耐排除越高。
+    const survival = baseRate > 0 ? (rate1*0.60 + rate2*0.40) / baseRate : 0.5;
+    const score = fixedClamp(50 + (survival - 0.75) * 100, 0, 100);
+    return { score, rate1, rate2, baseRate, total1:t1, total2:t2, survival };
+  }
+
+  function fixedPassStateBucket(groups, draws) {
+    const list=(draws || []);
+    if(!list.length) return {key:'none',label:'資料不足',streak:0,pass:null};
+    const first=fixedHeadPatternRecentResult(groups || [], list[0]).pass;
+    let streak=0;
+    for(const d of list){
+      if(fixedHeadPatternRecentResult(groups || [],d).pass===first) streak++;
+      else break;
+    }
+    let key,label;
+    if(first){
+      if(streak>=8){key='p8';label=`連過${streak}期`}
+      else if(streak>=5){key='p5';label=`連過${streak}期`}
+      else if(streak>=3){key='p3';label=`連過${streak}期`}
+      else {key='p12';label=`連過${streak}期`}
+    } else {
+      if(streak>=3){key='f3';label=`連倒${streak}期`}
+      else if(streak>=2){key='f2';label='連倒2期'}
+      else {key='f1';label='最新1期倒'}
+    }
+    return {key,label,streak,pass:first};
+  }
+
+  function fixedExtremeContinuationStats(groups, draws, windowSize=120) {
+    const list=(draws || []).slice(0, Math.max(10, Number(windowSize)||120));
+    const current=fixedPassStateBucket(groups,list);
+    if(list.length<8) return {score:50,rate:0,sample:0,current,label:current.label};
+    let hit=0,total=0;
+    // target=i；狀態只能由 target 之前可見的較舊資料 i+1... 建立。
+    for(let i=0;i<list.length-3;i++){
+      const prior=list.slice(i+1);
+      const st=fixedPassStateBucket(groups,prior);
+      if(st.key!==current.key) continue;
+      total++;
+      if(fixedHeadPatternRecentResult(groups,list[i]).pass) hit++;
+    }
+    const baseline=fixedHeadPatternRate(groups,list,Math.min(100,list.length)).rate || fixedTheoreticalPassRate(groups);
+    const priorN=10;
+    const rate=(hit+baseline*priorN)/Math.max(1,total+priorN);
+    return {score:fixedClamp(rate*100,0,100),rate,sample:total,current,label:current.label,baseline};
+  }
+
+  function fixedOriginalScoreTo100(raw, fallback=false) {
+    const x=Number(raw);
+    if(!Number.isFinite(x)) return 50;
+    return fallback ? fixedClamp(x,0,100) : fixedClamp(50 + x*0.5, 0, 100);
+  }
+
+  function fixedCandidateSignalPack(candidate, draws, rawOriginalScore, isFallback=false, includeRolling=false, rollingScore=50) {
+    const groups=candidate.groups || [];
+    const heads=fixedCandidateHeads(candidate);
+    const pillars=heads.length>1 ? [0,1] : [0];
+    const transition=fixedTransitionStats(groups,heads,draws,100);
+    const exclude=fixedVirtualExcludeStats(groups,draws,100,pillars);
+    const extreme=fixedExtremeContinuationStats(groups,draws,120);
+    const originalScore=fixedOriginalScoreTo100(rawOriginalScore,isFallback);
+    const newWithoutRolling=(transition.score*15 + exclude.score*7 + extreme.score*8) / 30;
+    const newScore=includeRolling
+      ? (transition.score*15 + exclude.score*7 + extreme.score*8 + rollingScore*15) / 45
+      : newWithoutRolling;
+    const finalScore=includeRolling
+      ? originalScore*0.55 + newScore*0.45
+      : (originalScore*55 + transition.score*15 + exclude.score*7 + extreme.score*8) / 85;
+    return {originalScore,transition,exclude,extreme,rollingScore,newScore,finalScore};
+  }
+
+  function fixedRollingReliability(candidates, draws, minTrain=30, maxTests=80) {
+    const list=(draws || []);
+    const n=candidates.length;
+    const stats=candidates.map(()=>({selected:0,pass:0,totalPass:0,total:0}));
+    const maxI=Math.min(maxTests, Math.max(0,list.length-minTrain-1));
+    const selectN=n<=4?2:Math.min(3,n);
+    for(let i=maxI;i>=1;i--){
+      const train=list.slice(i+1);
+      if(train.length<minTrain) continue;
+      const scored=candidates.map((c,idx)=>{
+        const raw = typeof c.rawScoreFn==='function' ? c.rawScoreFn(train) : 0;
+        const pack=fixedCandidateSignalPack(c,train,raw,!!c.isFallback,false,50);
+        return {idx,score:pack.finalScore};
+      }).sort((a,b)=>b.score-a.score || a.idx-b.idx);
+      const chosen=new Set(scored.slice(0,selectN).map(x=>x.idx));
+      candidates.forEach((c,idx)=>{
+        const ok=fixedHeadPatternRecentResult(c.groups || [],list[i]).pass;
+        stats[idx].total++; if(ok) stats[idx].totalPass++;
+        if(chosen.has(idx)){stats[idx].selected++; if(ok)stats[idx].pass++;}
+      });
+    }
+    return stats.map((st,idx)=>{
+      const c=candidates[idx];
+      const theory=fixedTheoreticalPassRate(c.groups || []);
+      const prior=12;
+      const selectedRate=(st.pass+theory*prior)/Math.max(1,st.selected+prior);
+      const allRate=st.total?st.totalPass/st.total:theory;
+      return {score:fixedClamp((selectedRate*0.75+allRate*0.25)*100,0,100),selectedRate,allRate,selected:st.selected,tests:st.total};
+    });
+  }
+
+  function fixedAttachOptimizedScores(rows, draws, fallbackMode=false) {
+    const candidates=(rows || []).map(row=>{
+      const c=row.item ? {...row.item} : {...row};
+      c.groups=(row.item && row.item.groups) || row.groups || c.groups || [];
+      if(row.item && Number.isFinite(Number(row.item.headIndex))) c.headIndex=Number(row.item.headIndex);
+      if(Number.isFinite(Number(row.headA))) c.headA=Number(row.headA);
+      if(Number.isFinite(Number(row.headB))) c.headB=Number(row.headB);
+      c.isFallback=!!fallbackMode;
+      c.rawScoreFn=(train)=>{
+        const rec=fixedHeadPatternRecoveryStats(c.groups,train);
+        if(Number.isFinite(Number(c.headIndex))){
+          const occ=fixedHeadOccurrenceRecoveryStats(c.headIndex,train);
+          return fallbackMode ? rec.fallbackScore*0.70+occ.fallbackScore*0.30 : rec.score*0.70+occ.score*0.30;
+        }
+        if(Number.isFinite(Number(c.headA))&&Number.isFinite(Number(c.headB))){
+          const occ=fixedPairOccurrenceRecoveryStats(c.headA,c.headB,train);
+          return fallbackMode ? rec.fallbackScore*0.70+occ.fallbackScore*0.30 : rec.score*0.70+occ.score*0.30;
+        }
+        return fallbackMode?rec.fallbackScore:rec.score;
+      };
+      return c;
+    });
+    const rolling=fixedRollingReliability(candidates,draws,30,80);
+    rows.forEach((row,idx)=>{
+      const raw=fallbackMode ? row.compositeFallbackScore : row.compositeRecoveryScore;
+      row.optimization=fixedCandidateSignalPack(candidates[idx],draws,raw,fallbackMode,true,(rolling[idx]||{}).score||50);
+      row.optimization.rolling=rolling[idx]||{score:50,selectedRate:0,allRate:0,selected:0,tests:0};
+      row.optimizedFinalScore=row.optimization.finalScore;
+    });
+    return rows;
+  }
+
   function fixedRecoveryRankCompare(a, b) {
+    const optA = Number(a && a.optimizedFinalScore);
+    const optB = Number(b && b.optimizedFinalScore);
+    if (Number.isFinite(optA) && Number.isFinite(optB) && optA !== optB) return optB - optA;
     const stageRank = { confirmed:6, sprout:5, near:4, weakening:3, idle:2, hot:1, atTheory:0, cooling:0, met:0 };
     const scoreA = Number.isFinite(Number(a.compositeRecoveryScore)) ? Number(a.compositeRecoveryScore) : Number(a.recovery.score);
     const scoreB = Number.isFinite(Number(b.compositeRecoveryScore)) ? Number(b.compositeRecoveryScore) : Number(b.recovery.score);
@@ -11216,6 +11423,9 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fixedFallbackRankCompare(a, b) {
+    const optA = Number(a && a.optimizedFinalScore);
+    const optB = Number(b && b.optimizedFinalScore);
+    if (Number.isFinite(optA) && Number.isFinite(optB) && optA !== optB) return optB - optA;
     // 備援仍先守住原規則：三柱百期高出理論越少越好；差距接近時，再用70%三柱＋30%頭號出現率的升溫訊號排序。
     const scoreA = Number.isFinite(Number(a.compositeFallbackScore)) ? Number(a.compositeFallbackScore) : Number(a.recovery.fallbackScore);
     const scoreB = Number.isFinite(Number(b.compositeFallbackScore)) ? Number(b.compositeFallbackScore) : Number(b.recovery.fallbackScore);
@@ -11234,6 +11444,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       const compositeFallbackScore = recovery.fallbackScore * 0.70 + occurrence.fallbackScore * 0.30;
       return { item, recovery, occurrence, compositeRecoveryScore, compositeFallbackScore };
     });
+
+    // 新增優化層只改排序分數，不改百期硬門檻。
+    fixedAttachOptimizedScores(allHeads.filter(x => x.recovery.gap > 0), draws, false);
+    fixedAttachOptimizedScores(allHeads.filter(x => x.recovery.gap <= 0), draws, true);
 
     // 硬門檻：百期實績 < 自身理論值，才算真正「回補候選」。
     const recoveryHeads = allHeads.filter(x => x.recovery.gap > 0).sort(fixedRecoveryRankCompare);
@@ -11261,6 +11475,8 @@ ${settleRecord.analysisLines.join('\n')}`;
       compositeRecoveryScore: x.compositeRecoveryScore,
       compositeFallbackScore: x.compositeFallbackScore,
       recommendScore: x.recovery.gap > 0 ? x.compositeRecoveryScore : x.compositeFallbackScore,
+      optimization: x.optimization,
+      optimizedFinalScore: x.optimizedFinalScore,
       pass10: x.recovery.s10.pass
     }));
 
@@ -11278,6 +11494,8 @@ ${settleRecord.analysisLines.join('\n')}`;
         recommendScore: compositeRecoveryScore, pass10: recovery.s10.pass
       };
     });
+    fixedAttachOptimizedScores(pairAll.filter(x => x.recovery.gap > 0), draws, false);
+    fixedAttachOptimizedScores(pairAll.filter(x => x.recovery.gap <= 0), draws, true);
     const pairRecovery = pairAll.filter(x => x.recovery.gap > 0)
       .sort((a,b) => fixedRecoveryRankCompare(a,b));
     const pairFallback = pairAll.filter(x => x.recovery.gap <= 0)
@@ -11318,7 +11536,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `<div class="fixed-pair-card" style="border-color:rgba(34,197,94,.58);background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(2,6,23,.92));">
       <div class="fixed-pair-head">
         <div class="fixed-pair-title" style="color:#86efac;">今日第五模式推薦｜回補優先3組</div>
-        <div class="fixed-pair-summary">主判斷仍採百期硬門檻；推薦排序＝三柱過關回補70%＋頭號出現率回補30%</div>
+        <div class="fixed-pair-summary">百期硬門檻保留；最終評分＝原方案五55%＋新增分析45%</div>
       </div>
       <div class="fixed-warning" style="background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.34);color:#bae6fd;margin-bottom:10px;">
         ${headModeText}<br>${thirdModeText}
@@ -11353,19 +11571,24 @@ ${settleRecord.analysisLines.join('\n')}`;
           const dualRecovery = idx < 2 && item.occurrence && rec.gap > 0 && item.occurrence.gap > 0 &&
             ['confirmed','sprout','near'].includes(rec.stage.key) && ['confirmed','sprout','near'].includes(item.occurrence.stage.key);
           const dualNote = dualRecovery ? '<br><b style="color:#86efac;">★ 雙回補同向確認</b>' : '';
+          const opt = item.optimization || null;
+          const optHtml = opt ? `<br><span style="color:#fcd34d;font-weight:900;">優化總分 ${Number(opt.finalScore||0).toFixed(1)}</span>` +
+            `<br><span style="color:#cbd5e1;">原方案五55%：${Number(opt.originalScore||0).toFixed(1)} ｜ 頭數轉移15%：${Number(opt.transition && opt.transition.score || 0).toFixed(1)}（條件${opt.transition && opt.transition.condition || '-'}／樣本${opt.transition && opt.transition.sample || 0}）</span>` +
+            `<br><span style="color:#cbd5e1;">虛擬排除7%：${Number(opt.exclude && opt.exclude.score || 0).toFixed(1)} ｜ 極端延續8%：${Number(opt.extreme && opt.extreme.score || 0).toFixed(1)}（${opt.extreme && opt.extreme.label || '-'}／樣本${opt.extreme && opt.extreme.sample || 0}）</span>` +
+            `<br><span style="color:#cbd5e1;">滾動回測15%：${Number(opt.rolling && opt.rolling.score || opt.rollingScore || 0).toFixed(1)}（入選${opt.rolling && opt.rolling.selected || 0}次）</span>` : '';
           return `<div class="fixed-sub-card">
             <div class="clean-two-card ${idx === 2 ? 'defense' : ''}">
               <div class="clean-two-card-title"><span>${title}</span><span class="badge ${badgeClass}">${badgeText}</span></div>
               <div class="clean-two-meta">
                 三柱過關｜理論 ${fixedPct(rec.theory)} ｜ 百期 ${fixedPct(rec.r100)}${sampleNote} ｜ ${gapText}<br>
-                近30 ${fixedPct(rec.r30)} ｜ 近20 ${fixedPct(rec.r20)} ｜ 近10 ${fixedPct(rec.r10)} ｜ ${metricTail}${occurrenceHtml}${dualNote}
+                近30 ${fixedPct(rec.r30)} ｜ 近20 ${fixedPct(rec.r20)} ｜ 近10 ${fixedPct(rec.r10)} ｜ ${metricTail}${occurrenceHtml}${dualNote}${optHtml}
               </div>
               <div class="pillars">${g.map((col,gi) => `<div class="pillar"><div class="pillar-title">第${gi+1}柱（${col.length}支）</div><div class="nums">${formatNumsHighlighted(col)}</div></div>`).join('')}</div>
             </div>
           </div>`;
         }).join('')}
       </div>
-      <div class="small-note" style="margin-top:10px;">回補模式：三柱過關率仍是硬門檻與主訊號（70%）；新增頭號「每期至少出現1支」的理論／百期／30／20／10期回補訊號（30%）作為確認。0頭理論出現率依9支計算，1～3頭依10支計算。頭號很熱但三柱未回補，不會因此跨過百期硬門檻；兩者同向時才提高排序。備援仍先看三柱百期高出理論最少，再用70/30綜合升溫訊號排序。</div>
+      <div class="small-note" style="margin-top:10px;">第五模式優化：原本「三柱回補70%＋頭號出現回補30%」完整保留，先維持百期低於理論的硬門檻；門檻內再換算為原方案五55%。新增45%只負責排序：頭數轉移15%＋近期號虛擬排除7%＋極端狀態延續8%＋滾動回測15%。方法9為最終排名，不另計權重。所有新分析都只讀歷史資料，不會移動第二、第三柱，也不會改固定牌支。</div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
       </div>
@@ -11540,7 +11763,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div>推薦規格<br><b>2組頭碰單雙＋1組10-10-19</b></div>
         <div>建立時間<br><b>${created}</b></div>
       </div>
-      <div class="small-note">過關條件維持原規則：三柱都至少中1支才算過。推薦1、2由0～3頭固定牌型依最近10期且越近期權重越高挑出；推薦3只在1、2、3頭中比較三種10+10+19組合，因0頭只有01～09共9支，不硬補成10支。</div>
+      <div class="small-note">過關條件維持原規則：三柱都至少中1支才算過。方案五固定牌支完全不變；推薦排名先守住原百期理論硬門檻，再以原方案五55%＋新增分析45%排序。第三組仍比較6種雙頭組合；0頭參與時自然為9+10+20，其餘為10+10+19。</div>
       ${fixedBuildHeadPatternRecommendationHTML(recs, draws)}
       <details class="learn-tools-panel" style="margin-top:12px;">
         <summary>展開查看0～3頭完整固定牌型與近10期</summary>
@@ -14615,7 +14838,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const draws = getBacktestDraws();
       fixedRenderHeadPatternPack(pack, draws);
       resetLog();
-      log('第五模式已重建：百期低於自身理論值才進回補池；排序採三柱過關回補70%＋頭號出現率回補30%，再看近30/20/10期收斂；若全部已達／高於理論則切換低熱度備援；第三組6種雙頭組合（含0頭9+10+20）同規則。');
+      log('第五模式已優化：保留百期理論硬門檻與原70/30回補邏輯；門檻內改採原方案五55%＋頭數轉移15%＋虛擬排除7%＋極端延續8%＋滾動回測15%排序；固定三柱內容完全不變。');
       return;
     }
     // 按下後直接重新精選，不再跳出二次確認；只影響目前彩種。
