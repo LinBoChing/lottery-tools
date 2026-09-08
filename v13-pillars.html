@@ -1765,7 +1765,7 @@
                 <option value="50">近50期</option>
               </select>
             </div>
-            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：保留0～3頭固定牌型回測；推薦採「機率回補硬門檻」：百期實績必須低於自身理論過關率才進入回補候選，再比較近30／20／10期是否正在縮小缺口；排序加入第二層「頭號每期至少出現1支」回補訊號，三柱過關70%、頭號出現30%；若0～3頭全部百期已達／高於理論，才切換低熱度備援，優先高出理論最少且近期仍有繼續升溫趨勢的2組。第三組對0～3頭任兩頭的6種組合套用相同規則，0頭參與時自然為9+10+20，其餘為10+10+19；天選雙柱後集中提供3顆複製按鈕。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近33期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
+            <div class="db-mini">第二模式：只均衡 A～C 第一柱。第三模式：第一柱維持0～9尾各1支、0～3頭各2～3支，並讓第二、三柱的大小與單雙盡量貼近 7:7／7:8。第四模式：A～C 不再套用近10期過倒型態；兩組第一柱都避開當下遺漏前10、0～9尾各1支、彼此重複0～1支（優先0支），二三柱大小／單雙均衡，且第二柱、第三柱都必須0～9尾全部覆蓋（10種尾數缺一不可）；另加入單柱禁止3連號與和值／大小斷層防護。D／E保持原規則。第五模式：保留0～3頭固定牌型，但取消百期低於理論的硬門檻；0～3頭全部先比較近期訊號：近10期「完全未開該頭而倒」佔70%最高權重，近5期過倒比例佔30%第二權重，最新期若同屬缺頭倒再小幅加成；若該期其實有開該頭，只因其餘號碼全單或全雙造成倒，該次只保留在過倒紀錄，不列入近10期缺頭提升權重。近期權重相同時才套用原方案五55%＋新增分析45%及百期回補資料細排。第三組雙頭組合採兩頭近期訊號平均。天選雙柱後集中提供3顆複製按鈕。第六模式：T0＝最新第1期、T1＝第2期、T2＝第3期、T3＝第4期。第一柱必須讓T0～T2倒；第一柱從T3開始抓，不足再依T4、T5往後補滿10支，並優先讓T3～T9命中的第一柱號碼彼此不同；剩餘29支再均衡拆成14／15，兼顧大小、單雙、尾數。T3～T9先找7/7三柱全過，若無解依序自動放寬為6/7、5/7。第七模式：可切換近20／50期，依開出次數排名；第一柱取前10名熱門號，剩餘29支依「次數較少＋遺漏較久」排序切出15支冷門號，其餘14支為中溫號。同次數時以近期遺漏期數決定先後，三柱完整覆蓋01～39且不重複。第八模式：固定統計近33期；先排出原熱門前10，但第一柱必須避開最新一期5個開獎號，若原前10撞到最新期則依第11熱、第12熱…順序往後補到10支；被剔除的原前10熱門號優先進第二柱，再依熱門順位補滿14支；其餘15支全部進第三柱冷門號。</div>
           </div>
           <button class="btn btn-danger clean-main-btn" id="runBtn">天選雙柱</button>
           <div class="clean-tools">
@@ -11063,6 +11063,65 @@ ${settleRecord.analysisLines.join('\n')}`;
     return { rate: pass / list.length, pass, total: list.length };
   }
 
+  // 第五模式近期權重：近10期「完全未開該頭而倒」為最高權重；近5期過倒比例為第二權重。
+  // 若該期有開該頭，只是其餘號碼全落單柱／雙柱而倒，該次倒只計入近5期過倒，不計入近10期缺頭加權。
+  function fixedHeadRecentPriorityStats(headIndex, groups, draws) {
+    const headSet = new Set(fixedHeadPatternRange(headIndex).map(Number));
+    const recent10 = (draws || []).slice(0, 10);
+    const recent5 = (draws || []).slice(0, 5);
+
+    let missingHeadDown10 = 0;
+    let structuralDown10 = 0;
+    let latestMissingHeadDown = false;
+    recent10.forEach((draw, idx) => {
+      const result = fixedHeadPatternRecentResult(groups || [], draw);
+      if (result.pass) return;
+      const hasHead = (draw || []).some(n => headSet.has(Number(n)));
+      if (!hasHead) {
+        missingHeadDown10++;
+        if (idx === 0) latestMissingHeadDown = true;
+      } else {
+        structuralDown10++;
+      }
+    });
+
+    const pass5 = recent5.filter(draw => fixedHeadPatternRecentResult(groups || [], draw).pass).length;
+    const down5 = recent5.length - pass5;
+    const downRate5 = recent5.length ? down5 / recent5.length : 0;
+
+    // 權重比例：近10期缺頭倒 70%、近5期過倒 30%。
+    // 最新一期若也是缺頭倒，再給小幅時序加成；但結構倒不吃此加成。
+    const missingRate10 = recent10.length ? missingHeadDown10 / recent10.length : 0;
+    const recentPriorityScore =
+      missingRate10 * 70 +
+      downRate5 * 30 +
+      (latestMissingHeadDown ? 6 : 0) +
+      (down5 > pass5 ? 4 : 0);
+
+    return {
+      headIndex:Number(headIndex),
+      missingHeadDown10, structuralDown10, missingRate10,
+      pass5, down5, downRate5, latestMissingHeadDown,
+      recentPriorityScore
+    };
+  }
+
+  function fixedPairRecentPriorityStats(headA, headB, groups, draws) {
+    const a = fixedHeadRecentPriorityStats(headA, groups, draws);
+    const b = fixedHeadRecentPriorityStats(headB, groups, draws);
+    return {
+      a, b,
+      // 雙頭組合取兩個頭近期訊號的平均，避免單一頭完全支配第三組。
+      missingHeadDown10:(a.missingHeadDown10 + b.missingHeadDown10) / 2,
+      structuralDown10:(a.structuralDown10 + b.structuralDown10) / 2,
+      pass5:(a.pass5 + b.pass5) / 2,
+      down5:(a.down5 + b.down5) / 2,
+      downRate5:(a.downRate5 + b.downRate5) / 2,
+      latestMissingHeadDown:a.latestMissingHeadDown || b.latestMissingHeadDown,
+      recentPriorityScore:(a.recentPriorityScore + b.recentPriorityScore) / 2
+    };
+  }
+
   // 第五模式第二層訊號：某一頭在一期5碼中「至少出現1支」的回補趨勢。
   // 0頭只有01~09共9支；1~3頭各10支，因此各自使用自己的理論出現率。
   function fixedHeadOccurrenceTheory(headIndex) {
@@ -11410,6 +11469,9 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fixedRecoveryRankCompare(a, b) {
+    const recentA = Number(a && a.recentPriority && a.recentPriority.recentPriorityScore);
+    const recentB = Number(b && b.recentPriority && b.recentPriority.recentPriorityScore);
+    if (Number.isFinite(recentA) && Number.isFinite(recentB) && recentA !== recentB) return recentB - recentA;
     const optA = Number(a && a.optimizedFinalScore);
     const optB = Number(b && b.optimizedFinalScore);
     if (Number.isFinite(optA) && Number.isFinite(optB) && optA !== optB) return optB - optA;
@@ -11423,6 +11485,9 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fixedFallbackRankCompare(a, b) {
+    const recentA = Number(a && a.recentPriority && a.recentPriority.recentPriorityScore);
+    const recentB = Number(b && b.recentPriority && b.recentPriority.recentPriorityScore);
+    if (Number.isFinite(recentA) && Number.isFinite(recentB) && recentA !== recentB) return recentB - recentA;
     const optA = Number(a && a.optimizedFinalScore);
     const optB = Number(b && b.optimizedFinalScore);
     if (Number.isFinite(optA) && Number.isFinite(optB) && optA !== optB) return optB - optA;
@@ -11442,79 +11507,91 @@ ${settleRecord.analysisLines.join('\n')}`;
       const occurrence = fixedHeadOccurrenceRecoveryStats(item.headIndex, draws);
       const compositeRecoveryScore = recovery.score * 0.70 + occurrence.score * 0.30;
       const compositeFallbackScore = recovery.fallbackScore * 0.70 + occurrence.fallbackScore * 0.30;
-      return { item, recovery, occurrence, compositeRecoveryScore, compositeFallbackScore };
+      const recentPriority = fixedHeadRecentPriorityStats(item.headIndex, item.groups || [], draws);
+      return { item, recovery, occurrence, recentPriority, compositeRecoveryScore, compositeFallbackScore };
     });
 
-    // 新增優化層只改排序分數，不改百期硬門檻。
+    // 第五模式近期先決：取消百期硬門檻。0～3頭全部進同一候選池。
+    // 百期低於／高於理論仍保留原評分，但只作近期訊號之後的細排依據。
     fixedAttachOptimizedScores(allHeads.filter(x => x.recovery.gap > 0), draws, false);
     fixedAttachOptimizedScores(allHeads.filter(x => x.recovery.gap <= 0), draws, true);
 
-    // 硬門檻：百期實績 < 自身理論值，才算真正「回補候選」。
-    const recoveryHeads = allHeads.filter(x => x.recovery.gap > 0).sort(fixedRecoveryRankCompare);
-    const fallbackHeads = allHeads.filter(x => x.recovery.gap <= 0).sort(fixedFallbackRankCompare);
+    const recentFirstCompare = (a, b) => {
+      const ra = Number(a && a.recentPriority && a.recentPriority.recentPriorityScore) || 0;
+      const rb = Number(b && b.recentPriority && b.recentPriority.recentPriorityScore) || 0;
+      if (ra !== rb) return rb - ra;
 
-    let pickedHeads = [];
-    let headMode = 'recovery';
-    if (recoveryHeads.length >= 2) {
-      pickedHeads = recoveryHeads.slice(0, 2);
-    } else if (recoveryHeads.length === 1) {
-      headMode = 'mixed';
-      pickedHeads = [recoveryHeads[0], fallbackHeads[0]].filter(Boolean);
-    } else {
-      headMode = 'fallback';
-      pickedHeads = fallbackHeads.slice(0, 2);
-    }
+      // 同分時先看近10缺頭倒「次數本身」，再看近5倒率，確保近期訊號真正先決。
+      const ma = Number(a && a.recentPriority && a.recentPriority.missingHeadDown10) || 0;
+      const mb = Number(b && b.recentPriority && b.recentPriority.missingHeadDown10) || 0;
+      if (ma !== mb) return mb - ma;
+      const d5a = Number(a && a.recentPriority && a.recentPriority.downRate5) || 0;
+      const d5b = Number(b && b.recentPriority && b.recentPriority.downRate5) || 0;
+      if (d5a !== d5b) return d5b - d5a;
+
+      const oa = Number(a && a.optimizedFinalScore);
+      const ob = Number(b && b.optimizedFinalScore);
+      if (Number.isFinite(oa) && Number.isFinite(ob) && oa !== ob) return ob - oa;
+
+      const sa = a.recovery.gap > 0 ? Number(a.compositeRecoveryScore) : Number(a.compositeFallbackScore);
+      const sb = b.recovery.gap > 0 ? Number(b.compositeRecoveryScore) : Number(b.compositeFallbackScore);
+      if (Number.isFinite(sa) && Number.isFinite(sb) && sa !== sb) return sb - sa;
+      return Number(b.recovery.gap || 0) - Number(a.recovery.gap || 0);
+    };
+
+    const rankedHeads = allHeads.slice().sort(recentFirstCompare);
+    const pickedHeads = rankedHeads.slice(0, 2);
+    const headMode = 'recentFirst';
 
     const topTwo = pickedHeads.map((x, idx) => ({
       ...x.item,
       recommendType: 'headOddEven',
       recommendRank: idx + 1,
-      selectionMode: x.recovery.gap > 0 ? 'recovery' : 'fallback',
+      selectionMode: 'recentFirst',
       recovery: x.recovery,
       occurrence: x.occurrence,
+      recentPriority: x.recentPriority,
       compositeRecoveryScore: x.compositeRecoveryScore,
       compositeFallbackScore: x.compositeFallbackScore,
-      recommendScore: x.recovery.gap > 0 ? x.compositeRecoveryScore : x.compositeFallbackScore,
+      recommendScore: Number(x.recentPriority && x.recentPriority.recentPriorityScore) || 0,
       optimization: x.optimization,
       optimizedFinalScore: x.optimizedFinalScore,
       pass10: x.recovery.s10.pass
     }));
 
-    // 第三組：6種雙頭組合也採同樣硬門檻；全部高於理論時才切換低熱度備援。
+    // 第三組：6種雙頭組合也取消百期硬門檻，全部先以近期缺頭倒／近5倒率排序。
     const pairAll = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]].map(([a,b]) => {
       const groups = fixedBuildDoubleHead101019(a,b);
       const recovery = fixedHeadPatternRecoveryStats(groups, draws);
       const occurrencePair = fixedPairOccurrenceRecoveryStats(a, b, draws);
+      const recentPriority = fixedPairRecentPriorityStats(a, b, groups, draws);
       const compositeRecoveryScore = recovery.score * 0.70 + occurrencePair.score * 0.30;
       const compositeFallbackScore = recovery.fallbackScore * 0.70 + occurrencePair.fallbackScore * 0.30;
       return {
         label: `${a}頭＋${b}頭`, headA: a, headB: b, groups,
-        recommendType: 'doubleHeadRecovery', recovery, occurrencePair,
+        recommendType: 'doubleHeadRecovery', recovery, occurrencePair, recentPriority,
         compositeRecoveryScore, compositeFallbackScore,
         recommendScore: compositeRecoveryScore, pass10: recovery.s10.pass
       };
     });
     fixedAttachOptimizedScores(pairAll.filter(x => x.recovery.gap > 0), draws, false);
     fixedAttachOptimizedScores(pairAll.filter(x => x.recovery.gap <= 0), draws, true);
-    const pairRecovery = pairAll.filter(x => x.recovery.gap > 0)
-      .sort((a,b) => fixedRecoveryRankCompare(a,b));
-    const pairFallback = pairAll.filter(x => x.recovery.gap <= 0)
-      .sort((a,b) => fixedFallbackRankCompare(a,b));
-    const thirdRaw = pairRecovery[0] || pairFallback[0] || null;
+    const rankedPairs = pairAll.slice().sort(recentFirstCompare);
+    const thirdRaw = rankedPairs[0] || null;
     const third = thirdRaw ? {
       ...thirdRaw,
-      selectionMode: thirdRaw.recovery.gap > 0 ? 'recovery' : 'fallback',
-      recommendScore: thirdRaw.recovery.gap > 0 ? thirdRaw.compositeRecoveryScore : thirdRaw.compositeFallbackScore
+      selectionMode: 'recentFirst',
+      recommendScore: Number(thirdRaw.recentPriority && thirdRaw.recentPriority.recentPriorityScore) || 0
     } : null;
-    const thirdMode = pairRecovery.length ? 'recovery' : 'fallback';
+    const thirdMode = 'recentFirst';
 
     return {
       topTwo, third,
-      ranked: recoveryHeads.concat(fallbackHeads),
-      pairCandidates: pairRecovery.concat(pairFallback),
+      ranked: rankedHeads,
+      pairCandidates: rankedPairs,
       headMode, thirdMode,
-      recoveryHeadCount: recoveryHeads.length,
-      recoveryPairCount: pairRecovery.length
+      recoveryHeadCount: allHeads.filter(x => x.recovery.gap > 0).length,
+      recoveryPairCount: pairAll.filter(x => x.recovery.gap > 0).length
     };
   }
 
@@ -11524,19 +11601,13 @@ ${settleRecord.analysisLines.join('\n')}`;
     const all = [].concat(recs && recs.topTwo || [], recs && recs.third ? [recs.third] : []);
     if (!all.length) return '<div class="fixed-warning">目前沒有足夠資料產生第五模式推薦。</div>';
 
-    const headModeText = recs.headMode === 'fallback'
-      ? '0～3頭百期皆已達／高於理論，前兩組切換「低熱度備援」'
-      : recs.headMode === 'mixed'
-        ? '僅1組符合百期低於理論；另一組以「低熱度備援」補足'
-        : '前兩組僅從「百期低於理論」的回補候選中挑選';
-    const thirdModeText = recs.thirdMode === 'fallback'
-      ? '第三組6種組合百期皆已達／高於理論，改選高出理論最少且近期仍升溫者'
-      : '第三組僅從「百期低於理論」的6種雙頭候選中挑選';
+    const headModeText = '前兩組：0～3頭全部參與，不再受百期低於理論限制；先比近10缺頭倒，再比近5倒率。';
+    const thirdModeText = '第三組：6種雙頭組合全部參與，同樣採近期訊號先決；百期回補只作同分細排。';
 
     return `<div class="fixed-pair-card" style="border-color:rgba(34,197,94,.58);background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(2,6,23,.92));">
       <div class="fixed-pair-head">
-        <div class="fixed-pair-title" style="color:#86efac;">今日第五模式推薦｜回補優先3組</div>
-        <div class="fixed-pair-summary">百期硬門檻保留；最終評分＝原方案五55%＋新增分析45%</div>
+        <div class="fixed-pair-title" style="color:#86efac;">今日第五模式推薦｜近期缺頭倒優先3組</div>
+        <div class="fixed-pair-summary">近期先決：近10缺頭倒 > 近5倒率；百期回補退居細排</div>
       </div>
       <div class="fixed-warning" style="background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.34);color:#bae6fd;margin-bottom:10px;">
         ${headModeText}<br>${thirdModeText}
@@ -11568,6 +11639,15 @@ ${settleRecord.analysisLines.join('\n')}`;
             occurrenceHtml = `<br><span style="color:#bae6fd;">${item.headA}頭出現｜理論 ${fixedPct(oa.theory)} ｜ 百期 ${fixedPct(oa.r100)} ｜ 30/20/10 ${fixedPct(oa.r30)}/${fixedPct(oa.r20)}/${fixedPct(oa.r10)} ｜ ${oa.stage.icon} ${oa.stage.label}</span>` +
               `<br><span style="color:#bae6fd;">${item.headB}頭出現｜理論 ${fixedPct(ob.theory)} ｜ 百期 ${fixedPct(ob.r100)} ｜ 30/20/10 ${fixedPct(ob.r30)}/${fixedPct(ob.r20)}/${fixedPct(ob.r10)} ｜ ${ob.stage.icon} ${ob.stage.label}</span>`;
           }
+          const rp = item.recentPriority || null;
+          let recentPriorityHtml = '';
+          if (rp) {
+            if (idx < 2) {
+              recentPriorityHtml = `<br><span style="color:#fda4af;font-weight:900;">近期優先權重 ${Number(rp.recentPriorityScore||0).toFixed(1)}｜近10缺頭倒 ${Number(rp.missingHeadDown10||0)} 次｜結構倒 ${Number(rp.structuralDown10||0)} 次｜近5 ${Number(rp.pass5||0)}過${Number(rp.down5||0)}倒${rp.latestMissingHeadDown ? '｜最新期缺頭倒加權' : ''}</span>`;
+            } else if (rp.a && rp.b) {
+              recentPriorityHtml = `<br><span style="color:#fda4af;font-weight:900;">近期優先權重 ${Number(rp.recentPriorityScore||0).toFixed(1)}｜${item.headA}頭近10缺頭倒 ${rp.a.missingHeadDown10} 次／近5 ${rp.a.pass5}過${rp.a.down5}倒；${item.headB}頭近10缺頭倒 ${rp.b.missingHeadDown10} 次／近5 ${rp.b.pass5}過${rp.b.down5}倒</span>`;
+            }
+          }
           const dualRecovery = idx < 2 && item.occurrence && rec.gap > 0 && item.occurrence.gap > 0 &&
             ['confirmed','sprout','near'].includes(rec.stage.key) && ['confirmed','sprout','near'].includes(item.occurrence.stage.key);
           const dualNote = dualRecovery ? '<br><b style="color:#86efac;">★ 雙回補同向確認</b>' : '';
@@ -11581,14 +11661,14 @@ ${settleRecord.analysisLines.join('\n')}`;
               <div class="clean-two-card-title"><span>${title}</span><span class="badge ${badgeClass}">${badgeText}</span></div>
               <div class="clean-two-meta">
                 三柱過關｜理論 ${fixedPct(rec.theory)} ｜ 百期 ${fixedPct(rec.r100)}${sampleNote} ｜ ${gapText}<br>
-                近30 ${fixedPct(rec.r30)} ｜ 近20 ${fixedPct(rec.r20)} ｜ 近10 ${fixedPct(rec.r10)} ｜ ${metricTail}${occurrenceHtml}${dualNote}${optHtml}
+                近30 ${fixedPct(rec.r30)} ｜ 近20 ${fixedPct(rec.r20)} ｜ 近10 ${fixedPct(rec.r10)} ｜ ${metricTail}${occurrenceHtml}${recentPriorityHtml}${dualNote}${optHtml}
               </div>
               <div class="pillars">${g.map((col,gi) => `<div class="pillar"><div class="pillar-title">第${gi+1}柱（${col.length}支）</div><div class="nums">${formatNumsHighlighted(col)}</div></div>`).join('')}</div>
             </div>
           </div>`;
         }).join('')}
       </div>
-      <div class="small-note" style="margin-top:10px;">第五模式優化：原本「三柱回補70%＋頭號出現回補30%」完整保留，先維持百期低於理論的硬門檻；門檻內再換算為原方案五55%。新增45%只負責排序：頭數轉移15%＋近期號虛擬排除7%＋極端狀態延續8%＋滾動回測15%。方法9為最終排名，不另計權重。所有新分析都只讀歷史資料，不會移動第二、第三柱，也不會改固定牌支。</div>
+      <div class="small-note" style="margin-top:10px;">第五模式優化：已取消百期硬門檻。0～3頭全部直接比較近期訊號：近10期完全未開該頭而倒佔70%最高權重，近5期過倒佔30%第二權重；最新期若也是缺頭倒另有小幅加成。若倒的那一期其實有開該頭，只因其餘號碼全單或全雙造成結構倒，該次不計入近10期缺頭加權。只有近期權重接近／相同時，才用原方案五與百期回補等資料細排。所有分析只改推薦順序，不會改固定牌支。</div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
       </div>
@@ -14956,7 +15036,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         : selectedMode === 'omit3pass7' 
         ? '已切換為<b>第六模式｜T0～T2倒＋T3～T9過</b>：第一柱由T3起往T4、T5…補滿10支；後7期先找7/7，無解依序自動放寬6/7、5/7，並優先用不同第一柱號碼過；剩餘29支均衡拆14／15。按「天選雙柱」即可生成／讀取。'
         : selectedMode === 'headPattern'
-        ? '已切換為<b>第五模式｜機率回補型推薦</b>：A1=0頭、A2=1頭、B1=2頭、B2=3頭；先以各自理論過關率對照百期實績缺口，再看近30／20／10期是否回升，推薦2組頭碰單雙；第三組從6種雙頭組合中同法選出，0頭參與時可為9+10+20。按「天選雙柱」即可立即顯示。'
+        ? '已切換為<b>第五模式｜近期缺頭優先推薦</b>：A1=0頭、A2=1頭、B1=2頭、B2=3頭；百期低於理論硬門檻保留，門檻內先看近10期「完全未開該頭而倒」70%，再看近5期過倒30%；有開該頭但因其餘全單／全雙造成的結構倒，不列入近10期提升權重。按「天選雙柱」即可立即顯示。'
         : (selectedMode === 'strictComplement'
         ? '已切換為<b>第四模式｜嚴格互補</b>：A～C 不套用近10期過倒型態；兩組第一柱避開遺漏前10、0～9尾各1支、重複0～1支（優先0），二三柱大小／單雙平衡、第二／第三柱0～9尾全覆蓋，並禁止單柱3連號與極端和值／大小斷層。請按「重新精選立柱」建立新號碼。'
         : (selectedMode === 'fullBalanced'
