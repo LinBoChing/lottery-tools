@@ -11740,7 +11740,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     </div>`;
   }
 
-  function fixedBuildHeadPatternCardHTML(item, draws) {
+  function fixedBuildHeadPatternCardHTML(item, draws, itemIndex = -1) {
     const headIndex = Number(item.headIndex);
     const list = (draws || []).slice(0, 10);
     const passCount = list.filter(draw => fixedHeadPatternRecentResult(item.groups || [], draw).pass).length;
@@ -11749,7 +11749,10 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `<div class="fixed-pair-card">
       <div class="fixed-pair-head">
         <div class="fixed-pair-title">${item.label}｜${headIndex}頭固定牌型</div>
-        <div class="fixed-pair-summary">近10期：過 ${passCount}｜倒 ${downCount}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+          <div class="fixed-pair-summary">近10期：過 ${passCount}｜倒 ${downCount}</div>
+          <button type="button" class="btn btn-secondary head-pattern-copy-btn" data-head-pattern-copy-index="${itemIndex}" style="width:auto;padding:7px 10px;font-size:12px;">複製立柱</button>
+        </div>
       </div>
       <div class="small-note">固定規格：${counts}｜第一柱=${headIndex}頭全部號碼；第二柱=其餘單數；第三柱=其餘雙數。</div>
       ${fixedBuildHeadPatternRecent10HTML(item, draws)}
@@ -11796,8 +11799,8 @@ ${settleRecord.analysisLines.join('\n')}`;
   }
 
   function fixedBindHeadPatternMaintenanceCopy(items) {
-    if (!fixedQuick5Summary) return;
-    fixedQuick5Summary.querySelectorAll('[data-head-pattern-copy-index]').forEach(btn => {
+    const roots = [fixedQuick5Summary, dailyAgentResult].filter(Boolean);
+    roots.forEach(root => root.querySelectorAll('[data-head-pattern-copy-index]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const idx = Number(btn.getAttribute('data-head-pattern-copy-index'));
         const item = (items || [])[idx];
@@ -11814,7 +11817,7 @@ ${settleRecord.analysisLines.join('\n')}`;
           setTimeout(() => { btn.textContent = oldText; }, 1600);
         }
       });
-    });
+    }));
   }
 
   function fixedRenderHeadPatternPack(pack, draws) {
@@ -11847,9 +11850,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       ${fixedBuildHeadPatternRecommendationHTML(recs, draws)}
       <details class="learn-tools-panel" style="margin-top:12px;">
         <summary>展開查看0～3頭完整固定牌型與近10期</summary>
-        <div class="fixed-five-wrap" style="padding:0 12px 12px;">${items.map(item => fixedBuildHeadPatternCardHTML(item, draws)).join('')}</div>
+        <div class="fixed-five-wrap" style="padding:0 12px 12px;">${items.map((item, itemIndex) => fixedBuildHeadPatternCardHTML(item, draws, itemIndex)).join('')}</div>
       </details>`;
     fixedBindHeadPatternRecommendationCopy(recs);
+    fixedBindHeadPatternMaintenanceCopy(items);
     fixedHeadPatternReminder(pack, draws);
   }
 
