@@ -11066,6 +11066,10 @@ ${settleRecord.analysisLines.join('\n')}`;
   // 第五模式近期權重：近10期「完全未開該頭而倒」為最高權重；近5期過倒比例為第二權重。
   // 若該期有開該頭，只是其餘號碼全落單柱／雙柱而倒，該次倒只計入近5期過倒，不計入近10期缺頭加權。
   function fixedHeadRecentPriorityStats(headIndex, groups, draws) {
+    // 個別頭數近期過倒必須固定採用該頭「頭數＋剩餘單＋剩餘雙」牌型。
+    // 第三組雙頭 10+10+19 僅用於整組三柱過關統計；不可將它傳入個別頭數過倒，
+    // 否則同一頭數會因所在候選組不同而顯示不同近5過倒及近期權重。
+    const headGroups = fixedBuildHeadPatternGroups(headIndex);
     const headSet = new Set(fixedHeadPatternRange(headIndex).map(Number));
     const recent10 = (draws || []).slice(0, 10);
     const recent5 = (draws || []).slice(0, 5);
@@ -11074,7 +11078,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     let structuralDown10 = 0;
     let latestMissingHeadDown = false;
     recent10.forEach((draw, idx) => {
-      const result = fixedHeadPatternRecentResult(groups || [], draw);
+      const result = fixedHeadPatternRecentResult(headGroups, draw);
       if (result.pass) return;
       const hasHead = (draw || []).some(n => headSet.has(Number(n)));
       if (!hasHead) {
@@ -11085,7 +11089,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       }
     });
 
-    const pass5 = recent5.filter(draw => fixedHeadPatternRecentResult(groups || [], draw).pass).length;
+    const pass5 = recent5.filter(draw => fixedHeadPatternRecentResult(headGroups, draw).pass).length;
     const down5 = recent5.length - pass5;
     const downRate5 = recent5.length ? down5 / recent5.length : 0;
 
