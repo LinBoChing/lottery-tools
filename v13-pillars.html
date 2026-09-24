@@ -11750,6 +11750,39 @@ ${settleRecord.analysisLines.join('\n')}`;
       (Number(a.item && a.item.headIndex || a.headA || 0) - Number(b.item && b.item.headIndex || b.headA || 0));
   }
 
+  // 推薦3專用：六組雙頭三柱的實際過關比較。只讀取當前彩種已載入的歷史期數。
+  // 並列過關次數採競賽名次（例如 1、1、3），不以代碼打破同分。
+  function fixedPairColdBonus(pairAll, draws) {
+    const valid = (draws || []).filter(d => Array.isArray(d) && d.length === 5);
+    const windows = [{n:10, points:[6,4,2,0,-2,-4]}, {n:20, points:[4,2,1,0,-1,-2]}];
+    pairAll.forEach(pair => {
+      pair.pairCold = { bonus:0, windows:{} };
+    });
+    windows.forEach(({n,points}) => {
+      const sample = valid.slice(0,n);
+      // 資料不足時顯示實際樣本，但不足10期不進行加扣分。
+      pairAll.forEach(pair => {
+        const pass = sample.filter(d => fixedHeadPatternRecentResult(pair.groups,d).pass).length;
+        pair.pairCold.windows[n] = {pass,total:sample.length,bonus:0};
+      });
+      if (sample.length < 10) return;
+      const passCounts = pairAll.map(p => p.pairCold.windows[n].pass).sort((a,b)=>a-b);
+      pairAll.forEach(pair => {
+        const row=pair.pairCold.windows[n];
+        const rank=passCounts.indexOf(row.pass);
+        row.bonus=points[rank];
+        pair.pairCold.bonus += row.bonus;
+      });
+    });
+    const sample30=valid.slice(0,30);
+    pairAll.forEach(pair => {
+      const pass=sample30.filter(d => fixedHeadPatternRecentResult(pair.groups,d).pass).length;
+      pair.pairCold.windows[30]={pass,total:sample30.length,bonus:0};
+      // 加扣分僅用於推薦3的近期優先分，保留原有優化總分細排用途。
+      pair.recentPriority.recentPriorityScore += pair.pairCold.bonus;
+    });
+  }
+
   function fixedPickHeadPatternRecommendations(items, draws) {
     const allHeads = (items || []).map(item => {
       const recovery = fixedHeadPatternRecoveryStats(item.groups || [], draws);
@@ -11811,7 +11844,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       pass10: x.recovery.s10.pass
     }));
 
-    // 第三組：6種雙頭組合也取消百期硬門檻，全部先以近期缺頭倒／近5倒率排序。
+    // 第三組：六種雙頭組合以原近期權重加上實際配對過關冷熱補償排序。
     const pairAll = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]].map(([a,b]) => {
       const groups = fixedBuildDoubleHead101019(a,b);
       const recovery = fixedHeadPatternRecoveryStats(groups, draws);
@@ -11820,7 +11853,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const structuralWeekA = fixedHeadStructuralWeeklyStats(a, fixedHeadStructuralWeekContext(draws));
       const structuralWeekB = fixedHeadStructuralWeeklyStats(b, fixedHeadStructuralWeekContext(draws));
       const structuralWeek = {a:structuralWeekA,b:structuralWeekB,weight:(structuralWeekA.weight+structuralWeekB.weight)/2};
-      recentPriority.recentPriorityScore += structuralWeek.weight;
+      // 推薦3不使用全單／全雙相關的各頭結構倒加扣分。
       const compositeRecoveryScore = recovery.score * 0.70 + occurrencePair.score * 0.30;
       const compositeFallbackScore = recovery.fallbackScore * 0.70 + occurrencePair.fallbackScore * 0.30;
       return {
@@ -11830,6 +11863,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         recommendScore: compositeRecoveryScore, pass10: recovery.s10.pass
       };
     });
+    fixedPairColdBonus(pairAll, draws);
     fixedAttachOptimizedScores(pairAll.filter(x => x.recovery.gap > 0), draws, false);
     fixedAttachOptimizedScores(pairAll.filter(x => x.recovery.gap <= 0), draws, true);
     const rankedPairs = pairAll.slice().sort(recentFirstCompare);
@@ -11854,7 +11888,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedPct(v) { return `${(Number(v || 0) * 100).toFixed(1)}%`; }
 
   // 第五模式完整候選評分：四個單頭 + 推薦3六種雙頭。
-  // 僅負責顯示與複製，不改動任何推薦計分、排序或固定牌型。
+  // 僅負責顯示與複製，讀取推薦3已計算的配對權重，不另改動排名。
   function fixedBuildHeadPatternAllScoresHTML(recs) {
     const heads = (recs && recs.ranked ? recs.ranked : []).slice();
     const pairs = (recs && recs.pairCandidates ? recs.pairCandidates : []).slice();
@@ -11872,7 +11906,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     return `<details class="miss-review-box" open style="margin:12px 0;border-color:rgba(56,189,248,.55);">
       <summary style="color:#7dd3fc;">第五模式｜完整候選分數與複製</summary>
       <div class="miss-review-body">
-        <div class="db-mini" style="margin-bottom:9px;">排名主依據仍是目前第五模式公式；「近期優先分」就是近10缺頭倒70%＋近5倒率30%，再加近7期結構倒加扣分。優化總分只在近期訊號接近時細排。</div>
+        <div class="db-mini" style="margin-bottom:9px;">推薦1、2維持原近期權重；推薦3的近期優先分加入配對近10期（−4～+6）及近20期（−2～+4）冷熱補償；近30期只顯示。並列過關次數同分；推薦3不加入全單／全雙結構倒加扣分。優化總分保留作近期訊號相同時的細排。</div>
         <div style="font-weight:900;color:#fde68a;margin:6px 0;">0～3頭｜四種全部列出</div>
         <div style="overflow-x:auto;"><table class="metrics" style="font-size:12px;"><thead><tr><th>排名</th><th>候選</th><th>近期優先分</th><th>優化總分</th><th>近10缺頭倒</th><th>近5過倒</th><th>操作</th></tr></thead><tbody>
           ${heads.map((x, idx) => {
@@ -11883,12 +11917,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         </tbody></table></div>
 
         <div style="font-weight:900;color:#fde68a;margin:14px 0 6px;">推薦3｜六種雙頭組合全部列出</div>
-        <div style="overflow-x:auto;"><table class="metrics" style="font-size:12px;"><thead><tr><th>排名</th><th>雙頭組合</th><th>近期優先分</th><th>優化總分</th><th>兩頭近10缺頭倒平均</th><th>兩頭近5過倒平均</th><th>操作</th></tr></thead><tbody>
+        <div style="overflow-x:auto;"><table class="metrics" style="font-size:12px;"><thead><tr><th>排名</th><th>雙頭組合</th><th>近期優先分</th><th>優化總分</th><th>配對近10</th><th>配對近20</th><th>配對近30（參考）</th><th>配對加扣分</th><th>兩頭近10缺頭倒平均</th><th>兩頭近5過倒平均</th><th>操作</th></tr></thead><tbody>
           ${pairs.map((x, idx) => {
             const rp=x.recentPriority||{};
             const a=Number(x.headA), b=Number(x.headB);
             const pass5=Number(rp.pass5||0), down5=Number(rp.down5||0);
-            return `<tr><td>${idx+1}</td><td><b>${a}頭＋${b}頭</b></td><td style="color:#fda4af;font-weight:900;">${scoreText(x)}</td><td>${optText(x)}</td><td>${Number(rp.missingHeadDown10||0).toFixed(1)}次</td><td>${pass5.toFixed(1)}過${down5.toFixed(1)}倒</td><td><button type="button" class="btn btn-secondary head-pattern-pair-copy-btn" data-head-pattern-pair-copy-index="${idx}" style="width:auto;padding:6px 9px;font-size:12px;">複製${a}+${b}</button></td></tr>`;
+            const cold=x.pairCold||{bonus:0,windows:{}};
+            const coldStat=n=>{const t=cold.windows[n];return t?`${t.pass}過${t.total-t.pass}倒`:'－';};
+            return `<tr><td>${idx+1}</td><td><b>${a}頭＋${b}頭</b></td><td style="color:#fda4af;font-weight:900;">${scoreText(x)}</td><td>${optText(x)}</td><td>${coldStat(10)}</td><td>${coldStat(20)}</td><td>${coldStat(30)}</td><td style="font-weight:900;color:${cold.bonus>0?'#86efac':cold.bonus<0?'#fca5a5':'#cbd5e1'}">${cold.bonus>0?'+':''}${cold.bonus}</td><td>${Number(rp.missingHeadDown10||0).toFixed(1)}次</td><td>${pass5.toFixed(1)}過${down5.toFixed(1)}倒</td><td><button type="button" class="btn btn-secondary head-pattern-pair-copy-btn" data-head-pattern-pair-copy-index="${idx}" style="width:auto;padding:6px 9px;font-size:12px;">複製${a}+${b}</button></td></tr>`;
           }).join('')}
         </tbody></table></div>
       </div>
