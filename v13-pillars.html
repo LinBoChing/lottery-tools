@@ -11867,6 +11867,81 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedPct(v) { return `${(Number(v || 0) * 100).toFixed(1)}%`; }
 
+  // 第五模式完整候選評分：四個單頭 + 推薦3六種雙頭。
+  // 僅負責顯示與複製，不改動任何推薦計分、排序或固定牌型。
+  function fixedBuildHeadPatternAllScoresHTML(recs) {
+    const heads = (recs && recs.ranked ? recs.ranked : []).slice();
+    const pairs = (recs && recs.pairCandidates ? recs.pairCandidates : []).slice();
+    if (!heads.length && !pairs.length) return '';
+
+    const scoreText = item => {
+      const rp = Number(item && item.recentPriority && item.recentPriority.recentPriorityScore);
+      return Number.isFinite(rp) ? rp.toFixed(1) : '－';
+    };
+    const optText = item => {
+      const v = Number(item && item.optimizedFinalScore);
+      return Number.isFinite(v) ? v.toFixed(1) : '－';
+    };
+
+    return `<details class="miss-review-box" open style="margin:12px 0;border-color:rgba(56,189,248,.55);">
+      <summary style="color:#7dd3fc;">第五模式｜完整候選分數與複製</summary>
+      <div class="miss-review-body">
+        <div class="db-mini" style="margin-bottom:9px;">排名主依據仍是目前第五模式公式；「近期優先分」就是近10缺頭倒70%＋近5倒率30%，再加本週結構倒加扣分。優化總分只在近期訊號接近時細排。</div>
+        <div style="font-weight:900;color:#fde68a;margin:6px 0;">0～3頭｜四種全部列出</div>
+        <div style="overflow-x:auto;"><table class="metrics" style="font-size:12px;"><thead><tr><th>排名</th><th>候選</th><th>近期優先分</th><th>優化總分</th><th>近10缺頭倒</th><th>近5過倒</th><th>操作</th></tr></thead><tbody>
+          ${heads.map((x, idx) => {
+            const rp=x.recentPriority||{};
+            const h=Number(x.item && x.item.headIndex);
+            return `<tr><td>${idx+1}</td><td><b>${h}頭</b></td><td style="color:#fda4af;font-weight:900;">${scoreText(x)}</td><td>${optText(x)}</td><td>${Number(rp.missingHeadDown10||0)}次</td><td>${Number(rp.pass5||0)}過${Number(rp.down5||0)}倒</td><td><button type="button" class="btn btn-secondary head-pattern-all-head-copy-btn" data-head-pattern-all-head-copy-index="${idx}" style="width:auto;padding:6px 9px;font-size:12px;">複製${h}頭</button></td></tr>`;
+          }).join('')}
+        </tbody></table></div>
+
+        <div style="font-weight:900;color:#fde68a;margin:14px 0 6px;">推薦3｜六種雙頭組合全部列出</div>
+        <div style="overflow-x:auto;"><table class="metrics" style="font-size:12px;"><thead><tr><th>排名</th><th>雙頭組合</th><th>近期優先分</th><th>優化總分</th><th>兩頭近10缺頭倒平均</th><th>兩頭近5過倒平均</th><th>操作</th></tr></thead><tbody>
+          ${pairs.map((x, idx) => {
+            const rp=x.recentPriority||{};
+            const a=Number(x.headA), b=Number(x.headB);
+            const pass5=Number(rp.pass5||0), down5=Number(rp.down5||0);
+            return `<tr><td>${idx+1}</td><td><b>${a}頭＋${b}頭</b></td><td style="color:#fda4af;font-weight:900;">${scoreText(x)}</td><td>${optText(x)}</td><td>${Number(rp.missingHeadDown10||0).toFixed(1)}次</td><td>${pass5.toFixed(1)}過${down5.toFixed(1)}倒</td><td><button type="button" class="btn btn-secondary head-pattern-pair-copy-btn" data-head-pattern-pair-copy-index="${idx}" style="width:auto;padding:6px 9px;font-size:12px;">複製${a}+${b}</button></td></tr>`;
+          }).join('')}
+        </tbody></table></div>
+      </div>
+    </details>`;
+  }
+
+  function fixedBindHeadPatternAllScoresCopy(recs) {
+    if (!dailyAgentResult) return;
+    const heads=(recs && recs.ranked ? recs.ranked : []);
+    const pairs=(recs && recs.pairCandidates ? recs.pairCandidates : []);
+    dailyAgentResult.querySelectorAll('[data-head-pattern-all-head-copy-index]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx=Number(btn.getAttribute('data-head-pattern-all-head-copy-index'));
+        const row=heads[idx];
+        const item=row && row.item;
+        if (!item || !Array.isArray(item.groups)) return;
+        const old=btn.textContent;
+        try {
+          await copyTextSmart(exportText(item.groups), `已複製第五模式 ${Number(item.headIndex)}頭完整立柱`);
+          btn.textContent='已複製';
+          setTimeout(()=>{btn.textContent=old;},1200);
+        } catch(e) { btn.textContent='複製失敗'; setTimeout(()=>{btn.textContent=old;},1500); }
+      });
+    });
+    dailyAgentResult.querySelectorAll('[data-head-pattern-pair-copy-index]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx=Number(btn.getAttribute('data-head-pattern-pair-copy-index'));
+        const item=pairs[idx];
+        if (!item || !Array.isArray(item.groups)) return;
+        const old=btn.textContent;
+        try {
+          await copyTextSmart(exportText(item.groups), `已複製第五模式 ${item.headA}頭＋${item.headB}頭雙頭立柱`);
+          btn.textContent='已複製';
+          setTimeout(()=>{btn.textContent=old;},1200);
+        } catch(e) { btn.textContent='複製失敗'; setTimeout(()=>{btn.textContent=old;},1500); }
+      });
+    });
+  }
+
   function fixedBuildHeadPatternRecommendationHTML(recs, draws) {
     const all = [].concat(recs && recs.topTwo || [], recs && recs.third ? [recs.third] : []);
     if (!all.length) return '<div class="fixed-warning">目前沒有足夠資料產生第五模式推薦。</div>';
@@ -11883,6 +11958,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         ${headModeText}<br>${thirdModeText}
       </div>
       ${fixedHeadStructuralReferenceHTML(draws)}
+      ${fixedBuildHeadPatternAllScoresHTML(recs)}
       <div class="fixed-two-grid" style="grid-template-columns:1fr;">
         ${all.map((item, idx) => {
           const g = item.groups || [];
@@ -12129,6 +12205,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <div class="fixed-five-wrap" style="padding:0 12px 12px;">${items.map((item, itemIndex) => fixedBuildHeadPatternCardHTML(item, draws, itemIndex)).join('')}</div>
       </details>`;
     fixedBindHeadPatternRecommendationCopy(recs);
+    fixedBindHeadPatternAllScoresCopy(recs);
     fixedBindHeadPatternMaintenanceCopy(items);
     fixedHeadPatternReminder(pack, draws);
   }
