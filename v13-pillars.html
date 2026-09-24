@@ -11733,6 +11733,53 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedPct(v) { return `${(Number(v || 0) * 100).toFixed(1)}%`; }
 
+  // 第五模式：顯示與實際推薦排序同源的完整候選分數，不重新計算或改變選號。
+  function fixedHeadPatternScoreBoardHTML(recs) {
+    const heads = (recs && recs.ranked || []);
+    const pairs = (recs && recs.pairCandidates || []);
+    const selectedHeads = new Set((recs && recs.topTwo || []).map(x => Number(x.headIndex)));
+    const selectedPair = recs && recs.third ? `${recs.third.headA}-${recs.third.headB}` : '';
+    function rowHTML(row, kind, idx) {
+      const item = kind === 'head' ? (row.item || row) : row;
+      const label = kind === 'head' ? `${item.headIndex}頭` : `${row.headA}頭＋${row.headB}頭`;
+      const selected = kind === 'head' ? selectedHeads.has(Number(item.headIndex)) : selectedPair === `${row.headA}-${row.headB}`;
+      const rp = row.recentPriority || {};
+      const opt = row.optimization || {};
+      const sw = row.structuralWeek || {};
+      const missing = kind === 'head'
+        ? `${Number(rp.missingHeadDown10 || 0)}次`
+        : `${row.headA}頭 ${Number(rp.a && rp.a.missingHeadDown10 || 0)}次／${row.headB}頭 ${Number(rp.b && rp.b.missingHeadDown10 || 0)}次`;
+      const down5 = kind === 'head'
+        ? `${Number(rp.pass5 || 0)}過${Number(rp.down5 || 0)}倒`
+        : `${row.headA}頭 ${Number(rp.a && rp.a.pass5 || 0)}過${Number(rp.a && rp.a.down5 || 0)}倒／${row.headB}頭 ${Number(rp.b && rp.b.pass5 || 0)}過${Number(rp.b && rp.b.down5 || 0)}倒`;
+      const score = Number(rp.recentPriorityScore || 0);
+      const optScore = Number(row.optimizedFinalScore);
+      const groups = item.groups || row.groups || [];
+      return `<div class="fixed-sub-card" style="padding:11px;${selected ? 'border-color:rgba(34,197,94,.68);' : ''}">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
+          <b style="color:${selected ? '#86efac' : '#f8fafc'};">${label}${selected ? '｜已推薦' : ''}</b>
+          <b style="color:#fcd34d;">近期優先分 ${score.toFixed(1)}</b>
+        </div>
+        <div class="db-mini" style="margin-top:5px;line-height:1.7;">
+          近10缺頭倒：${missing}｜近5：${down5}<br>
+          七期結構倒加扣：${Number(sw.weight || 0) > 0 ? '+' : ''}${Number(sw.weight || 0).toFixed(1)}｜優化總分：${Number.isFinite(optScore) ? optScore.toFixed(1) : '—'}<br>
+          ${groups.map(g => g.length).join('+')}｜原方案55%：${Number(opt.originalScore || 0).toFixed(1)}｜轉移15%：${Number(opt.transition && opt.transition.score || 0).toFixed(1)}｜排除7%：${Number(opt.exclude && opt.exclude.score || 0).toFixed(1)}｜延續8%：${Number(opt.extreme && opt.extreme.score || 0).toFixed(1)}｜滾動15%：${Number(opt.rollingScore || 0).toFixed(1)}
+        </div>
+        <button type="button" class="btn btn-secondary" data-head-pattern-score-copy="${kind}:${idx}" style="margin-top:8px;padding:9px 10px;font-size:13px;">複製${label}完整立柱</button>
+      </div>`;
+    }
+    return `<details class="miss-review-box" id="headPatternScoreBoard" style="margin-top:13px;" open>
+      <summary>第五模式｜各頭及推薦3六組完整評分</summary>
+      <div class="miss-review-body">
+        <div class="miss-review-note">依目前推薦流程的實際分數顯示：先比較近期優先分，分數相同才比較缺頭倒次數、近5倒率及優化總分。下方可複製未入選候選的完整立柱；此表不更動推薦結果。</div>
+        <div class="fixed-sub-title" style="margin-top:10px;">單頭候選｜0、1、2、3頭（依目前排序）</div>
+        <div style="display:grid;gap:8px;">${heads.map((r,i)=>rowHTML(r,'head',i)).join('')}</div>
+        <div class="fixed-sub-title" style="margin-top:14px;">推薦3候選｜六種雙頭組合（依目前排序）</div>
+        <div style="display:grid;gap:8px;">${pairs.map((r,i)=>rowHTML(r,'pair',i)).join('')}</div>
+      </div>
+    </details>`;
+  }
+
   function fixedBuildHeadPatternRecommendationHTML(recs, draws) {
     const all = [].concat(recs && recs.topTwo || [], recs && recs.third ? [recs.third] : []);
     if (!all.length) return '<div class="fixed-warning">目前沒有足夠資料產生第五模式推薦。</div>';
@@ -11810,6 +11857,7 @@ ${settleRecord.analysisLines.join('\n')}`;
           </div>`;
         }).join('')}
       </div>
+      ${fixedHeadPatternScoreBoardHTML(recs)}
       <div class="small-note" style="margin-top:10px;">第五模式優化：已取消百期硬門檻。0～3頭全部直接比較近期訊號：近10期完全未開該頭而倒佔70%最高權重，近5期過倒佔30%第二權重；最新期若也是缺頭倒另有小幅加成。若倒的那一期其實有開該頭，只因其餘號碼全單或全雙造成結構倒，該次不計入近10期缺頭加權；五碼全單或全雙亦不列入結構倒統計；另依本週是否發生該結構倒給予+6／−6分（缺日期則0分）。只有近期權重接近／相同時，才用原方案五與百期回補等資料細排。所有分析只改推薦順序，不會改固定牌支。</div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
@@ -11820,6 +11868,24 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedBindHeadPatternRecommendationCopy(recs) {
     if (!dailyAgentResult) return;
     const all = [].concat(recs && recs.topTwo || [], recs && recs.third ? [recs.third] : []);
+    // 候選清單的複製按鈕：使用同一次推薦計算結果，包含未入選的單頭與雙頭。
+    dailyAgentResult.querySelectorAll('[data-head-pattern-score-copy]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const [kind, rawIdx] = String(btn.dataset.headPatternScoreCopy || '').split(':');
+        const row = (kind === 'head' ? (recs.ranked || []) : (recs.pairCandidates || []))[Number(rawIdx)];
+        const item = kind === 'head' ? (row && (row.item || row)) : row;
+        if (!item || !Array.isArray(item.groups) || item.groups.length !== 3) return;
+        const label = kind === 'head' ? `${item.headIndex}頭` : `${item.headA}頭＋${item.headB}頭`;
+        const old = btn.textContent;
+        try {
+          await copyTextSmart(exportText(item.groups), `已複製第五模式${label}完整立柱`);
+          btn.textContent = '已複製';
+        } catch (e) {
+          btn.textContent = '複製失敗';
+        }
+        setTimeout(() => { btn.textContent = old; }, 1300);
+      });
+    });
     dailyAgentResult.querySelectorAll('[data-head-pattern-recommend-index]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const idx = Number(btn.getAttribute('data-head-pattern-recommend-index'));
