@@ -1642,7 +1642,7 @@
           <div class="db-row">
             <div><div class="field-label">彩種模式</div><select id="gameMode" class="db-select"><option value="539">539</option><option value="dayday">天天樂</option></select></div>
             <div><div class="field-label">生成立柱參考期數</div><select id="backtestLimit" class="db-select"><option value="50">50期</option><option value="100" selected>100期</option><option value="150">150期</option><option value="multi_50_100_150">50+100+150 同時生成</option><option value="200">200期</option><option value="250">250期</option><option value="300">300期</option><option value="all">全部</option></select></div>
-            <div><div class="field-label">新增日期 / 期別備註</div><input id="newDrawDate" class="db-input" placeholder="例：2026/04/27 或 114000001" /></div>
+            <div><div class="field-label">新增日期（留空則自動填入台灣當日；補登舊期可手動指定）</div><input id="newDrawDate" class="db-input" placeholder="自動填入；補登可輸入 YYYY/MM/DD" /></div>
             <div><div class="field-label">新增開獎號碼</div><input id="newDrawNums" class="db-input" placeholder="例：01 05 06 20 34（49彩種可貼6碼或7碼，特別號自動忽略）" /></div>
           </div>
           <div class="db-row-compact">
@@ -1661,7 +1661,7 @@
             <div class="db-chip">資料庫筆數：<b id="dbCount">0</b></div>
             <div class="db-chip">最新一期：<b id="dbLatest">尚無資料</b></div>
           </div>
-          <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
+          <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；首次開啟自動補齊舊資料日期，日後手動新增號碼時自動填日期（539 星期日除外）；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
           <div class="db-backup-area collapsed" id="dbBackupArea">
             <div class="db-backup-head" id="dbBackupHead">
               <div class="field-label">資料庫備份貼上區</div>
@@ -7268,6 +7268,76 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (nums.length !== need) return null;
     return { id: record.id || ('d_' + Date.now() + '_' + Math.random().toString(16).slice(2)), date: String(record.date || '').trim(), nums, createdAt: record.createdAt || Date.now() };
   }
+  // 日期使用台灣時間，不依賴手機所在時區；2026/09/24 為這份資料庫的初次對齊基準。
+  const DRAW_DATE_MIGRATION_KEY = 'pillar_draw_dates_v1_20260924_';
+  const DRAW_DATE_INITIAL_ANCHORS = {dayday:'2026/09/24', '539':'2026/09/23'};
+  function drawTaipeiToday() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone:'Asia/Taipei', year:'numeric', month:'2-digit', day:'2-digit'
+    }).formatToParts(new Date());
+    const v = Object.fromEntries(parts.map(x => [x.type, x.value]));
+    return `${v.year}/${v.month}/${v.day}`;
+  }
+  function drawDateObject(value) {
+    const m = String(value || '').trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+    if (!m) return null;
+    const d = new Date(Date.UTC(+m[1], +m[2]-1, +m[3], 12));
+    if (d.getUTCFullYear() !== +m[1] || d.getUTCMonth() !== +m[2]-1 || d.getUTCDate() !== +m[3]) return null;
+    return d;
+  }
+  function drawDateString(d) {
+    return `${d.getUTCFullYear()}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}`;
+  }
+  function drawAdjacentDate(dateText, mode, direction) {
+    const d = drawDateObject(dateText);
+    if (!d) return '';
+    do { d.setUTCDate(d.getUTCDate() + direction); }
+    while (mode === '539' && d.getUTCDay() === 0);
+    return drawDateString(d);
+  }
+  function drawLatestAllowedDate(mode) {
+    let today = drawTaipeiToday();
+    if (mode === '539' && drawDateObject(today).getUTCDay() === 0) today = drawAdjacentDate(today, mode, -1);
+    return today;
+  }
+  // 僅首次補上舊資料的空白日期；保留手動日期與其他彩種，不會每天重新排列舊資料。
+  function migrateDrawDatesOnce(mode) {
+    if (!['539','dayday'].includes(mode)) return;
+    const migrationKey = DRAW_DATE_MIGRATION_KEY + mode;
+    if (localStorage.getItem(migrationKey)) return;
+    const records = loadDrawDb(mode);
+    if (!records.length) return; // 空資料庫待下次匯入再處理
+    const original = localStorage.getItem(dbKey(mode));
+    const backupKey = migrationKey + '_original';
+    try {
+      if (original && !localStorage.getItem(backupKey)) localStorage.setItem(backupKey, original);
+      // 第一筆舊資料依使用者確認的 2026/09/24 最新期對齊，539 則對齊 09/23。
+      let cursor = drawDateObject(records[0].date) ? drawDateString(drawDateObject(records[0].date)) : DRAW_DATE_INITIAL_ANCHORS[mode];
+      let changed = false;
+      for (let i = 0; i < records.length; i++) {
+        const existingDate = drawDateObject(records[i].date);
+        if (existingDate) { cursor = drawAdjacentDate(drawDateString(existingDate), mode, -1); continue; }
+        if (!records[i].date) { records[i].date = cursor; changed = true; }
+        cursor = drawAdjacentDate(cursor, mode, -1);
+      }
+      if (changed) saveDrawDb(records, mode);
+      localStorage.setItem(migrationKey, '1');
+    } catch (err) { console.warn('日期補齊未完成，下次開啟可重試', err); }
+  }
+  function resolveNewDrawDate(mode, entered) {
+    const typed = String(entered || '').trim();
+    if (typed) return typed; // 日期備註為手動指定時不覆寫
+    const today = drawTaipeiToday();
+    if (mode === '539' && drawDateObject(today).getUTCDay() === 0) {
+      throw new Error('今天是星期日，539 沒有例行開獎。若要補登較早一期，請手動輸入該期日期。');
+    }
+    const latest = loadDrawDb(mode)[0];
+    const lastDate = latest && drawDateObject(latest.date);
+    if (lastDate && drawDateObject(today).getTime() <= lastDate.getTime()) {
+      throw new Error(`最新資料日期已是 ${latest.date}；無法自動判定新一期日期，請在日期欄手動指定。`);
+    }
+    return today;
+  }
   function loadDrawDb(mode = currentGameMode()) {
     try { const parsed = JSON.parse(localStorage.getItem(dbKey(mode)) || '[]'); return Array.isArray(parsed) ? parsed.map(r => normalizeDrawRecord(r, mode)).filter(Boolean) : []; } catch (err) { return []; }
   }
@@ -7768,7 +7838,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
-  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); addRecordToDb(nums, newDrawDate.value, modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
+  addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); addRecordToDb(nums, resolveNewDrawDate(modeBeforeAdd, newDrawDate.value), modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
 
   if (copyLatestXDrawsBtn) copyLatestXDrawsBtn.addEventListener('click', copyLatestXDraws);
@@ -7817,7 +7887,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     } catch (e) {}
   }
 
-  function initDrawDatabase() { installBuiltin49SeedDrawsOnce(); const savedMode = localStorage.getItem(DB_VERSION_KEY) || '539'; applyGameMode(savedMode); dbTableWrap.classList.toggle('open', dbExpanded); }
+  function initDrawDatabase() { installBuiltin49SeedDrawsOnce(); migrateDrawDatesOnce('dayday'); migrateDrawDatesOnce('539'); const savedMode = localStorage.getItem(DB_VERSION_KEY) || '539'; applyGameMode(savedMode); dbTableWrap.classList.toggle('open', dbExpanded); }
 
 
   function tagItemsWithBacktestLabel(items, sourceLabel = '') {
@@ -11733,53 +11803,6 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function fixedPct(v) { return `${(Number(v || 0) * 100).toFixed(1)}%`; }
 
-  // 第五模式：顯示與實際推薦排序同源的完整候選分數，不重新計算或改變選號。
-  function fixedHeadPatternScoreBoardHTML(recs) {
-    const heads = (recs && recs.ranked || []);
-    const pairs = (recs && recs.pairCandidates || []);
-    const selectedHeads = new Set((recs && recs.topTwo || []).map(x => Number(x.headIndex)));
-    const selectedPair = recs && recs.third ? `${recs.third.headA}-${recs.third.headB}` : '';
-    function rowHTML(row, kind, idx) {
-      const item = kind === 'head' ? (row.item || row) : row;
-      const label = kind === 'head' ? `${item.headIndex}頭` : `${row.headA}頭＋${row.headB}頭`;
-      const selected = kind === 'head' ? selectedHeads.has(Number(item.headIndex)) : selectedPair === `${row.headA}-${row.headB}`;
-      const rp = row.recentPriority || {};
-      const opt = row.optimization || {};
-      const sw = row.structuralWeek || {};
-      const missing = kind === 'head'
-        ? `${Number(rp.missingHeadDown10 || 0)}次`
-        : `${row.headA}頭 ${Number(rp.a && rp.a.missingHeadDown10 || 0)}次／${row.headB}頭 ${Number(rp.b && rp.b.missingHeadDown10 || 0)}次`;
-      const down5 = kind === 'head'
-        ? `${Number(rp.pass5 || 0)}過${Number(rp.down5 || 0)}倒`
-        : `${row.headA}頭 ${Number(rp.a && rp.a.pass5 || 0)}過${Number(rp.a && rp.a.down5 || 0)}倒／${row.headB}頭 ${Number(rp.b && rp.b.pass5 || 0)}過${Number(rp.b && rp.b.down5 || 0)}倒`;
-      const score = Number(rp.recentPriorityScore || 0);
-      const optScore = Number(row.optimizedFinalScore);
-      const groups = item.groups || row.groups || [];
-      return `<div class="fixed-sub-card" style="padding:11px;${selected ? 'border-color:rgba(34,197,94,.68);' : ''}">
-        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
-          <b style="color:${selected ? '#86efac' : '#f8fafc'};">${label}${selected ? '｜已推薦' : ''}</b>
-          <b style="color:#fcd34d;">近期優先分 ${score.toFixed(1)}</b>
-        </div>
-        <div class="db-mini" style="margin-top:5px;line-height:1.7;">
-          近10缺頭倒：${missing}｜近5：${down5}<br>
-          七期結構倒加扣：${Number(sw.weight || 0) > 0 ? '+' : ''}${Number(sw.weight || 0).toFixed(1)}｜優化總分：${Number.isFinite(optScore) ? optScore.toFixed(1) : '—'}<br>
-          ${groups.map(g => g.length).join('+')}｜原方案55%：${Number(opt.originalScore || 0).toFixed(1)}｜轉移15%：${Number(opt.transition && opt.transition.score || 0).toFixed(1)}｜排除7%：${Number(opt.exclude && opt.exclude.score || 0).toFixed(1)}｜延續8%：${Number(opt.extreme && opt.extreme.score || 0).toFixed(1)}｜滾動15%：${Number(opt.rollingScore || 0).toFixed(1)}
-        </div>
-        <button type="button" class="btn btn-secondary" data-head-pattern-score-copy="${kind}:${idx}" style="margin-top:8px;padding:9px 10px;font-size:13px;">複製${label}完整立柱</button>
-      </div>`;
-    }
-    return `<details class="miss-review-box" id="headPatternScoreBoard" style="margin-top:13px;" open>
-      <summary>第五模式｜各頭及推薦3六組完整評分</summary>
-      <div class="miss-review-body">
-        <div class="miss-review-note">依目前推薦流程的實際分數顯示：先比較近期優先分，分數相同才比較缺頭倒次數、近5倒率及優化總分。下方可複製未入選候選的完整立柱；此表不更動推薦結果。</div>
-        <div class="fixed-sub-title" style="margin-top:10px;">單頭候選｜0、1、2、3頭（依目前排序）</div>
-        <div style="display:grid;gap:8px;">${heads.map((r,i)=>rowHTML(r,'head',i)).join('')}</div>
-        <div class="fixed-sub-title" style="margin-top:14px;">推薦3候選｜六種雙頭組合（依目前排序）</div>
-        <div style="display:grid;gap:8px;">${pairs.map((r,i)=>rowHTML(r,'pair',i)).join('')}</div>
-      </div>
-    </details>`;
-  }
-
   function fixedBuildHeadPatternRecommendationHTML(recs, draws) {
     const all = [].concat(recs && recs.topTwo || [], recs && recs.third ? [recs.third] : []);
     if (!all.length) return '<div class="fixed-warning">目前沒有足夠資料產生第五模式推薦。</div>';
@@ -11857,7 +11880,6 @@ ${settleRecord.analysisLines.join('\n')}`;
           </div>`;
         }).join('')}
       </div>
-      ${fixedHeadPatternScoreBoardHTML(recs)}
       <div class="small-note" style="margin-top:10px;">第五模式優化：已取消百期硬門檻。0～3頭全部直接比較近期訊號：近10期完全未開該頭而倒佔70%最高權重，近5期過倒佔30%第二權重；最新期若也是缺頭倒另有小幅加成。若倒的那一期其實有開該頭，只因其餘號碼全單或全雙造成結構倒，該次不計入近10期缺頭加權；五碼全單或全雙亦不列入結構倒統計；另依本週是否發生該結構倒給予+6／−6分（缺日期則0分）。只有近期權重接近／相同時，才用原方案五與百期回補等資料細排。所有分析只改推薦順序，不會改固定牌支。</div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
@@ -11868,24 +11890,6 @@ ${settleRecord.analysisLines.join('\n')}`;
   function fixedBindHeadPatternRecommendationCopy(recs) {
     if (!dailyAgentResult) return;
     const all = [].concat(recs && recs.topTwo || [], recs && recs.third ? [recs.third] : []);
-    // 候選清單的複製按鈕：使用同一次推薦計算結果，包含未入選的單頭與雙頭。
-    dailyAgentResult.querySelectorAll('[data-head-pattern-score-copy]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const [kind, rawIdx] = String(btn.dataset.headPatternScoreCopy || '').split(':');
-        const row = (kind === 'head' ? (recs.ranked || []) : (recs.pairCandidates || []))[Number(rawIdx)];
-        const item = kind === 'head' ? (row && (row.item || row)) : row;
-        if (!item || !Array.isArray(item.groups) || item.groups.length !== 3) return;
-        const label = kind === 'head' ? `${item.headIndex}頭` : `${item.headA}頭＋${item.headB}頭`;
-        const old = btn.textContent;
-        try {
-          await copyTextSmart(exportText(item.groups), `已複製第五模式${label}完整立柱`);
-          btn.textContent = '已複製';
-        } catch (e) {
-          btn.textContent = '複製失敗';
-        }
-        setTimeout(() => { btn.textContent = old; }, 1300);
-      });
-    });
     dailyAgentResult.querySelectorAll('[data-head-pattern-recommend-index]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const idx = Number(btn.getAttribute('data-head-pattern-recommend-index'));
