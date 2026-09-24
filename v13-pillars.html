@@ -1656,6 +1656,8 @@
           </div>
 
           <div class="db-mini" style="margin-top:10px;padding:10px 12px;border:1px solid rgba(56,189,248,.35);border-radius:12px;background:rgba(2,6,23,.55);color:#cbd5e1;">已改為手動新增開獎號碼：539／天天樂不再自動抓號、不再定時檢查。請使用上方「新增到資料庫最上方」。</div>
+          <div class="db-mini" style="margin-top:9px;color:#fde68a;">歷史缺期修復：先按「展開資料庫檢查」，找到缺少紀錄原本應在的位置，再按該列的「在此筆前插入」。即使該日期已被其他號碼占用，也會插入一筆並向後重排日期。請先備份，且與官方開獎紀錄核對。</div>
+          <div class="db-actions" style="margin-top:8px;"><button class="btn btn-secondary" id="downloadDbRepairBackupBtn" type="button">下載含日期完整備份（修復前請先按）</button></div>
           <div class="db-summary">
             <div class="db-chip">目前彩種：<b id="dbGameLabel">539</b></div>
             <div class="db-chip">資料庫筆數：<b id="dbCount">0</b></div>
@@ -7530,7 +7532,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         <td>${idx + 1}</td>
         <td><input class="db-date-input" value="${escapeHtml(record.date || '')}" placeholder="日期/期別"></td>
         <td><input class="draw-edit-input db-nums-input" value="${formatNums(record.nums)}" placeholder="01 02 03 04 05 / 49彩種6碼"></td>
-        <td><div class="db-actions" style="justify-content:center;"><button class="btn btn-danger save-db-row-btn" type="button" data-index="${idx}">儲存</button><button class="btn btn-dark move-db-top-btn" type="button" data-index="${idx}">置頂</button><button class="btn btn-dark delete-db-row-btn" type="button" data-index="${idx}">刪除</button></div></td>
+        <td><div class="db-actions" style="justify-content:center;"><button class="btn btn-secondary insert-db-before-btn" type="button" data-index="${idx}">在此筆前插入</button><button class="btn btn-danger save-db-row-btn" type="button" data-index="${idx}">儲存</button><button class="btn btn-dark move-db-top-btn" type="button" data-index="${idx}">置頂</button><button class="btn btn-dark delete-db-row-btn" type="button" data-index="${idx}">刪除</button></div></td>
       </tr>`).join('');
   }
 
@@ -7859,10 +7861,72 @@ ${settleRecord.analysisLines.join('\n')}`;
     log('已清理舊暫存並重建天天樂/福運舊快取；開獎資料庫、盈虧、記憶庫已保留。');
     renderDrawDb();
   });
+  // 歷史缺期修復：只移動當前彩種、指定位置之後的日期；不修改任何舊開獎號碼。
+  const downloadDbRepairBackupBtn = document.getElementById('downloadDbRepairBackupBtn');
+  if (downloadDbRepairBackupBtn) downloadDbRepairBackupBtn.addEventListener('click', () => {
+    const mode = currentGameMode();
+    const payload = {game:mode, exportedAt:new Date().toISOString(), records:loadDrawDb(mode)};
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `福運長紅_${mode}_含日期完整備份_${drawTaipeiToday().replace(/\//g,'-')}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  });
+  function repairInsertDrawBefore(index) {
+    const mode = currentGameMode();
+    const original = loadDrawDb(mode);
+    if (!Number.isInteger(index) || index < 0 || index >= original.length) return;
+    const at = original[index];
+    const upper = index ? original[index-1] : null;
+    const date = upper && drawDateObject(upper.date)
+      ? drawAdjacentDate(upper.date, mode, -1)
+      : (drawDateObject(at.date) ? (index === 0 ? drawAdjacentDate(at.date, mode, 1) : drawDateString(drawDateObject(at.date))) : '');
+    if (!date) { alert('相鄰紀錄缺少有效日期，無法安全推算插入位置。請先核對並修正相鄰日期。'); return; }
+    if (mode === '539' && drawDateObject(date).getUTCDay() === 0) { alert('539 不會排入星期日，請先核對日期。'); return; }
+    const message = `將在第 ${index+1} 筆之前插入新開獎紀錄。\n預計補入日期：${date}\n原本第 ${index+1} 筆：${at.date}｜${formatNums(at.nums)}\n\n請輸入缺少該期的 5 個開獎號碼（例：01 05 12 23 35）：`;
+    const entered = prompt(message, '');
+    if (entered === null) return;
+    const nums = parseDrawLineSmart(entered);
+    if (!nums) { alert('號碼格式錯誤：請輸入五個不同的 01～39 號碼。'); return; }
+    const newKey = nums.slice().sort((a,b)=>a-b).join(',');
+    if (original[index] && original[index].nums.slice().sort((a,b)=>a-b).join(',') === newKey) {
+      alert('輸入的號碼與這一筆完全相同，請核對是否真的缺期；本次不插入。'); return;
+    }
+    const expectedCount = original.length+1;
+    const changeCount = original.length-index;
+    if (!confirm(`確認補入 ${gameLabel(mode)} ${date}：${formatNums(nums)}？\n\n這是插入新紀錄，不會覆蓋目前同日期的舊號碼。原本第 ${index+1} 筆起往後移一筆，並以相鄰日期重新推算後續 ${changeCount} 筆日期（539 跳過星期日）。\n\n注意：日期僅為按順序推算，若其他位置仍缺期，較早日期仍可能不正確。請先下載完整備份，並逐段對照真實開獎紀錄。`)) return;
+    // 原始 JSON 保留於獨立的修復快照，不調用「百期純號碼備份」（後者不保留日期）。
+    const backupKey = 'pillar_db_repair_backup_v1_' + mode;
+    try { localStorage.setItem(backupKey, JSON.stringify({savedAt:new Date().toISOString(), records:original})); }
+    catch (err) { alert('無法建立修復前安全備份（儲存空間可能不足）；請先下載含日期完整備份後再操作。'); return; }
+    const next = original.map(r => ({...r, nums:r.nums.slice()}));
+    next.splice(index,0,{id:'repair_'+Date.now(), date, nums, createdAt:Date.now()});
+    let cursor = date;
+    for (let i=index+1;i<next.length;i++) {
+      cursor = drawAdjacentDate(cursor, mode, -1);
+      next[i].date = cursor;
+    }
+    try {
+      saveDrawDb(next,mode);
+      const saved = loadDrawDb(mode);
+      if (saved.length !== expectedCount) {
+        // 儲存空間不足可能觸發舊程式「只保留300期」分支，恢復原資料。
+        try {localStorage.setItem(dbKey(mode),JSON.stringify(original));} catch(e){}
+        throw new Error('儲存後總筆數不符，已嘗試還原；請先下載備份、釋放空間後再補登。');
+      }
+      syncDbToTextarea(); renderDrawDb();
+      if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats();
+      if (typeof renderMemoryDb === 'function') renderMemoryDb();
+      log(`已在第 ${index+1} 筆前補入 ${gameLabel(mode)} ${date}：${formatNums(nums)}；後續日期已重新推算。`);
+      alert(`插入成功！現有 ${saved.length} 筆。\n\n請核對插入前後各 2～3 期與最舊日期；如其他位置也有缺期，必須再逐筆修復。`);
+    } catch(err) { alert('修復未完成：'+(err.message||err)); }
+  }
   dbTableBody.addEventListener('click', (e) => {
     const btn = e.target.closest('button'); if (!btn) return;
     const index = Number(btn.dataset.index); const records = loadDrawDb(); if (!Number.isInteger(index) || index < 0 || index >= records.length) return;
     const row = btn.closest('tr');
+    if (btn.classList.contains('insert-db-before-btn')) { repairInsertDrawBefore(index); return; }
     if (btn.classList.contains('save-db-row-btn')) { const nums = parseDrawLineSmart(row.querySelector('.db-nums-input').value); if (!nums) { alert(`此筆號碼格式不正確，請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 且不可重複；49彩種第7碼特別號會自動忽略。`); return; } records[index].date = row.querySelector('.db-date-input').value.trim(); records[index].nums = nums; saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已儲存第 ${index + 1} 筆資料。`); }
     if (btn.classList.contains('move-db-top-btn')) { const [item] = records.splice(index, 1); records.unshift(item); saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已將第 ${index + 1} 筆移到最新一期位置。`); }
     if (btn.classList.contains('delete-db-row-btn')) { if (!confirm(`確定刪除第 ${index + 1} 筆嗎？`)) return; records.splice(index, 1); saveDrawDb(records); syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已刪除第 ${index + 1} 筆資料。`); }
