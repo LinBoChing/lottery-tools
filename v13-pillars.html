@@ -1543,6 +1543,26 @@
   .t0-auto-search-actions{grid-template-columns:1fr;}
 }
 
+
+/* 每日過熱五支｜539 / 天天樂獨立計算 */
+.hot5-panel{margin-top:12px;padding:12px;border:1px solid rgba(245,158,11,.55);border-radius:14px;background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(239,68,68,.08));}
+.hot5-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.hot5-title{font-size:17px;font-weight:1000;color:#fde68a;}
+.hot5-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.hot5-card{background:#020617;border:1px solid rgba(245,158,11,.32);border-radius:12px;padding:10px;min-width:0;}
+.hot5-card-title{font-weight:1000;color:#fca5a5;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;}
+.hot5-main{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px;}
+.hot5-num{display:inline-flex;align-items:center;justify-content:center;min-width:40px;padding:7px 9px;border-radius:999px;background:rgba(239,68,68,.18);border:1px solid rgba(248,113,113,.60);color:#fff7ed;font-size:17px;font-weight:1000;}
+.hot5-detail{font-size:12px;color:#cbd5e1;line-height:1.65;overflow-x:auto;}
+.hot5-detail-row{padding:5px 0;border-top:1px solid rgba(51,65,85,.62);white-space:nowrap;}
+.hot5-detail-row:first-child{border-top:none;}
+.hot5-rank{color:#fde68a;font-weight:1000;display:inline-block;min-width:36px;}
+.hot5-score{color:#fca5a5;font-weight:900;}
+.hot5-ok{color:#86efac;font-weight:900;}
+.hot5-fallback{color:#fde68a;font-weight:900;}
+.hot5-note{margin-top:8px;color:#94a3b8;font-size:12px;line-height:1.55;}
+@media(max-width:768px){.hot5-grid{grid-template-columns:1fr;}.hot5-num{font-size:16px;min-width:38px;padding:6px 8px;}}
+
 </style>
 </head>
 <body>
@@ -1663,6 +1683,26 @@
             <div class="db-chip">資料庫筆數：<b id="dbCount">0</b></div>
             <div class="db-chip">最新一期：<b id="dbLatest">尚無資料</b></div>
           </div>
+          <div class="hot5-panel" id="dailyHot5Panel">
+            <div class="hot5-head">
+              <div class="hot5-title">🔥 每日過熱五支</div>
+              <button class="btn btn-dark" id="refreshDailyHot5Btn" type="button" style="width:auto;padding:7px 10px;font-size:12px;">重新計算</button>
+            </div>
+            <div class="hot5-grid">
+              <div class="hot5-card">
+                <div class="hot5-card-title"><span>天天樂</span><span id="hot5DaydayMeta" class="db-mini"></span></div>
+                <div id="hot5DaydayMain" class="hot5-main"><span class="db-mini">等待資料</span></div>
+                <div id="hot5DaydayDetail" class="hot5-detail"></div>
+              </div>
+              <div class="hot5-card">
+                <div class="hot5-card-title"><span>539</span><span id="hot5539Meta" class="db-mini"></span></div>
+                <div id="hot5539Main" class="hot5-main"><span class="db-mini">等待資料</span></div>
+                <div id="hot5539Detail" class="hot5-detail"></div>
+              </div>
+            </div>
+            <div class="hot5-note">固定算法：近3／5／8／12／20期＝10／25／30／25／10%。核心穩定確認採近5、8、12期，至少2個區間達理論值1.5倍；只做過熱排名，不影響任何選號模式或推薦權重。</div>
+          </div>
+
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；首次開啟自動補齊舊資料日期，日後手動新增號碼時自動填日期（539 星期日除外）；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
           <div class="db-backup-area collapsed" id="dbBackupArea">
             <div class="db-backup-head" id="dbBackupHead">
@@ -7518,6 +7558,76 @@ ${settleRecord.analysisLines.join('\n')}`;
     return out;
   }
 
+
+
+  // 每日過熱五支：只讀539 / 天天樂各自資料庫，不寫入任何推薦權重。
+  const HOT5_WINDOWS = [
+    { size:3, weight:0.10 },
+    { size:5, weight:0.25 },
+    { size:8, weight:0.30 },
+    { size:12, weight:0.25 },
+    { size:20, weight:0.10 }
+  ];
+  const HOT5_THEORY_P = 5 / 39;
+
+  function calcDailyHot5ForMode(mode) {
+    const records = loadDrawDb(mode);
+    const draws = records.slice(0, 20).map(r => Array.isArray(r.nums) ? r.nums.map(Number) : []).filter(r => r.length === 5);
+    if (draws.length < 12) return { mode, draws:draws.length, top:[], insufficient:true };
+    const maxWindow = Math.min(20, draws.length);
+    const rows = [];
+    for (let n = 1; n <= 39; n++) {
+      const counts = {};
+      let weightedRatio = 0;
+      HOT5_WINDOWS.forEach(w => {
+        const actualSize = Math.min(w.size, draws.length);
+        const count = draws.slice(0, actualSize).reduce((sum, d) => sum + (d.includes(n) ? 1 : 0), 0);
+        const expected = actualSize * HOT5_THEORY_P;
+        const ratio = expected > 0 ? count / expected : 0;
+        counts[w.size] = count;
+        // 上限4倍，避免極短區間單一爆發壓過5/8/12期的穩定訊號。
+        weightedRatio += Math.min(ratio, 4) * w.weight;
+      });
+      const corePass = [5,8,12].reduce((sum, size) => {
+        const actualSize = Math.min(size, draws.length);
+        const expected = actualSize * HOT5_THEORY_P;
+        return sum + ((counts[size] || 0) >= expected * 1.5 ? 1 : 0);
+      }, 0);
+      rows.push({ n, counts, score: weightedRatio * 100, corePass, qualified: corePass >= 2 });
+    }
+    rows.sort((a,b) => (b.qualified - a.qualified) || (b.score - a.score) || (b.corePass - a.corePass) || (a.n - b.n));
+    return { mode, draws:maxWindow, top:rows.slice(0,5), qualifiedCount:rows.filter(x=>x.qualified).length, insufficient:false };
+  }
+
+  function renderOneDailyHot5(mode, mainId, detailId, metaId) {
+    const main = document.getElementById(mainId);
+    const detail = document.getElementById(detailId);
+    const meta = document.getElementById(metaId);
+    if (!main || !detail) return;
+    const result = calcDailyHot5ForMode(mode);
+    if (result.insufficient) {
+      main.innerHTML = '<span class="db-mini">至少需要12期資料才能做穩定過熱判定。</span>';
+      detail.innerHTML = '';
+      if (meta) meta.textContent = `目前 ${result.draws} 期`;
+      return;
+    }
+    main.innerHTML = result.top.map(x => `<span class="hot5-num">${String(x.n).padStart(2,'0')}</span>`).join('');
+    detail.innerHTML = result.top.map((x, idx) => `
+      <div class="hot5-detail-row">
+        <span class="hot5-rank">#${idx+1}</span>
+        <b>${String(x.n).padStart(2,'0')}</b>｜過熱指數 <span class="hot5-score">${x.score.toFixed(1)}</span>｜
+        3期${x.counts[3]}・5期${x.counts[5]}・8期${x.counts[8]}・12期${x.counts[12]}・20期${x.counts[20]}｜
+        <span class="${x.qualified ? 'hot5-ok' : 'hot5-fallback'}">穩定確認 ${x.corePass}/3${x.qualified ? ' ✓' : '（候補）'}</span>
+      </div>`).join('');
+    if (meta) meta.textContent = `最新${result.draws}期｜合格${result.qualifiedCount}支`;
+  }
+
+  function renderDailyHot5() {
+    renderOneDailyHot5('dayday', 'hot5DaydayMain', 'hot5DaydayDetail', 'hot5DaydayMeta');
+    renderOneDailyHot5('539', 'hot5539Main', 'hot5539Detail', 'hot5539Meta');
+  }
+
+
   function renderDrawDb() {
     const mode = currentGameMode();
     const records = loadDrawDb(mode);
@@ -7526,6 +7636,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     dbLatest.textContent = records.length ? formatDrawLine(records[0]) : '尚無資料';
     if (ballRangeLabel) ballRangeLabel.textContent = `01 ~ ${getBallMax(mode)}`;
     countDraws.textContent = getBacktestDraws().length;
+    if (typeof renderDailyHot5 === 'function') renderDailyHot5();
     if (!records.length) { dbTableBody.innerHTML = '<tr><td colspan="4">尚無資料。可以先貼在下方欄位，再按「匯入目前彩種」。</td></tr>'; return; }
     dbTableBody.innerHTML = records.map((record, idx) => `
       <tr data-db-index="${idx}">
@@ -7839,6 +7950,8 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
   gameMode.addEventListener('change', () => { applyGameMode(gameMode.value); setTimeout(caishenRenderSelfTuneProfileSelect, 30); });
+  const refreshDailyHot5Btn = document.getElementById('refreshDailyHot5Btn');
+  if (refreshDailyHot5Btn) refreshDailyHot5Btn.addEventListener('click', renderDailyHot5);
   backtestLimit.addEventListener('change', () => { countDraws.textContent = getBacktestDraws().length; if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已切換生成立柱參考期數：${getBacktestLimitLabel()}，目前判斷基準可用 ${getBacktestDraws().length} 期。`); });
   addDrawBtn.addEventListener('click', () => { try { const nums = parseDrawLineSmart(newDrawNums.value); if (!nums) throw new Error(`請輸入 ${getDrawPickCount()} 個 01~${getBallMax()} 的號碼；49彩種可貼7碼，會自動忽略特別號。`); const modeBeforeAdd = currentGameMode(); fixedArchiveNewDrawBeforeInsert(modeBeforeAdd, nums); addRecordToDb(nums, resolveNewDrawDate(modeBeforeAdd, newDrawDate.value), modeBeforeAdd, true); newDrawNums.value = ''; newDrawDate.value = ''; syncDbToTextarea(); renderDrawDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); log(`已新增 ${gameLabel(currentGameMode())} 最新一期：${formatNums(nums)}。`); } catch (err) { alert(err.message); } });
   importPasteBtn.addEventListener('click', () => { importTextareaToCurrentDb(); if (typeof refreshMemoryDbStats === 'function') refreshMemoryDbStats(); if (typeof renderMemoryDb === 'function') renderMemoryDb(); });
