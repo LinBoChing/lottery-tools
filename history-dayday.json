@@ -1,8 +1,20 @@
 {
   "game": "dayday",
-  "updated_at": "2026-09-26T23:37:24+00:00",
-  "count": 58,
+  "updated_at": "2026-09-27T06:36:03+00:00",
+  "count": 59,
   "draws": [
+    {
+      "date": "2026/09/27",
+      "issue": "12012",
+      "nums": [
+        1,
+        6,
+        7,
+        11,
+        26
+      ],
+      "source": "https://sc888.net/index.php?s=/LotteryFan/index"
+    },
     {
       "date": "2026/09/26",
       "issue": "12011",
