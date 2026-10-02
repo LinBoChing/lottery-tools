@@ -12159,6 +12159,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
       </div>
+      <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;">
+        ${all.map((item,idx) => `<button class="btn btn-dark head-pattern-recommend-hot5-copy-btn" data-head-pattern-recommend-hot5-index="${idx}" type="button">複製推薦${idx+1}（扣過熱5支）</button>`).join('')}
+      </div>
+      <div class="small-note" style="margin-top:6px;color:#fcd34d;">第二排按鈕會將當日「過熱五支」從該推薦立柱的各柱中直接移除；不改變原推薦1／2／3內容與排名。</div>
     </div>`;
   }
 
@@ -12173,6 +12177,30 @@ ${settleRecord.analysisLines.join('\n')}`;
         const old = btn.textContent;
         try {
           await copyTextSmart(exportText(item.groups), `已複製第五模式推薦${idx + 1}`);
+          btn.textContent = '已複製';
+          setTimeout(() => { btn.textContent = old; }, 1200);
+        } catch (e) {
+          btn.textContent = '複製失敗';
+          setTimeout(() => { btn.textContent = old; }, 1500);
+        }
+      });
+    });
+
+    dailyAgentResult.querySelectorAll('[data-head-pattern-recommend-hot5-index]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = Number(btn.getAttribute('data-head-pattern-recommend-hot5-index'));
+        const item = all[idx];
+        if (!item || !Array.isArray(item.groups)) return;
+        const old = btn.textContent;
+        try {
+          const hot5Result = calcDailyHot5ForMode(currentGameMode());
+          const hot5 = new Set((hot5Result && hot5Result.top || []).map(x => Number(x.n)));
+          if (hot5.size < 5) {
+            alert('目前資料不足，尚未能取得完整過熱五支。');
+            return;
+          }
+          const filteredGroups = item.groups.map(group => (Array.isArray(group) ? group : []).filter(n => !hot5.has(Number(n))));
+          await copyTextSmart(exportText(filteredGroups), `已複製第五模式推薦${idx + 1}（扣除過熱五支）`);
           btn.textContent = '已複製';
           setTimeout(() => { btn.textContent = old; }, 1200);
         } catch (e) {
