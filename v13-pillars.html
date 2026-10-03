@@ -546,6 +546,19 @@
     .weekly-profit { color: #86efac; }
     .weekly-loss { color: #fca5a5; }
     .weekly-zero { color: #cbd5e1; }
+    .hot5-check-wrap{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;}
+    .hot5-check-btn{width:auto!important;min-width:38px;min-height:34px!important;padding:5px 9px!important;border-radius:9px!important;font-size:16px!important;font-weight:1000!important;}
+    .hot5-check-pass{background:rgba(34,197,94,.18)!important;border:1px solid rgba(34,197,94,.65)!important;color:#86efac!important;}
+    .hot5-check-fail{background:rgba(239,68,68,.18)!important;border:1px solid rgba(239,68,68,.65)!important;color:#fca5a5!important;}
+    .hot5-check-clear{background:#334155!important;color:#cbd5e1!important;border:1px solid #475569!important;}
+    .hot5-check-status{font-size:12px;font-weight:900;min-width:34px;}
+    .hot5-check-status.pass{color:#86efac}.hot5-check-status.fail{color:#fca5a5}.hot5-check-status.empty{color:#94a3b8}
+    .hot5-rate-panel{margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+    .hot5-rate-box{background:#0b1220;border:1px solid rgba(245,158,11,.38);border-radius:12px;padding:10px 12px;color:#cbd5e1;font-size:13px;line-height:1.6;}
+    .hot5-rate-title{font-weight:900;color:#fcd34d;margin-bottom:3px;}
+    .hot5-rate-main{font-size:17px;font-weight:1000;color:#f8fafc;}
+    .hot5-rate-note{color:#94a3b8;font-size:12px;margin-top:3px;}
+    @media(max-width:768px){.hot5-rate-panel{grid-template-columns:1fr}.hot5-check-btn{min-width:36px!important;}}
     .weekly-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
     .weekly-summary-box { background: #0b1220; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; color: #cbd5e1; font-size: 14px; }
     .weekly-summary-box b { font-size: 18px; }
@@ -559,6 +572,26 @@
     .weekly-actions .btn { width: auto; }
     .weekly-input-panel { display: none; margin-top: 10px; }
     .weekly-input-panel.open { display: block; }
+    .hot5-tracking-panel{margin-top:10px;padding:12px;border:1px solid #334155;border-radius:14px;background:rgba(15,23,42,.72);}
+    .hot5-tracking-title{font-size:17px;font-weight:1000;color:#e2e8f0;margin-bottom:4px;}
+    .hot5-tracking-note{font-size:12px;color:#94a3b8;line-height:1.5;margin-bottom:10px;}
+    .hot5-tracking-grid{display:grid;gap:7px;}
+    .hot5-tracking-row{display:grid;grid-template-columns:78px minmax(0,1fr) minmax(0,1fr);gap:7px;align-items:center;padding:7px 0;border-top:1px solid rgba(51,65,85,.55);}
+    .hot5-tracking-head{display:grid;grid-template-columns:78px minmax(0,1fr) minmax(0,1fr);gap:7px;align-items:center;padding:0 0 6px;color:#94a3b8;font-size:12px;font-weight:900;}
+    .hot5-day-label{font-weight:900;color:#cbd5e1;font-size:13px;}
+    .hot5-track-cell{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;}
+    .hot5-track-status{font-size:12px;font-weight:900;min-width:30px;text-align:center;}
+    .hot5-track-status.pass{color:#86efac}.hot5-track-status.fail{color:#fca5a5}.hot5-track-status.empty{color:#94a3b8}
+    .hot5-today-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .hot5-today-card{padding:10px;border:1px solid #334155;border-radius:10px;background:#0b1222;}
+    .hot5-today-label{font-size:13px;font-weight:1000;color:#cbd5e1;margin-bottom:5px;text-align:center;}
+    .hot5-weekly-panel{margin-top:0;margin-bottom:10px;}
+    .hot5-weekly-panel .hot5-tracking-note{margin-bottom:8px;}
+    .hot5-tracking-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px;}
+    .hot5-tracking-stat{padding:9px 10px;border:1px solid #334155;border-radius:10px;background:#0b1222;}
+    .hot5-tracking-stat-title{font-size:12px;color:#94a3b8;margin-bottom:3px;}
+    .hot5-tracking-stat-main{font-size:14px;font-weight:1000;color:#e2e8f0;}
+    @media(max-width:768px){.hot5-tracking-head,.hot5-tracking-row{grid-template-columns:68px minmax(0,1fr) minmax(0,1fr);}.hot5-tracking-stats{grid-template-columns:1fr}.hot5-tracking-panel .hot5-check-btn{min-width:32px!important;padding:4px 7px!important;font-size:15px!important;}}
     .weekly-today-note { color:#fcd34d; font-size:13px; line-height:1.6; margin:8px 0 10px; font-weight:800; }
     .weekly-hidden-row { display:none; }
     .weekly-table-wrap.weekly-today-only tbody tr:not(.weekly-today-row) { display:none; }
@@ -1608,7 +1641,25 @@
         <button class="btn btn-secondary" id="copyWeeklyLineReportBtn" type="button">複製當週損益報表</button>
         <button class="btn btn-dark" id="clearWeeklyCalcBtn" type="button">清除試算表</button>
       </div>
+      <div class="hot5-tracking-panel hot5-today-panel">
+        <div class="hot5-tracking-title">🔥 今日過熱五支｜長期累積</div>
+        <div class="hot5-tracking-note">只顯示今天。開獎後按「✓」＝過（5支過熱號碼全部沒開）、按「✕」＝沒過（至少1支過熱號碼開出）。「↺」可清除今天紀錄。統計會長期累積，不會隨每週更新或清除損益表重置。</div>
+        <div class="hot5-today-row">
+          <div class="hot5-today-card"><div class="hot5-today-label">天天樂</div><div id="hot5TodayDayday"></div></div>
+          <div class="hot5-today-card"><div class="hot5-today-label">539</div><div id="hot5Today539"></div></div>
+        </div>
+        <div class="hot5-tracking-stats">
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂累積</div><div class="hot5-tracking-stat-main" id="hot5RateDayday">尚無紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539">尚無紀錄</div></div>
+        </div>
+      </div>
       <div class="weekly-input-panel" id="weeklyInputPanel">
+        <div class="hot5-tracking-panel hot5-weekly-panel">
+          <div class="hot5-tracking-title">🔥 過熱五支｜整週補登／修改</div>
+          <div class="hot5-tracking-note">平常只看今天；需要補登或修改過去幾天時，按上方「展開整週明細」即可在這裡逐日補改。資料仍會長期累積。</div>
+          <div class="hot5-tracking-head"><div>日期</div><div style="text-align:center">天天樂</div><div style="text-align:center">539</div></div>
+          <div class="hot5-tracking-grid" id="hot5TrackingBody"></div>
+        </div>
         <div class="weekly-today-note" id="weeklyTodayNote">整週明細預設收起。</div>
 
 
@@ -1652,6 +1703,7 @@
             </tfoot>
           </table>
         </div>
+
       </div>
     </div>
 
@@ -2011,6 +2063,9 @@
   const weeklyInputPanel = document.getElementById('weeklyInputPanel');
   const weeklyTableWrap = document.getElementById('weeklyTableWrap');
   const weeklyTodayNote = document.getElementById('weeklyTodayNote');
+  const hot5TrackingBody = document.getElementById('hot5TrackingBody');
+  const hot5TodayDayday = document.getElementById('hot5TodayDayday');
+  const hot5Today539 = document.getElementById('hot5Today539');
   const toggleWeeklyAllBtn = document.getElementById('toggleWeeklyAllBtn');
   const dbBackupArea = document.getElementById('dbBackupArea');
   const dbBackupHead = document.getElementById('dbBackupHead');
@@ -2022,6 +2077,82 @@
   let weeklyShowAll = false;
 
   const WEEKLY_HISTORY_STORAGE_KEY = 'weekly_profit_history_by_date_v2';
+  const HOT5_DAILY_RESULT_STORAGE_KEY = 'hot5_daily_result_v1';
+
+  function loadHot5DailyResults() {
+    try {
+      const raw = localStorage.getItem(HOT5_DAILY_RESULT_STORAGE_KEY);
+      const data = raw ? JSON.parse(raw) : {};
+      return (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
+    } catch (e) { return {}; }
+  }
+  function saveHot5DailyResults(data) {
+    try { localStorage.setItem(HOT5_DAILY_RESULT_STORAGE_KEY, JSON.stringify(data || {})); } catch (e) {}
+  }
+  function hot5DateKeyForWeeklyIndex(idx) {
+    const d = typeof getDateForWeeklyIndex === 'function' ? getDateForWeeklyIndex(idx) : new Date();
+    return dateKeyFromDate(d);
+  }
+  function getHot5Stats(mode) {
+    const all = loadHot5DailyResults();
+    const rows = Object.keys(all).map(date => ({date, value: all[date]?.[mode]}))
+      .filter(x => x.value === true || x.value === false)
+      .sort((a,b) => a.date.localeCompare(b.date));
+    const pass = rows.filter(x => x.value === true).length;
+    const fail = rows.filter(x => x.value === false).length;
+    const total = pass + fail;
+    return { rows, pass, fail, total, rate: total ? (pass / total * 100) : 0 };
+  }
+  function setHot5DailyResult(mode, dateKey, value) {
+    const all = loadHot5DailyResults();
+    if (!all[dateKey]) all[dateKey] = {};
+    if (value === null) {
+      delete all[dateKey][mode];
+      if (!Object.keys(all[dateKey]).length) delete all[dateKey];
+    } else {
+      all[dateKey][mode] = !!value;
+    }
+    saveHot5DailyResults(all);
+    renderWeeklyHot5Checks();
+  }
+  function renderHot5RateSummary(mode, elId, noteId) {
+    const el = document.getElementById(elId);
+    const note = document.getElementById(noteId);
+    if (!el) return;
+    const st = getHot5Stats(mode);
+    if (!st.total) {
+      el.textContent = '尚無紀錄';
+      if (note) note.textContent = '「過」＝當期5支過熱號碼全部沒開。';
+      return;
+    }
+    el.textContent = `第${st.total}天｜過 ${st.pass}｜沒過 ${st.fail}｜過關機率 ${st.rate.toFixed(1)}%`;
+    if (note) note.textContent = `已記錄 ${st.total} 天；過關率＝過 ÷ 已記錄天數。`;
+  }
+  function hot5CheckCellHtml(mode, dateKey, value) {
+    const statusText = value === true ? '過' : value === false ? '沒過' : '未記';
+    const statusClass = value === true ? 'pass' : value === false ? 'fail' : 'empty';
+    return `<div class="hot5-track-cell"><button class="btn hot5-check-btn hot5-check-pass" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="true">✓</button><button class="btn hot5-check-btn hot5-check-fail" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="false">✕</button><button class="btn hot5-check-btn hot5-check-clear" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="clear">↺</button><span class="hot5-track-status ${statusClass}">${statusText}</span></div>`;
+  }
+  function renderHot5TodayChecks() {
+    const all = loadHot5DailyResults();
+    const todayKey = dateKeyFromDate(new Date());
+    const row = all[todayKey] || {};
+    if (hot5TodayDayday) hot5TodayDayday.innerHTML = hot5CheckCellHtml('dayday', todayKey, row.dayday);
+    if (hot5Today539) hot5Today539.innerHTML = hot5CheckCellHtml('539', todayKey, row['539']);
+  }
+  function renderWeeklyHot5Checks() {
+    if (!hot5TrackingBody) { renderHot5TodayChecks(); renderHot5RateSummary('dayday','hot5RateDayday',null); renderHot5RateSummary('539','hot5Rate539',null); return; }
+    const all = loadHot5DailyResults();
+    const todayIdx = getTodayWeeklyIndex();
+    hot5TrackingBody.innerHTML = WEEKLY_DAYS.map((day, idx) => {
+      const dateKey = hot5DateKeyForWeeklyIndex(idx);
+      const label = getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(idx) : day;
+      return `<div class="hot5-tracking-row ${idx === todayIdx ? 'weekly-today-row' : ''}"><div class="hot5-day-label">${label}${idx === todayIdx ? '（今天）' : ''}</div>${hot5CheckCellHtml('dayday', dateKey, all[dateKey]?.dayday)}${hot5CheckCellHtml('539', dateKey, all[dateKey]?.['539'])}</div>`;
+    }).join('');
+    renderHot5TodayChecks();
+    renderHot5RateSummary('dayday','hot5RateDayday',null);
+    renderHot5RateSummary('539','hot5Rate539',null);
+  }
   let profitChartViewMode = 'day';
 
   function dateKeyFromDate(d) {
@@ -2340,6 +2471,7 @@
         <td class="weekly-day-total weekly-zero" id="weeklyDayTotal${idx}">0</td>
       </tr>
     `).join('');
+    renderWeeklyHot5Checks();
     if (weeklyTodayMorningLabel) weeklyTodayMorningLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}天天樂損益`;
     if (weeklyTodayNightLabel) weeklyTodayNightLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}539損益`;
     if (weeklyTodayGoldLabel) weeklyTodayGoldLabel.textContent = `${getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(todayIdx) : WEEKLY_DAYS[todayIdx]}金富翁遊戲損益`;
@@ -3325,6 +3457,18 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
   function bindWeeklyCalcEvents() {
+    if (!weeklyCalcBody && !hot5TrackingBody && !hot5TodayDayday && !hot5Today539) return;
+    const handleHot5CheckClick = (e) => {
+      const btn = e.target.closest('[data-hot5-mode][data-hot5-date]');
+      if (!btn) return;
+      const mode = btn.dataset.hot5Mode;
+      const dateKey = btn.dataset.hot5Date;
+      const raw = btn.dataset.hot5Value;
+      setHot5DailyResult(mode, dateKey, raw === 'clear' ? null : raw === 'true');
+    };
+    if (hot5TrackingBody) hot5TrackingBody.addEventListener('click', handleHot5CheckClick);
+    if (hot5TodayDayday) hot5TodayDayday.addEventListener('click', handleHot5CheckClick);
+    if (hot5Today539) hot5Today539.addEventListener('click', handleHot5CheckClick);
     if (!weeklyCalcBody) return;
     weeklyCalcBody.addEventListener('input', (e) => {
       const input = e.target.closest('.weekly-input');
