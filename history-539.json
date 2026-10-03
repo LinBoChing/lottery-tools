@@ -1,8 +1,20 @@
 {
   "game": "539",
-  "updated_at": "2026-10-03T06:32:04+00:00",
-  "count": 56,
+  "updated_at": "2026-10-03T14:18:44+00:00",
+  "count": 57,
   "draws": [
+    {
+      "date": "2026/10/03",
+      "issue": "",
+      "nums": [
+        5,
+        28,
+        29,
+        33,
+        38
+      ],
+      "source": "https://www.lotto-8.com/listlto539bbk.asp"
+    },
     {
       "date": "2026/10/02",
       "issue": "",
