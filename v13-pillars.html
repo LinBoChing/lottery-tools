@@ -7740,7 +7740,105 @@ ${settleRecord.analysisLines.join('\n')}`;
       rows.push({ n, counts, score: weightedRatio * 100, corePass, qualified: corePass >= 2 });
     }
     rows.sort((a,b) => (b.qualified - a.qualified) || (b.score - a.score) || (b.corePass - a.corePass) || (a.n - b.n));
-    return { mode, draws:maxWindow, top:rows.slice(0,5), qualifiedCount:rows.filter(x=>x.qualified).length, insufficient:false };
+    return { mode, draws:maxWindow, top:rows.slice(0,5), ranked:rows.slice(), qualifiedCount:rows.filter(x=>x.qualified).length, insufficient:false };
+  }
+
+  // 第五模式「最終過熱五碼」：只定義一組共用的5碼，必須同時滿足推薦1、推薦2、推薦3的柱位配額。
+  // 推薦1：1-2-2；推薦2：1-2-2；推薦3：1-1-3。
+  // 不是三組各自找5碼。依全局過熱排名由高到低搜尋；先找能同時滿足三組的最小最高排名，
+  // 同一最高排名下再取總排名較前者，最後以排名序列細排。
+  function fixedBuildHeadPatternHot5Global(recs, hot5Result) {
+    const all = [].concat(recs && recs.topTwo || [], recs && recs.third ? [recs.third] : []);
+    const ranked = hot5Result && Array.isArray(hot5Result.ranked) ? hot5Result.ranked : [];
+    if (all.length < 3 || ranked.length < 5) return null;
+
+    const items = all.slice(0, 3);
+    const need = [[1,2,2], [1,2,2], [1,1,3]];
+    const sets = items.map(item => (item.groups || []).slice(0,3).map(g => new Set((g || []).map(Number))));
+    if (sets.some(cols => cols.length !== 3 || cols.some(set => !set.size))) return null;
+
+    // 每個號碼在三組推薦中的柱位，形成一個固定的三維分類。
+    const candidates = ranked.map((row, idx) => ({ row, rank: idx + 1, n: Number(row.n) }))
+      .filter(x => Number.isFinite(x.n));
+
+    const validCombo = combo => {
+      const counts = need.map(() => [0,0,0]);
+      for (const c of combo) {
+        for (let ri=0; ri<3; ri++) {
+          let pillar = -1;
+          for (let pi=0; pi<3; pi++) {
+            if (sets[ri][pi].has(c.n)) { pillar = pi; break; }
+          }
+          if (pillar < 0) return false;
+          counts[ri][pillar]++;
+        }
+      }
+      return counts.every((row, ri) => row.every((v, pi) => v === need[ri][pi]));
+    };
+
+    // 由高分往低分順延。逐步擴大可用排名範圍，直到找到同時符合三組配額的5碼。
+    // 同一個最高排名範圍內，選總排名最小者，再用排序後排名序列細排。
+    let best = null;
+    for (let maxRank = 5; maxRank <= candidates.length; maxRank++) {
+      const pool = candidates.slice(0, maxRank);
+      const chosen = [];
+      const dfs = (start, needCount) => {
+        if (chosen.length === needCount) {
+          if (validCombo(chosen)) {
+            const ranks = chosen.map(x => x.rank).sort((a,b)=>a-b);
+            const score = ranks.reduce((a,b)=>a+b,0);
+            const key = ranks.join(',');
+            if (!best || score < best.rankSum || (score === best.rankSum && key < best.rankKey)) {
+              best = { rows: chosen.slice(), rankSum: score, rankKey: key };
+            }
+          }
+          return;
+        }
+        const remaining = needCount - chosen.length;
+        for (let i=start; i<=pool.length-remaining; i++) {
+          chosen.push(pool[i]);
+          dfs(i+1, needCount);
+          chosen.pop();
+        }
+      };
+      dfs(0, 5);
+      if (best) break;
+    }
+    if (!best) return null;
+
+    best.rows.sort((a,b)=>a.rank-b.rank);
+    const numbers = best.rows.map(x => x.n);
+    const distribution = items.map((item, ri) => {
+      const cols = sets[ri];
+      return cols.map(set => best.rows.filter(x => set.has(x.n)).map(x => x.n));
+    });
+    return {
+      numbers,
+      rows: best.rows,
+      rankSum: best.rankSum,
+      maxRank: Math.max(...best.rows.map(x => x.rank)),
+      distribution,
+      quotas: need,
+      recommendedItems: items
+    };
+  }
+
+  function fixedHeadPatternHot5GlobalMetaHTML(hot5Info) {
+    if (!hot5Info) return '<div class="small-note" style="margin-top:10px;padding:9px 10px;border:1px solid rgba(239,68,68,.45);border-radius:10px;background:rgba(239,68,68,.08);color:#fecaca;">目前過熱排名中找不到能同時符合推薦1＝1-2-2、推薦2＝1-2-2、推薦3＝1-1-3的完整五碼，因此不會硬湊一組不符合條件的過熱五碼。</div>';
+    const recNames = ['推薦1','推薦2','推薦3'];
+    const quotaText = hot5Info.quotas.map((q,i)=>`${recNames[i]} ${q.join('-')}`).join(' ｜ ');
+    const distributionText = hot5Info.distribution.map((cols,ri) =>
+      `<b>${recNames[ri]}</b>：${cols.map((nums,pi)=>`第${pi+1}柱 ${nums.map(pad2).join('、')}`).join(' ｜ ')}`
+    ).join('<br>');
+    const scoreRows = hot5Info.rows.map(r=>`${pad2(r.n)}（${Number(r.row.score||0).toFixed(1)}／原排名#${r.rank}）`).join('、');
+    return `<div class="small-note" style="margin:10px 0;padding:10px;border:1px solid rgba(245,158,11,.58);border-radius:10px;background:rgba(245,158,11,.10);color:#fde68a;">
+      <b style="font-size:15px;">🔥 第五模式最終過熱五碼｜同時符合三組推薦</b><br>
+      ${quotaText}<br>
+      ${distributionText}<br>
+      <span style="color:#cbd5e1;">最終五碼：<b style="color:#fff7ed;font-size:15px;">${hot5Info.numbers.map(pad2).join('、')}</b></span><br>
+      <span style="color:#cbd5e1;">依過熱分數高→低順延；最高順延至原過熱排名第${hot5Info.maxRank}名。</span><br>
+      <span style="color:#94a3b8;">${scoreRows}</span>
+    </div>`;
   }
 
   function renderOneDailyHot5(mode, mainId, detailId, metaId) {
@@ -12227,6 +12325,8 @@ ${settleRecord.analysisLines.join('\n')}`;
 
     const headModeText = '前兩組：保留近10缺頭倒70%＋近5倒率30%，再納入近7期結構倒已發生 +6／未發生 −6。';
     const thirdModeText = '第三組：雙頭各自計算近7期結構倒加扣分，取兩頭平均；百期回補仍只作同分細排。';
+    const hot5Result = calcDailyHot5ForMode(currentGameMode());
+    const hot5Info = fixedBuildHeadPatternHot5Global(recs, hot5Result);
 
     return `<div class="fixed-pair-card" style="border-color:rgba(34,197,94,.58);background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(2,6,23,.92));">
       <div class="fixed-pair-head">
@@ -12238,6 +12338,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       </div>
       ${fixedHeadStructuralReferenceHTML(draws)}
       ${fixedBuildHeadPatternAllScoresHTML(recs)}
+      ${fixedHeadPatternHot5GlobalMetaHTML(hot5Info)}
       <div class="fixed-two-grid" style="grid-template-columns:1fr;">
         ${all.map((item, idx) => {
           const g = item.groups || [];
@@ -12306,7 +12407,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;">
         ${all.map((item,idx) => `<button class="btn btn-dark head-pattern-recommend-hot5-copy-btn" data-head-pattern-recommend-hot5-index="${idx}" type="button">複製推薦${idx+1}（扣過熱5支）</button>`).join('')}
       </div>
-      <div class="small-note" style="margin-top:6px;color:#fcd34d;">第二排按鈕會將當日「過熱五支」從該推薦立柱的各柱中直接移除；不改變原推薦1／2／3內容與排名。</div>
+      <div class="small-note" style="margin-top:6px;color:#fcd34d;">第二排按鈕會使用同一組「最終過熱五碼」；這5碼同時符合推薦1＝1-2-2、推薦2＝1-2-2、推薦3＝1-1-3，再從各推薦立柱中移除；不改變原推薦1／2／3內容與排名。</div>
     </div>`;
   }
 
@@ -12338,13 +12439,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         const old = btn.textContent;
         try {
           const hot5Result = calcDailyHot5ForMode(currentGameMode());
-          const hot5 = new Set((hot5Result && hot5Result.top || []).map(x => Number(x.n)));
-          if (hot5.size < 5) {
-            alert('目前資料不足，尚未能取得完整過熱五支。');
+          const hot5Info = fixedBuildHeadPatternHot5Global(recs, hot5Result);
+          if (!hot5Info || hot5Info.numbers.length !== 5) {
+            alert('目前資料不足，尚未能依第五模式三柱比例取得完整過熱五支。');
             return;
           }
+          const hot5 = new Set(hot5Info.numbers.map(Number));
           const filteredGroups = item.groups.map(group => (Array.isArray(group) ? group : []).filter(n => !hot5.has(Number(n))));
-          await copyTextSmart(exportText(filteredGroups), `已複製第五模式推薦${idx + 1}（扣除過熱五支）`);
+          await copyTextSmart(exportText(filteredGroups), `已複製第五模式推薦${idx + 1}（扣除最終過熱五支）`);
           btn.textContent = '已複製';
           setTimeout(() => { btn.textContent = old; }, 1200);
         } catch (e) {
