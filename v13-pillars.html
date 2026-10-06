@@ -12407,7 +12407,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;">
         ${all.map((item,idx) => `<button class="btn btn-dark head-pattern-recommend-hot5-copy-btn" data-head-pattern-recommend-hot5-index="${idx}" type="button">複製推薦${idx+1}（扣過熱5支）</button>`).join('')}
       </div>
-      <div class="small-note" style="margin-top:6px;color:#fcd34d;">第二排按鈕會使用同一組「最終過熱五碼」；這5碼同時符合推薦1＝1-2-2、推薦2＝1-2-2、推薦3＝1-1-3，再從各推薦立柱中移除；不改變原推薦1／2／3內容與排名。</div>
+      <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;">
+        ${all.map((item,idx) => `<button class="btn btn-danger head-pattern-recommend-original-hot5-copy-btn" data-head-pattern-recommend-original-hot5-index="${idx}" type="button">複製推薦${idx+1}（扣原始過熱1～5）</button>`).join('')}
+      </div>
     </div>`;
   }
 
@@ -12447,6 +12449,36 @@ ${settleRecord.analysisLines.join('\n')}`;
           const hot5 = new Set(hot5Info.numbers.map(Number));
           const filteredGroups = item.groups.map(group => (Array.isArray(group) ? group : []).filter(n => !hot5.has(Number(n))));
           await copyTextSmart(exportText(filteredGroups), `已複製第五模式推薦${idx + 1}（扣除最終過熱五支）`);
+          btn.textContent = '已複製';
+          setTimeout(() => { btn.textContent = old; }, 1200);
+        } catch (e) {
+          btn.textContent = '複製失敗';
+          setTimeout(() => { btn.textContent = old; }, 1500);
+        }
+      });
+    });
+
+    dailyAgentResult.querySelectorAll('[data-head-pattern-recommend-original-hot5-index]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = Number(btn.getAttribute('data-head-pattern-recommend-original-hot5-index'));
+        const item = all[idx];
+        if (!item || !Array.isArray(item.groups)) return;
+        const old = btn.textContent;
+        try {
+          const hot5Result = calcDailyHot5ForMode(currentGameMode());
+          if (!hot5Result || hot5Result.insufficient || !Array.isArray(hot5Result.top) || hot5Result.top.length < 5) {
+            alert('目前資料不足，尚未能取得完整的原始過熱排行1～5。');
+            return;
+          }
+          const hot5 = new Set(hot5Result.top.slice(0, 5).map(x => Number(x.n)));
+          const filteredGroups = item.groups.map(group =>
+            (Array.isArray(group) ? group : []).filter(n => !hot5.has(Number(n)))
+          );
+          const hotText = hot5Result.top.slice(0, 5).map(x => pad2(x.n)).join('、');
+          await copyTextSmart(
+            exportText(filteredGroups),
+            `已複製第五模式推薦${idx + 1}（扣原始過熱1～5）`
+          );
           btn.textContent = '已複製';
           setTimeout(() => { btn.textContent = old; }, 1200);
         } catch (e) {
