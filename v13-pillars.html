@@ -12401,6 +12401,10 @@ ${settleRecord.analysisLines.join('\n')}`;
         }).join('')}
       </div>
       <div class="small-note" style="margin-top:10px;">第五模式優化：已取消百期硬門檻。0～3頭全部直接比較近期訊號：近10期完全未開該頭而倒佔70%最高權重，近5期過倒佔30%第二權重；最新期若也是缺頭倒另有小幅加成。若倒的那一期其實有開該頭，只因其餘號碼全單或全雙造成結構倒，該次不計入近10期缺頭加權；五碼全單或全雙亦不列入結構倒統計；另依最新7期是否發生該結構倒給予+6／−6分（無有效資料則0分）。只有近期權重接近／相同時，才用原方案五與百期回補等資料細排。所有分析只改推薦順序，不會改固定牌支。</div>
+      <div class="small-note" style="margin-top:10px;padding:10px 12px;border:1px solid rgba(245,158,11,.55);border-radius:10px;background:rgba(245,158,11,.08);line-height:1.8;">
+        <b style="color:#fde68a;">🔥 最終五碼：</b><b style="color:#fff7ed;font-size:16px;">${hot5Info && hot5Info.numbers && hot5Info.numbers.length === 5 ? hot5Info.numbers.map(pad2).join('、') : '目前無完整最終五碼'}</b><br>
+        <b style="color:#bae6fd;">📌 原始五碼：</b><b style="color:#f8fafc;font-size:16px;">${hot5Result && Array.isArray(hot5Result.top) && hot5Result.top.length >= 5 ? hot5Result.top.slice(0,5).map(x => pad2(x.n)).join('、') : '目前無完整原始五碼'}</b>
+      </div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
       </div>
