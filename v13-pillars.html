@@ -1669,8 +1669,10 @@
           <div class="hot5-today-card"><div class="hot5-today-label">539｜最終五碼</div><div id="hot5Today539Final"></div></div>
         </div>
         <div class="hot5-tracking-stats">
-          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂累積</div><div class="hot5-tracking-stat-main" id="hot5RateDayday">尚無紀錄</div></div>
-          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539">尚無紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂｜原始五碼累積</div><div class="hot5-tracking-stat-main" id="hot5RateDayday">尚無紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂｜最終五碼累積</div><div class="hot5-tracking-stat-main" id="hot5RateDaydayFinal">尚無紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539｜原始五碼累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539">尚無紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539｜最終五碼累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539Final">尚無紀錄</div></div>
         </div>
       </div>
       <div class="weekly-input-panel" id="weeklyInputPanel">
@@ -2220,11 +2222,11 @@
     saveHot5DailyResults(all);
     renderWeeklyHot5Checks();
   }
-  function renderHot5RateSummary(mode, elId, noteId) {
+  function renderHot5RateSummary(mode, elId, noteId, isFinal = false) {
     const el = document.getElementById(elId);
     const note = document.getElementById(noteId);
     if (!el) return;
-    const st = getHot5Stats(mode);
+    const st = isFinal ? getHot5FinalStats(mode) : getHot5Stats(mode);
     if (!st.total) {
       el.textContent = '尚無紀錄';
       if (note) note.textContent = '「過」＝當期5支過熱號碼全部沒開。';
@@ -2251,7 +2253,14 @@
     if (hot5Today539Final) hot5Today539Final.innerHTML = hot5CheckCellHtml('539', todayKey, finalRow['539'], true);
   }
   function renderWeeklyHot5Checks() {
-    if (!hot5TrackingBody) { renderHot5TodayChecks(); renderHot5RateSummary('dayday','hot5RateDayday',null); renderHot5RateSummary('539','hot5Rate539',null); return; }
+    if (!hot5TrackingBody) {
+      renderHot5TodayChecks();
+      renderHot5RateSummary('dayday','hot5RateDayday',null);
+      renderHot5RateSummary('dayday','hot5RateDaydayFinal',null,true);
+      renderHot5RateSummary('539','hot5Rate539',null);
+      renderHot5RateSummary('539','hot5Rate539Final',null,true);
+      return;
+    }
     const all = loadHot5DailyResults();
     const finalAll = loadHot5FinalResults();
     const todayIdx = getTodayWeeklyIndex();
@@ -2262,7 +2271,9 @@
     }).join('');
     renderHot5TodayChecks();
     renderHot5RateSummary('dayday','hot5RateDayday',null);
+    renderHot5RateSummary('dayday','hot5RateDaydayFinal',null,true);
     renderHot5RateSummary('539','hot5Rate539',null);
+    renderHot5RateSummary('539','hot5Rate539Final',null,true);
   }
   let profitChartViewMode = 'day';
 
