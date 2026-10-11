@@ -1774,7 +1774,7 @@
                 <div id="hot5539Detail" class="hot5-detail"></div>
               </div>
             </div>
-            <div class="hot5-note">固定算法：近期熱碼權重為近5／8／12／20期＝40／30／20／10%，已取消近3期條件；原始五碼先取近期加權排名前4，再從第15～40期開出次數最高且近15期未開的號碼選第5碼。若資料不足40期或沒有符合條件的歷史回冷碼，第5碼暫以近期排名第5補位。只做過熱排名，不直接改動其他選號模式的推薦權重。</div>
+            <div class="hot5-note">固定算法：近期熱碼權重為近5／8／12／20期＝40／30／20／10%，已取消近3期條件；原始五碼先取近期加權排名前3。第4碼沿用第15～40期開出次數最高且近15期未開的歷史回冷碼，次數同分取遺漏最多者；第5碼取第5～20期出現最多且目前遺漏至少5期的號碼，次數同分取遺漏最少者。條件不足時才以未重複的近期排名補位。只做過熱排名，不直接改動其他選號模式的推薦權重。</div>
           </div>
 
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；首次開啟自動補齊舊資料日期，日後手動新增號碼時自動填日期（539 星期日除外）；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
@@ -7831,7 +7831,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
   // 每日過熱五支：只讀539 / 天天樂各自資料庫，不寫入任何推薦權重。
-  // 原始五碼新規則：近期熱碼4支（近5/8/12/20期加權）＋歷史回冷熱碼1支（第15～40期最熱且近15期未開）。
+  // 原始五碼：近期加權前3＋歷史回冷熱碼1＋第5～20期熱碼1。
   const HOT5_WINDOWS = [
     { size:5, weight:0.40 },
     { size:8, weight:0.30 },
@@ -7842,7 +7842,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
   function calcDailyHot5ForMode(mode) {
     const records = loadDrawDb(mode);
-    // 最新一期放在索引0；為歷史回冷號保留至第40期。
+    // 最新一期放在索引0；歷史選碼最多需要40期資料。
     const draws = records.slice(0, 40).map(r => Array.isArray(r.nums) ? r.nums.map(Number) : []).filter(r => r.length === 5);
     const recentDraws = draws.slice(0, 20);
     if (recentDraws.length < 12) return { mode, draws:recentDraws.length, top:[], ranked:[], insufficient:true };
@@ -7858,7 +7858,6 @@ ${settleRecord.analysisLines.join('\n')}`;
         const expected = actualSize * HOT5_THEORY_P;
         const ratio = expected > 0 ? count / expected : 0;
         counts[w.size] = count;
-        // 只計近5/8/12/20期；各區間相對熱度上限4倍，避免單一區間爆發完全壓過其他訊號。
         weightedRatio += Math.min(ratio, 4) * w.weight;
       });
       const corePass = [5,8,12].reduce((sum, size) => {
@@ -7866,27 +7865,36 @@ ${settleRecord.analysisLines.join('\n')}`;
         const expected = actualSize * HOT5_THEORY_P;
         return sum + ((counts[size] || 0) >= expected * 1.5 ? 1 : 0);
       }, 0);
-      rows.push({ n, counts, score: weightedRatio * 100, corePass, qualified: corePass >= 2, hot5Type:'recent' });
+      const missed = draws.findIndex(d => d.includes(n));
+      const missedPeriods = missed < 0 ? draws.length : missed;
+      rows.push({ n, counts, score:weightedRatio * 100, corePass, qualified:corePass >= 2, missedPeriods, hot5Type:'recent' });
     }
     rows.sort((a,b) => (b.score - a.score) || (b.corePass - a.corePass) || (a.n - b.n));
 
-    // 先取近期加權排名前4；第5碼從第15～40期挑選「歷史最熱、但近15期完全未開」的號碼。
-    const recentTop4 = rows.slice(0, 4);
-    const recentTop4Nums = new Set(recentTop4.map(x => x.n));
-    const historyDraws = draws.slice(14, 40); // 第15期至第40期（含）
+    // 第1～3碼：近期加權排名前3。
+    const recentTop3 = rows.slice(0, 3);
+    const selectedNums = new Set(recentTop3.map(x => x.n));
+    const historyDraws = draws.slice(14, 40); // 第15～40期（含）
     const recent15 = draws.slice(0, 15);
     let historyHot = null;
+
+    // 原本第5碼規則保留：第15～40期曾開、近15期未開；次數同分時取遺漏最多者。
     if (draws.length >= 40 && historyDraws.length === 26) {
       const historyCandidates = [];
       for (let n = 1; n <= 39; n++) {
-        if (recentTop4Nums.has(n)) continue;
-        if (recent15.some(d => d.includes(n))) continue; // 遺漏至少最近15期
+        if (selectedNums.has(n)) continue;
+        if (recent15.some(d => d.includes(n))) continue;
         const historyCount = historyDraws.reduce((sum, d) => sum + (d.includes(n) ? 1 : 0), 0);
         if (historyCount > 0) {
-          historyCandidates.push({ n, historyCount, row: rows.find(x => x.n === n) });
+          const row = rows.find(x => x.n === n);
+          historyCandidates.push({ n, historyCount, row, missedPeriods:row ? row.missedPeriods : 0 });
         }
       }
-      historyCandidates.sort((a,b) => (b.historyCount - a.historyCount) || ((b.row && b.row.score || 0) - (a.row && a.row.score || 0)) || (a.n - b.n));
+      historyCandidates.sort((a,b) =>
+        (b.historyCount - a.historyCount) ||
+        (b.missedPeriods - a.missedPeriods) ||
+        (a.n - b.n)
+      );
       if (historyCandidates.length) {
         const candidate = historyCandidates[0];
         historyHot = {
@@ -7894,28 +7902,70 @@ ${settleRecord.analysisLines.join('\n')}`;
           hot5Type:'history-cold',
           historyCount:candidate.historyCount,
           historyWindow:'第15～40期',
-          missedRecent:15
+          missedRecent:candidate.missedPeriods
         };
+        selectedNums.add(historyHot.n);
       }
     }
 
-    // 若有符合條件的歷史回冷號，原始五碼＝近期前4＋歷史回冷1；否則不偽造歷史條件，暫以近期第5名補位。
-    const selectedTop = recentTop4.slice();
-    if (historyHot) selectedTop.push(historyHot);
-    else selectedTop.push(...rows.filter(x => !recentTop4Nums.has(x.n)).slice(0, 1));
+    // 新增第5～20期熱碼：至少遺漏5期；該區間出現次數最多，同分時取遺漏期數最少者。
+    const period5to20 = draws.slice(4, 20); // 第5～20期（含）
+    let period5to20Hot = null;
+    if (period5to20.length === 16) {
+      const candidates = [];
+      for (let n = 1; n <= 39; n++) {
+        if (selectedNums.has(n)) continue;
+        const row = rows.find(x => x.n === n);
+        const missedPeriods = row ? row.missedPeriods : 0;
+        if (missedPeriods < 5) continue;
+        const periodCount = period5to20.reduce((sum, d) => sum + (d.includes(n) ? 1 : 0), 0);
+        if (periodCount > 0) candidates.push({ n, periodCount, row, missedPeriods });
+      }
+      candidates.sort((a,b) =>
+        (b.periodCount - a.periodCount) ||
+        (a.missedPeriods - b.missedPeriods) ||
+        (a.n - b.n)
+      );
+      if (candidates.length) {
+        const candidate = candidates[0];
+        period5to20Hot = {
+          ...candidate.row,
+          hot5Type:'period5-20',
+          periodCount:candidate.periodCount,
+          periodWindow:'第5～20期',
+          missedRecent:candidate.missedPeriods
+        };
+        selectedNums.add(period5to20Hot.n);
+      }
+    }
 
-    // 最終五碼搜尋沿用同一排名序列：近期前4優先、歷史回冷碼列第5，其餘近期排名接續。
-    const selectedNums = new Set(selectedTop.map(x => x.n));
-    const ranked = selectedTop.concat(rows.filter(x => !selectedNums.has(x.n)));
+    // 保留既有規則；若歷史資料不足或找不到符合者，才以未重複的近期排名號碼補位。
+    const selectedTop = recentTop3.slice();
+    // 第4碼放新增的第5～20期熱碼；原本的歷史回冷碼規則保留在第5碼。
+    if (period5to20Hot) selectedTop.push(period5to20Hot);
+    if (historyHot) selectedTop.push(historyHot);
+    for (const row of rows) {
+      if (selectedTop.length >= 5) break;
+      if (!selectedNums.has(row.n)) {
+        selectedTop.push(row);
+        selectedNums.add(row.n);
+      }
+    }
+
+    // 最終五碼搜尋沿用此排序：原始五碼優先，其餘再接近期加權排名。
+    const chosenNums = new Set(selectedTop.map(x => x.n));
+    const ranked = selectedTop.concat(rows.filter(x => !chosenNums.has(x.n)));
     return {
       mode,
       draws:maxWindow,
       historyDraws:draws.length,
       top:selectedTop,
       ranked,
-      recentTop4,
+      recentTop3,
       historyHot,
       historyHotAvailable:!!historyHot,
+      period5to20Hot,
+      period5to20HotAvailable:!!period5to20Hot,
       qualifiedCount:rows.filter(x=>x.qualified).length,
       insufficient:false
     };
@@ -8037,11 +8087,16 @@ ${settleRecord.analysisLines.join('\n')}`;
         <span class="hot5-rank">#${idx+1}</span>
         <b>${String(x.n).padStart(2,'0')}</b>｜
         ${x.hot5Type === 'history-cold'
-          ? `<span class="hot5-fallback">歷史回冷碼｜第15～40期開出${x.historyCount}次｜近15期未開</span>`
-          : `近期過熱指數 <span class="hot5-score">${x.score.toFixed(1)}</span>｜5期${x.counts[5]}・8期${x.counts[8]}・12期${x.counts[12]}・20期${x.counts[20]}｜<span class="${x.qualified ? 'hot5-ok' : 'hot5-fallback'}">穩定確認 ${x.corePass}/3${x.qualified ? ' ✓' : '（候補）'}</span>`}
+          ? `<span class="hot5-fallback">歷史回冷碼｜第15～40期開出${x.historyCount}次｜遺漏${x.missedRecent}期（同次數取遺漏最多）</span>`
+          : x.hot5Type === 'period5-20'
+            ? `<span class="hot5-fallback">第5～20期熱碼｜區間開出${x.periodCount}次｜目前遺漏${x.missedRecent}期（同次數取遺漏最少）</span>`
+            : `近期過熱指數 <span class="hot5-score">${x.score.toFixed(1)}</span>｜5期${x.counts[5]}・8期${x.counts[8]}・12期${x.counts[12]}・20期${x.counts[20]}｜<span class="${x.qualified ? 'hot5-ok' : 'hot5-fallback'}">穩定確認 ${x.corePass}/3${x.qualified ? ' ✓' : '（候補）'}</span>`}
       </div>`).join('');
     if (!result.historyHotAvailable) {
-      detail.innerHTML += '<div class="db-mini" style="margin-top:6px;color:#fcd34d;">目前資料不足40期，或找不到符合「第15～40期曾開、近15期未開」的歷史回冷號；第5碼暫以近期排名第5名補位。</div>';
+      detail.innerHTML += '<div class="db-mini" style="margin-top:6px;color:#fcd34d;">第15～40期歷史回冷碼條件未成立；該位置以未重複的近期排名補位。</div>';
+    }
+    if (!result.period5to20HotAvailable) {
+      detail.innerHTML += '<div class="db-mini" style="margin-top:6px;color:#fcd34d;">找不到同時符合「第5～20期出現過、目前遺漏至少5期」的號碼；該位置以未重複的近期排名補位。</div>';
     }
     if (meta) meta.textContent = `最新${result.draws}期｜合格${result.qualifiedCount}支`;
   }
