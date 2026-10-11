@@ -7831,42 +7831,94 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
   // 每日過熱五支：只讀539 / 天天樂各自資料庫，不寫入任何推薦權重。
+  // 原始五碼新規則：近期熱碼4支（近5/8/12/20期加權）＋歷史回冷熱碼1支（第15～40期最熱且近15期未開）。
   const HOT5_WINDOWS = [
-    { size:3, weight:0.10 },
-    { size:5, weight:0.25 },
+    { size:5, weight:0.40 },
     { size:8, weight:0.30 },
-    { size:12, weight:0.25 },
+    { size:12, weight:0.20 },
     { size:20, weight:0.10 }
   ];
   const HOT5_THEORY_P = 5 / 39;
 
   function calcDailyHot5ForMode(mode) {
     const records = loadDrawDb(mode);
-    const draws = records.slice(0, 20).map(r => Array.isArray(r.nums) ? r.nums.map(Number) : []).filter(r => r.length === 5);
-    if (draws.length < 12) return { mode, draws:draws.length, top:[], insufficient:true };
-    const maxWindow = Math.min(20, draws.length);
+    // 最新一期放在索引0；為歷史回冷號保留至第40期。
+    const draws = records.slice(0, 40).map(r => Array.isArray(r.nums) ? r.nums.map(Number) : []).filter(r => r.length === 5);
+    const recentDraws = draws.slice(0, 20);
+    if (recentDraws.length < 12) return { mode, draws:recentDraws.length, top:[], ranked:[], insufficient:true };
+
+    const maxWindow = Math.min(20, recentDraws.length);
     const rows = [];
     for (let n = 1; n <= 39; n++) {
       const counts = {};
       let weightedRatio = 0;
       HOT5_WINDOWS.forEach(w => {
-        const actualSize = Math.min(w.size, draws.length);
-        const count = draws.slice(0, actualSize).reduce((sum, d) => sum + (d.includes(n) ? 1 : 0), 0);
+        const actualSize = Math.min(w.size, recentDraws.length);
+        const count = recentDraws.slice(0, actualSize).reduce((sum, d) => sum + (d.includes(n) ? 1 : 0), 0);
         const expected = actualSize * HOT5_THEORY_P;
         const ratio = expected > 0 ? count / expected : 0;
         counts[w.size] = count;
-        // 上限4倍，避免極短區間單一爆發壓過5/8/12期的穩定訊號。
+        // 只計近5/8/12/20期；各區間相對熱度上限4倍，避免單一區間爆發完全壓過其他訊號。
         weightedRatio += Math.min(ratio, 4) * w.weight;
       });
       const corePass = [5,8,12].reduce((sum, size) => {
-        const actualSize = Math.min(size, draws.length);
+        const actualSize = Math.min(size, recentDraws.length);
         const expected = actualSize * HOT5_THEORY_P;
         return sum + ((counts[size] || 0) >= expected * 1.5 ? 1 : 0);
       }, 0);
-      rows.push({ n, counts, score: weightedRatio * 100, corePass, qualified: corePass >= 2 });
+      rows.push({ n, counts, score: weightedRatio * 100, corePass, qualified: corePass >= 2, hot5Type:'recent' });
     }
-    rows.sort((a,b) => (b.qualified - a.qualified) || (b.score - a.score) || (b.corePass - a.corePass) || (a.n - b.n));
-    return { mode, draws:maxWindow, top:rows.slice(0,5), ranked:rows.slice(), qualifiedCount:rows.filter(x=>x.qualified).length, insufficient:false };
+    rows.sort((a,b) => (b.score - a.score) || (b.corePass - a.corePass) || (a.n - b.n));
+
+    // 先取近期加權排名前4；第5碼從第15～40期挑選「歷史最熱、但近15期完全未開」的號碼。
+    const recentTop4 = rows.slice(0, 4);
+    const recentTop4Nums = new Set(recentTop4.map(x => x.n));
+    const historyDraws = draws.slice(14, 40); // 第15期至第40期（含）
+    const recent15 = draws.slice(0, 15);
+    let historyHot = null;
+    if (draws.length >= 40 && historyDraws.length === 26) {
+      const historyCandidates = [];
+      for (let n = 1; n <= 39; n++) {
+        if (recentTop4Nums.has(n)) continue;
+        if (recent15.some(d => d.includes(n))) continue; // 遺漏至少最近15期
+        const historyCount = historyDraws.reduce((sum, d) => sum + (d.includes(n) ? 1 : 0), 0);
+        if (historyCount > 0) {
+          historyCandidates.push({ n, historyCount, row: rows.find(x => x.n === n) });
+        }
+      }
+      historyCandidates.sort((a,b) => (b.historyCount - a.historyCount) || ((b.row && b.row.score || 0) - (a.row && a.row.score || 0)) || (a.n - b.n));
+      if (historyCandidates.length) {
+        const candidate = historyCandidates[0];
+        historyHot = {
+          ...candidate.row,
+          hot5Type:'history-cold',
+          historyCount:candidate.historyCount,
+          historyWindow:'第15～40期',
+          missedRecent:15
+        };
+      }
+    }
+
+    // 若有符合條件的歷史回冷號，原始五碼＝近期前4＋歷史回冷1；否則不偽造歷史條件，暫以近期第5名補位。
+    const selectedTop = recentTop4.slice();
+    if (historyHot) selectedTop.push(historyHot);
+    else selectedTop.push(...rows.filter(x => !recentTop4Nums.has(x.n)).slice(0, 1));
+
+    // 最終五碼搜尋沿用同一排名序列：近期前4優先、歷史回冷碼列第5，其餘近期排名接續。
+    const selectedNums = new Set(selectedTop.map(x => x.n));
+    const ranked = selectedTop.concat(rows.filter(x => !selectedNums.has(x.n)));
+    return {
+      mode,
+      draws:maxWindow,
+      historyDraws:draws.length,
+      top:selectedTop,
+      ranked,
+      recentTop4,
+      historyHot,
+      historyHotAvailable:!!historyHot,
+      qualifiedCount:rows.filter(x=>x.qualified).length,
+      insufficient:false
+    };
   }
 
   // 第五模式「最終過熱五碼」：只定義一組共用的5碼，必須同時滿足推薦1、推薦2、推薦3的柱位配額。
@@ -7983,10 +8035,14 @@ ${settleRecord.analysisLines.join('\n')}`;
     detail.innerHTML = result.top.map((x, idx) => `
       <div class="hot5-detail-row">
         <span class="hot5-rank">#${idx+1}</span>
-        <b>${String(x.n).padStart(2,'0')}</b>｜過熱指數 <span class="hot5-score">${x.score.toFixed(1)}</span>｜
-        3期${x.counts[3]}・5期${x.counts[5]}・8期${x.counts[8]}・12期${x.counts[12]}・20期${x.counts[20]}｜
-        <span class="${x.qualified ? 'hot5-ok' : 'hot5-fallback'}">穩定確認 ${x.corePass}/3${x.qualified ? ' ✓' : '（候補）'}</span>
+        <b>${String(x.n).padStart(2,'0')}</b>｜
+        ${x.hot5Type === 'history-cold'
+          ? `<span class="hot5-fallback">歷史回冷碼｜第15～40期開出${x.historyCount}次｜近15期未開</span>`
+          : `近期過熱指數 <span class="hot5-score">${x.score.toFixed(1)}</span>｜5期${x.counts[5]}・8期${x.counts[8]}・12期${x.counts[12]}・20期${x.counts[20]}｜<span class="${x.qualified ? 'hot5-ok' : 'hot5-fallback'}">穩定確認 ${x.corePass}/3${x.qualified ? ' ✓' : '（候補）'}</span>`}
       </div>`).join('');
+    if (!result.historyHotAvailable) {
+      detail.innerHTML += '<div class="db-mini" style="margin-top:6px;color:#fcd34d;">目前資料不足40期，或找不到符合「第15～40期曾開、近15期未開」的歷史回冷號；第5碼暫以近期排名第5名補位。</div>';
+    }
     if (meta) meta.textContent = `最新${result.draws}期｜合格${result.qualifiedCount}支`;
   }
 
