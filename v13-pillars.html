@@ -8543,7 +8543,29 @@ ${settleRecord.analysisLines.join('\n')}`;
     } catch (e) {}
   }
 
-  function initDrawDatabase() { installBuiltin49SeedDrawsOnce(); migrateDrawDatesOnce('dayday'); migrateDrawDatesOnce('539'); const savedMode = localStorage.getItem(DB_VERSION_KEY) || '539'; applyGameMode(savedMode); dbTableWrap.classList.toggle('open', dbExpanded); }
+  // 每次開啟都依台灣時間決定預設彩種：12:00 前天天樂，12:00 起 539。
+  // 不沿用上次保存的彩種，且使用 Asia/Taipei，避免手機時區設定影響。
+  function getStartupGameModeByTaipeiTime() {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Taipei', hour: '2-digit', hourCycle: 'h23'
+      }).formatToParts(new Date());
+      const hourPart = parts.find(part => part.type === 'hour');
+      const hour = hourPart ? Number(hourPart.value) : new Date().getHours();
+      return hour < 12 ? 'dayday' : '539';
+    } catch (e) {
+      // 舊版瀏覽器的安全備援；一般 Android Chrome 會使用上方台灣時區判斷。
+      return new Date().getHours() < 12 ? 'dayday' : '539';
+    }
+  }
+  function initDrawDatabase() {
+    installBuiltin49SeedDrawsOnce();
+    migrateDrawDatesOnce('dayday');
+    migrateDrawDatesOnce('539');
+    const startupMode = getStartupGameModeByTaipeiTime();
+    applyGameMode(startupMode);
+    dbTableWrap.classList.toggle('open', dbExpanded);
+  }
 
 
   function tagItemsWithBacktestLabel(items, sourceLabel = '') {
@@ -16101,6 +16123,16 @@ ${settleRecord.analysisLines.join('\n')}`;
   if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
   autoRebuildDaydayCacheOnce();
   initDrawDatabase();
+  // 啟動時自動讀取目前彩種固定雙柱並建立第五模式五碼快照，
+  // 不必使用者先手動按「天選雙柱」才會顯示原始五碼／最終五碼並供開獎判斷。
+  setTimeout(() => {
+    try {
+      const activeDraws = getBacktestDraws();
+      if (Array.isArray(activeDraws) && activeDraws.length > 0 && typeof runDailyTwoGroups === 'function') {
+        runDailyTwoGroups();
+      }
+    } catch (e) { console.warn('啟動時自動載入第五模式五碼失敗：', e); }
+  }, 350);
   // 舊版外站自動抓取停用，避免與 latest-draws.json 更新器同時執行。
   caishenRenderSelfTuneProfileSelect();
 
