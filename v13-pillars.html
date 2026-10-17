@@ -1660,26 +1660,22 @@
         <button class="btn btn-dark" id="clearWeeklyCalcBtn" type="button">清除試算表</button>
       </div>
       <div class="hot5-tracking-panel hot5-today-panel">
-        <div class="hot5-tracking-title">🔥 今日過熱五支｜長期累積</div>
+        <div class="hot5-tracking-title">🔥 今日原始五碼｜長期累積 <button class="btn btn-dark" id="resetOriginalHot5StatsBtn" type="button" style="width:auto;padding:6px 10px;font-size:12px;margin-left:8px;">原始五碼統計重置</button></div>
         <div class="hot5-tracking-note">只顯示今天。開獎後按「✓」＝過（5支過熱號碼全部沒開）、按「✕」＝沒過（至少1支過熱號碼開出）。「↺」可清除今天紀錄。統計會長期累積，不會隨每週更新或清除損益表重置。</div>
         <div class="hot5-today-row">
-          <div class="hot5-today-card"><div class="hot5-today-label">天天樂｜原始五碼</div><div id="hot5TodayDayday"></div></div>
-          <div class="hot5-today-card"><div class="hot5-today-label">天天樂｜最終五碼</div><div id="hot5TodayDaydayFinal"></div></div>
-          <div class="hot5-today-card"><div class="hot5-today-label">539｜原始五碼</div><div id="hot5Today539"></div></div>
-          <div class="hot5-today-card"><div class="hot5-today-label">539｜最終五碼</div><div id="hot5Today539Final"></div></div>
+          <div class="hot5-today-card"><div class="hot5-today-label">天天樂｜原始五碼</div><div id="hot5TodayDaydayNumbers" style="font-weight:900;color:#fcd34d;text-align:center;margin-bottom:6px;">尚未產生</div><div id="hot5TodayDayday"></div></div>
+          <div class="hot5-today-card"><div class="hot5-today-label">539｜原始五碼</div><div id="hot5Today539Numbers" style="font-weight:900;color:#fcd34d;text-align:center;margin-bottom:6px;">尚未產生</div><div id="hot5Today539"></div></div>
         </div>
         <div class="hot5-tracking-stats">
           <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂｜原始五碼累積</div><div class="hot5-tracking-stat-main" id="hot5RateDayday">尚無紀錄</div></div>
-          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂｜最終五碼累積</div><div class="hot5-tracking-stat-main" id="hot5RateDaydayFinal">尚無紀錄</div></div>
           <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539｜原始五碼累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539">尚無紀錄</div></div>
-          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539｜最終五碼累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539Final">尚無紀錄</div></div>
         </div>
       </div>
       <div class="weekly-input-panel" id="weeklyInputPanel">
         <div class="hot5-tracking-panel hot5-weekly-panel">
           <div class="hot5-tracking-title">🔥 過熱五支｜整週補登／修改</div>
           <div class="hot5-tracking-note">平常只看今天；需要補登或修改過去幾天時，按上方「展開整週明細」即可在這裡逐日補改。資料仍會長期累積。</div>
-          <div class="hot5-tracking-head" style="grid-template-columns:78px repeat(4,minmax(0,1fr));"><div>日期</div><div style="text-align:center">天天樂｜原始五碼</div><div style="text-align:center">天天樂｜最終五碼</div><div style="text-align:center">539｜原始五碼</div><div style="text-align:center">539｜最終五碼</div></div>
+          <div class="hot5-tracking-head" style="grid-template-columns:78px repeat(2,minmax(0,1fr));"><div>日期</div><div style="text-align:center">天天樂｜原始五碼</div><div style="text-align:center">539｜原始五碼</div></div>
           <div class="hot5-tracking-grid" id="hot5TrackingBody"></div>
         </div>
         <div class="weekly-today-note" id="weeklyTodayNote">整週明細預設收起。</div>
@@ -2186,6 +2182,12 @@
     setHot5FinalResult(mode, dateKey, finalPass);
   }
 
+  document.getElementById('resetOriginalHot5StatsBtn')?.addEventListener('click', () => {
+    if (!confirm('確定重置原始五碼的過關統計？只會清除過／沒過紀錄，不會刪除原始五碼或開獎資料。')) return;
+    localStorage.removeItem(HOT5_DAILY_RESULT_STORAGE_KEY);
+    renderWeeklyHot5Checks();
+  });
+
   function loadHot5DailyResults() {
     try {
       const raw = localStorage.getItem(HOT5_DAILY_RESULT_STORAGE_KEY);
@@ -2242,6 +2244,24 @@
     return `<div class="hot5-track-cell"><button class="btn hot5-check-btn hot5-check-pass" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="true"${finalAttr}>✓</button><button class="btn hot5-check-btn hot5-check-fail" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="false"${finalAttr}>✕</button><button class="btn hot5-check-btn hot5-check-clear" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="clear"${finalAttr}>↺</button><span class="hot5-track-status ${statusClass}">${statusText}</span></div>`;
   }
   function renderHot5TodayChecks() {
+    const snapshots = loadHot5DailySnapshots();
+    const today = dateKeyFromDate(new Date());
+    const rawDayday = document.getElementById('hot5TodayDaydayNumbers');
+    const raw539 = document.getElementById('hot5Today539Numbers');
+    // 上方今日追蹤區直接顯示下方「每日過熱五支」同一套原始五碼；
+    // 不再因為今天尚未建立快照，就錯誤顯示「尚未產生」。
+    const formatRaw = (mode) => {
+      const result = calcDailyHot5ForMode(mode);
+      const nums = result && !result.insufficient && Array.isArray(result.top)
+        ? result.top.map(x => Number(x.n))
+        : [];
+      return nums.length === 5
+        ? nums.map(n => String(n).padStart(2,'0')).join('、')
+        : '資料不足（至少需要12期）';
+    };
+    if (rawDayday) rawDayday.textContent = formatRaw('dayday');
+    if (raw539) raw539.textContent = formatRaw('539');
+
     const all = loadHot5DailyResults();
     const finalAll = loadHot5FinalResults();
     const todayKey = dateKeyFromDate(new Date());
@@ -2267,7 +2287,7 @@
     hot5TrackingBody.innerHTML = WEEKLY_DAYS.map((day, idx) => {
       const dateKey = hot5DateKeyForWeeklyIndex(idx);
       const label = getDateLabelForWeeklyIndex ? getDateLabelForWeeklyIndex(idx) : day;
-      return `<div class="hot5-tracking-row ${idx === todayIdx ? 'weekly-today-row' : ''}" style="grid-template-columns:78px repeat(4,minmax(0,1fr));"><div class="hot5-day-label">${label}${idx === todayIdx ? '（今天）' : ''}</div>${hot5CheckCellHtml('dayday', dateKey, all[dateKey]?.dayday)}${hot5CheckCellHtml('dayday', dateKey, finalAll[dateKey]?.dayday, true)}${hot5CheckCellHtml('539', dateKey, all[dateKey]?.['539'])}${hot5CheckCellHtml('539', dateKey, finalAll[dateKey]?.['539'], true)}</div>`;
+      return `<div class="hot5-tracking-row ${idx === todayIdx ? 'weekly-today-row' : ''}" style="grid-template-columns:78px repeat(2,minmax(0,1fr));"><div class="hot5-day-label">${label}${idx === todayIdx ? '（今天）' : ''}</div>${hot5CheckCellHtml('dayday', dateKey, all[dateKey]?.dayday)}${hot5CheckCellHtml('539', dateKey, all[dateKey]?.['539'])}</div>`;
     }).join('');
     renderHot5TodayChecks();
     renderHot5RateSummary('dayday','hot5RateDayday',null);
@@ -12600,7 +12620,6 @@ ${settleRecord.analysisLines.join('\n')}`;
       </div>
       ${fixedHeadStructuralReferenceHTML(draws)}
       ${fixedBuildHeadPatternAllScoresHTML(recs)}
-      ${fixedHeadPatternHot5GlobalMetaHTML(hot5Info)}
       <div class="fixed-two-grid" style="grid-template-columns:1fr;">
         ${all.map((item, idx) => {
           const g = item.groups || [];
@@ -12664,14 +12683,11 @@ ${settleRecord.analysisLines.join('\n')}`;
       </div>
       <div class="small-note" style="margin-top:10px;">第五模式優化：已取消百期硬門檻。0～3頭全部直接比較近期訊號：近10期完全未開該頭而倒佔70%最高權重，近5期過倒佔30%第二權重；最新期若也是缺頭倒另有小幅加成。若倒的那一期其實有開該頭，只因其餘號碼全單或全雙造成結構倒，該次不計入近10期缺頭加權；五碼全單或全雙亦不列入結構倒統計；另依最新7期是否發生該結構倒給予+6／−6分（無有效資料則0分）。只有近期權重接近／相同時，才用原方案五與百期回補等資料細排。所有分析只改推薦順序，不會改固定牌支。</div>
       <div class="small-note" style="margin-top:10px;padding:10px 12px;border:1px solid rgba(245,158,11,.55);border-radius:10px;background:rgba(245,158,11,.08);line-height:1.8;">
-        <b style="color:#fde68a;">🔥 最終五碼：</b><b style="color:#fff7ed;font-size:16px;">${hot5Info && hot5Info.numbers && hot5Info.numbers.length === 5 ? hot5Info.numbers.map(pad2).join('、') : '目前無完整最終五碼'}</b><br>
+        <span style="display:none;"><b>最終五碼：</b>${hot5Info && hot5Info.numbers && hot5Info.numbers.length === 5 ? hot5Info.numbers.map(pad2).join('、') : '目前無完整最終五碼'}</span>
         <b style="color:#bae6fd;">📌 原始五碼：</b><b style="color:#f8fafc;font-size:16px;">${hot5Result && Array.isArray(hot5Result.top) && hot5Result.top.length >= 5 ? hot5Result.top.slice(0,5).map(x => pad2(x.n)).join('、') : '目前無完整原始五碼'}</b>
       </div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
-      </div>
-      <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;">
-        ${all.map((item,idx) => `<button class="btn btn-dark head-pattern-recommend-hot5-copy-btn" data-head-pattern-recommend-hot5-index="${idx}" type="button">複製推薦${idx+1}（扣過熱5支）</button>`).join('')}
       </div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;">
         ${all.map((item,idx) => `<button class="btn btn-danger head-pattern-recommend-original-hot5-copy-btn" data-head-pattern-recommend-original-hot5-index="${idx}" type="button">複製推薦${idx+1}（扣原始過熱1～5）</button>`).join('')}
@@ -12690,31 +12706,6 @@ ${settleRecord.analysisLines.join('\n')}`;
         const old = btn.textContent;
         try {
           await copyTextSmart(exportText(item.groups), `已複製第五模式推薦${idx + 1}`);
-          btn.textContent = '已複製';
-          setTimeout(() => { btn.textContent = old; }, 1200);
-        } catch (e) {
-          btn.textContent = '複製失敗';
-          setTimeout(() => { btn.textContent = old; }, 1500);
-        }
-      });
-    });
-
-    dailyAgentResult.querySelectorAll('[data-head-pattern-recommend-hot5-index]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const idx = Number(btn.getAttribute('data-head-pattern-recommend-hot5-index'));
-        const item = all[idx];
-        if (!item || !Array.isArray(item.groups)) return;
-        const old = btn.textContent;
-        try {
-          const hot5Result = calcDailyHot5ForMode(currentGameMode());
-          const hot5Info = fixedBuildHeadPatternHot5Global(recs, hot5Result);
-          if (!hot5Info || hot5Info.numbers.length !== 5) {
-            alert('目前資料不足，尚未能依第五模式三柱比例取得完整過熱五支。');
-            return;
-          }
-          const hot5 = new Set(hot5Info.numbers.map(Number));
-          const filteredGroups = item.groups.map(group => (Array.isArray(group) ? group : []).filter(n => !hot5.has(Number(n))));
-          await copyTextSmart(exportText(filteredGroups), `已複製第五模式推薦${idx + 1}（扣除最終過熱五支）`);
           btn.textContent = '已複製';
           setTimeout(() => { btn.textContent = old; }, 1200);
         } catch (e) {
