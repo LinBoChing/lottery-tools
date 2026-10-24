@@ -1665,10 +1665,14 @@
         <div class="hot5-today-row">
           <div class="hot5-today-card"><div class="hot5-today-label">天天樂｜原始五碼</div><div id="hot5TodayDaydayNumbers" style="font-weight:900;color:#fcd34d;text-align:center;margin-bottom:6px;">尚未產生</div><div id="hot5TodayDayday"></div></div>
           <div class="hot5-today-card"><div class="hot5-today-label">539｜原始五碼</div><div id="hot5Today539Numbers" style="font-weight:900;color:#fcd34d;text-align:center;margin-bottom:6px;">尚未產生</div><div id="hot5Today539"></div></div>
+          <div class="hot5-today-card"><div class="hot5-today-label">天天樂｜排除後第二組五碼</div><div id="hot5TodayDaydaySecondNumbers" style="font-weight:900;color:#86efac;text-align:center;margin-bottom:6px;">尚未產生</div><div style="font-size:11px;color:#94a3b8;text-align:center;">已排除天天樂原始五碼</div><div id="hot5TodayDaydaySecond"></div></div>
+          <div class="hot5-today-card"><div class="hot5-today-label">539｜排除後第二組五碼</div><div id="hot5Today539SecondNumbers" style="font-weight:900;color:#86efac;text-align:center;margin-bottom:6px;">尚未產生</div><div style="font-size:11px;color:#94a3b8;text-align:center;">已排除539原始五碼</div><div id="hot5Today539Second"></div></div>
         </div>
         <div class="hot5-tracking-stats">
           <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂｜原始五碼累積</div><div class="hot5-tracking-stat-main" id="hot5RateDayday">尚無紀錄</div></div>
           <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539｜原始五碼累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539">尚無紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂｜第二組五碼累積</div><div class="hot5-tracking-stat-main" id="hot5RateDaydaySecond">尚無紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539｜第二組五碼累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539Second">尚無紀錄</div></div>
         </div>
       </div>
       <div class="weekly-input-panel" id="weeklyInputPanel">
@@ -2143,15 +2147,16 @@
   function saveHot5DailySnapshots(data) {
     try { localStorage.setItem(HOT5_DAILY_SNAPSHOT_STORAGE_KEY, JSON.stringify(data || {})); } catch (e) {}
   }
-  function saveHot5DailySnapshot(mode, dateKey, rawNumbers, finalNumbers) {
+  function saveHot5DailySnapshot(mode, dateKey, rawNumbers, finalNumbers, secondNumbers) {
     const raw = (rawNumbers || []).map(Number).filter(Number.isFinite);
     const final = (finalNumbers || []).map(Number).filter(Number.isFinite);
-    if (raw.length !== 5 || final.length !== 5) return;
+    const second = (secondNumbers || []).map(Number).filter(Number.isFinite);
+    if (raw.length !== 5 || final.length !== 5 || second.length !== 5 || new Set(second).size !== 5 || second.some(n => raw.includes(n))) return;
     const all = loadHot5DailySnapshots();
     // 同一天一旦建立快照就不覆蓋，確保開獎後重新計算不會改掉當天原本的五碼。
     if (!all[dateKey]) all[dateKey] = {};
     if (!all[dateKey][mode] || !Array.isArray(all[dateKey][mode].raw) || !Array.isArray(all[dateKey][mode].final)) {
-      all[dateKey][mode] = { raw, final, createdAt: Date.now() };
+      all[dateKey][mode] = { raw, final, second, createdAt: Date.now() };
       saveHot5DailySnapshots(all);
     }
   }
@@ -2180,6 +2185,12 @@
     const finalPass = !snap.final.some(n => draw.has(Number(n)));
     setHot5DailyResult(mode, dateKey, rawPass);
     setHot5FinalResult(mode, dateKey, finalPass);
+    if (Array.isArray(snap.second) && snap.second.length === 5) {
+      const secondAll = (() => { try { return JSON.parse(localStorage.getItem('hot5_second_daily_result_v1') || '{}'); } catch(e) { return {}; } })();
+      if (!secondAll[dateKey]) secondAll[dateKey] = {};
+      secondAll[dateKey][mode] = !snap.second.some(n => draw.has(Number(n)));
+      try { localStorage.setItem('hot5_second_daily_result_v1', JSON.stringify(secondAll)); } catch(e) {}
+    }
   }
 
   document.getElementById('resetOriginalHot5StatsBtn')?.addEventListener('click', () => {
@@ -2197,6 +2208,33 @@
   }
   function saveHot5DailyResults(data) {
     try { localStorage.setItem(HOT5_DAILY_RESULT_STORAGE_KEY, JSON.stringify(data || {})); } catch (e) {}
+  }
+  function loadHot5SecondResults() {
+    try { const d = JSON.parse(localStorage.getItem('hot5_second_daily_result_v1') || '{}'); return d && typeof d === 'object' ? d : {}; } catch(e) { return {}; }
+  }
+  function setHot5SecondResult(mode, dateKey, value) {
+    const all = loadHot5SecondResults();
+    if (!all[dateKey]) all[dateKey] = {};
+    if (value === null) { delete all[dateKey][mode]; if (!Object.keys(all[dateKey]).length) delete all[dateKey]; }
+    else all[dateKey][mode] = !!value;
+    try { localStorage.setItem('hot5_second_daily_result_v1', JSON.stringify(all)); } catch(e) {}
+    renderWeeklyHot5Checks();
+  }
+  function getHot5SecondStats(mode) {
+    const all = loadHot5SecondResults();
+    const vals = Object.keys(all).map(date => all[date]?.[mode]).filter(v => v === true || v === false);
+    const pass = vals.filter(Boolean).length, fail = vals.length - pass;
+    return {total: vals.length, pass, fail, rate: vals.length ? pass / vals.length * 100 : 0};
+  }
+  function renderHot5SecondRateSummary(mode, elId) {
+    const el = document.getElementById(elId); if (!el) return;
+    const st = getHot5SecondStats(mode);
+    el.textContent = st.total ? `第${st.total}天｜過 ${st.pass}｜沒過 ${st.fail}｜過關機率 ${st.rate.toFixed(1)}%` : '尚無紀錄';
+  }
+  function hot5SecondCheckCellHtml(mode, dateKey, value) {
+    const statusText = value === true ? '過' : value === false ? '沒過' : '未記';
+    const statusClass = value === true ? 'pass' : value === false ? 'fail' : 'empty';
+    return `<div class="hot5-track-cell"><button class="btn hot5-check-btn hot5-check-pass" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="true" data-hot5-second="true">✓</button><button class="btn hot5-check-btn hot5-check-fail" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="false" data-hot5-second="true">✕</button><button class="btn hot5-check-btn hot5-check-clear" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="clear" data-hot5-second="true">↺</button><span class="hot5-track-status ${statusClass}">${statusText}</span></div>`;
   }
   function hot5DateKeyForWeeklyIndex(idx) {
     const d = typeof getDateForWeeklyIndex === 'function' ? getDateForWeeklyIndex(idx) : new Date();
@@ -2248,19 +2286,26 @@
     const today = dateKeyFromDate(new Date());
     const rawDayday = document.getElementById('hot5TodayDaydayNumbers');
     const raw539 = document.getElementById('hot5Today539Numbers');
-    // 上方今日追蹤區直接顯示下方「每日過熱五支」同一套原始五碼；
-    // 不再因為今天尚未建立快照，就錯誤顯示「尚未產生」。
-    const formatRaw = (mode) => {
+    const secondDayday = document.getElementById('hot5TodayDaydaySecondNumbers');
+    const second539 = document.getElementById('hot5Today539SecondNumbers');
+    const secondDaydayCheck = document.getElementById('hot5TodayDaydaySecond');
+    const second539Check = document.getElementById('hot5Today539Second');
+    // 追蹤區同步顯示今日快照；尚未建立快照時，依第五模式既有排名計算第二組。
+    const getDisplaySets = (mode) => {
+      const snap = snapshots[today]?.[mode];
+      if (snap?.raw?.length === 5 && snap?.second?.length === 5) return { raw: snap.raw, second: snap.second };
       const result = calcDailyHot5ForMode(mode);
-      const nums = result && !result.insufficient && Array.isArray(result.top)
-        ? result.top.map(x => Number(x.n))
-        : [];
-      return nums.length === 5
-        ? nums.map(n => String(n).padStart(2,'0')).join('、')
-        : '資料不足（至少需要12期）';
+      const raw = result && !result.insufficient && Array.isArray(result.top) ? result.top.slice(0,5).map(x => Number(x.n)) : [];
+      const second = result && !result.insufficient && Array.isArray(result.ranked) ? result.ranked.filter(x => !raw.includes(Number(x.n))).slice(0,5).map(x => Number(x.n)) : [];
+      return {raw, second};
     };
-    if (rawDayday) rawDayday.textContent = formatRaw('dayday');
-    if (raw539) raw539.textContent = formatRaw('539');
+    const fmt = nums => nums?.length === 5 ? nums.map(n => String(n).padStart(2,'0')).join('、') : '資料不足（至少需要12期）';
+    const setsDayday = getDisplaySets('dayday');
+    const sets539 = getDisplaySets('539');
+    if (rawDayday) rawDayday.textContent = fmt(setsDayday.raw);
+    if (raw539) raw539.textContent = fmt(sets539.raw);
+    if (secondDayday) secondDayday.textContent = fmt(setsDayday.second);
+    if (second539) second539.textContent = fmt(sets539.second);
 
     const all = loadHot5DailyResults();
     const finalAll = loadHot5FinalResults();
@@ -2271,6 +2316,9 @@
     if (hot5TodayDaydayFinal) hot5TodayDaydayFinal.innerHTML = hot5CheckCellHtml('dayday', todayKey, finalRow.dayday, true);
     if (hot5Today539) hot5Today539.innerHTML = hot5CheckCellHtml('539', todayKey, row['539']);
     if (hot5Today539Final) hot5Today539Final.innerHTML = hot5CheckCellHtml('539', todayKey, finalRow['539'], true);
+    const secondResults = loadHot5SecondResults();
+    if (secondDaydayCheck) secondDaydayCheck.innerHTML = hot5SecondCheckCellHtml('dayday', todayKey, secondResults[todayKey]?.dayday);
+    if (second539Check) second539Check.innerHTML = hot5SecondCheckCellHtml('539', todayKey, secondResults[todayKey]?.['539']);
   }
   function renderWeeklyHot5Checks() {
     if (!hot5TrackingBody) {
@@ -2279,6 +2327,8 @@
       renderHot5RateSummary('dayday','hot5RateDaydayFinal',null,true);
       renderHot5RateSummary('539','hot5Rate539',null);
       renderHot5RateSummary('539','hot5Rate539Final',null,true);
+      renderHot5SecondRateSummary('dayday','hot5RateDaydaySecond');
+      renderHot5SecondRateSummary('539','hot5Rate539Second');
       return;
     }
     const all = loadHot5DailyResults();
@@ -2294,6 +2344,8 @@
     renderHot5RateSummary('dayday','hot5RateDaydayFinal',null,true);
     renderHot5RateSummary('539','hot5Rate539',null);
     renderHot5RateSummary('539','hot5Rate539Final',null,true);
+    renderHot5SecondRateSummary('dayday','hot5RateDaydaySecond');
+    renderHot5SecondRateSummary('539','hot5Rate539Second');
   }
   let profitChartViewMode = 'day';
 
@@ -3607,7 +3659,8 @@ ${settleRecord.analysisLines.join('\n')}`;
       const dateKey = btn.dataset.hot5Date;
       const raw = btn.dataset.hot5Value;
       const value = raw === 'clear' ? null : raw === 'true';
-      if (btn.dataset.hot5Final === 'true') setHot5FinalResult(mode, dateKey, value);
+      if (btn.dataset.hot5Second === 'true') setHot5SecondResult(mode, dateKey, value);
+      else if (btn.dataset.hot5Final === 'true') setHot5FinalResult(mode, dateKey, value);
       else setHot5DailyResult(mode, dateKey, value);
     };
     if (hot5TrackingBody) hot5TrackingBody.addEventListener('click', handleHot5CheckClick);
@@ -3615,6 +3668,8 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (hot5TodayDaydayFinal) hot5TodayDaydayFinal.addEventListener('click', handleHot5CheckClick);
     if (hot5Today539) hot5Today539.addEventListener('click', handleHot5CheckClick);
     if (hot5Today539Final) hot5Today539Final.addEventListener('click', handleHot5CheckClick);
+    document.getElementById('hot5TodayDaydaySecond')?.addEventListener('click', handleHot5CheckClick);
+    document.getElementById('hot5Today539Second')?.addEventListener('click', handleHot5CheckClick);
     if (!weeklyCalcBody) return;
     weeklyCalcBody.addEventListener('input', (e) => {
       const input = e.target.closest('.weekly-input');
@@ -12606,9 +12661,17 @@ ${settleRecord.analysisLines.join('\n')}`;
     const thirdModeText = '第三組：雙頭各自計算近7期結構倒加扣分，取兩頭平均；百期回補仍只作同分細排。';
     const hot5Result = calcDailyHot5ForMode(currentGameMode());
     const hot5Info = fixedBuildHeadPatternHot5Global(recs, hot5Result);
-    if (hot5Result && !hot5Result.insufficient && Array.isArray(hot5Result.top) && hot5Result.top.length >= 5 && hot5Info && hot5Info.numbers && hot5Info.numbers.length === 5) {
-      saveHot5DailySnapshot(currentGameMode(), dateKeyFromDate(new Date()), hot5Result.top.slice(0,5).map(x => Number(x.n)), hot5Info.numbers.map(Number));
+    const originalFive = hot5Result && Array.isArray(hot5Result.top) ? hot5Result.top.slice(0,5).map(x => Number(x.n)) : [];
+    // 第二組在原始五碼確定後，從其餘34支依既有排名挑選，與原始五碼完全不重複。
+    const secondFive = hot5Result && Array.isArray(hot5Result.ranked)
+      ? hot5Result.ranked.filter(x => !originalFive.includes(Number(x.n))).slice(0,5).map(x => Number(x.n)) : [];
+    if (hot5Result && !hot5Result.insufficient && originalFive.length === 5 && secondFive.length === 5 && hot5Info && hot5Info.numbers && hot5Info.numbers.length === 5) {
+      saveHot5DailySnapshot(currentGameMode(), dateKeyFromDate(new Date()), originalFive, hot5Info.numbers.map(Number), secondFive);
     }
+    const secondHist = (() => { try { return JSON.parse(localStorage.getItem('hot5_second_daily_result_v1') || '{}'); } catch(e) { return {}; } })();
+    const secondRows = Object.keys(secondHist).map(d => secondHist[d]?.[currentGameMode()]).filter(v => v === true || v === false);
+    const secondPass = secondRows.filter(Boolean).length;
+    const secondRate = secondRows.length ? (secondPass / secondRows.length * 100).toFixed(1) : '尚無';
 
     return `<div class="fixed-pair-card" style="border-color:rgba(34,197,94,.58);background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(2,6,23,.92));">
       <div class="fixed-pair-head">
@@ -12684,7 +12747,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="small-note" style="margin-top:10px;">第五模式優化：已取消百期硬門檻。0～3頭全部直接比較近期訊號：近10期完全未開該頭而倒佔70%最高權重，近5期過倒佔30%第二權重；最新期若也是缺頭倒另有小幅加成。若倒的那一期其實有開該頭，只因其餘號碼全單或全雙造成結構倒，該次不計入近10期缺頭加權；五碼全單或全雙亦不列入結構倒統計；另依最新7期是否發生該結構倒給予+6／−6分（無有效資料則0分）。只有近期權重接近／相同時，才用原方案五與百期回補等資料細排。所有分析只改推薦順序，不會改固定牌支。</div>
       <div class="small-note" style="margin-top:10px;padding:10px 12px;border:1px solid rgba(245,158,11,.55);border-radius:10px;background:rgba(245,158,11,.08);line-height:1.8;">
         <span style="display:none;"><b>最終五碼：</b>${hot5Info && hot5Info.numbers && hot5Info.numbers.length === 5 ? hot5Info.numbers.map(pad2).join('、') : '目前無完整最終五碼'}</span>
-        <b style="color:#bae6fd;">📌 原始五碼：</b><b style="color:#f8fafc;font-size:16px;">${hot5Result && Array.isArray(hot5Result.top) && hot5Result.top.length >= 5 ? hot5Result.top.slice(0,5).map(x => pad2(x.n)).join('、') : '目前無完整原始五碼'}</b>
+        <b style="color:#bae6fd;">📌 原始五碼：</b><b style="color:#f8fafc;font-size:16px;">${originalFive.length === 5 ? originalFive.map(pad2).join('、') : '目前無完整原始五碼'}</b><br>
+        <b style="color:#86efac;">📌 第二組五碼（排除原始五碼）：</b><b style="color:#f8fafc;font-size:16px;">${secondFive.length === 5 ? secondFive.map(pad2).join('、') : '目前無完整第二組'}</b><br>
+        <span style="color:#bbf7d0;">第二組歷史不出過關：${secondRows.length ? `${secondPass}/${secondRows.length}（${secondRate}%）` : '尚無已判定紀錄'}｜每日開獎輸入後自動判定</span>
       </div>
       <div class="clean-result-actions" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
         ${all.map((item,idx) => `<button class="btn btn-secondary head-pattern-recommend-copy-btn" data-head-pattern-recommend-index="${idx}" type="button">複製推薦${idx+1}</button>`).join('')}
