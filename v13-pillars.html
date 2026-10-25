@@ -7851,7 +7851,8 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
   // 每日過熱五支：只讀539 / 天天樂各自資料庫，不寫入任何推薦權重。
-  // 原始五碼：近期加權前3＋歷史回冷熱碼1＋第5～20期熱碼1。
+  // 原始五碼規則版本：2026-10-25 第3碼改為最新一期候選＋近10/15/20期篩選。
+  // 原始五碼：近期加權前2＋最新一期候選第3碼＋第5～20期熱碼1＋歷史回冷熱碼1。
   const HOT5_WINDOWS = [
     { size:5, weight:0.40 },
     { size:8, weight:0.30 },
@@ -7891,9 +7892,52 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     rows.sort((a,b) => (b.score - a.score) || (b.corePass - a.corePass) || (a.n - b.n));
 
-    // 第1～3碼：近期加權排名前3。
-    const recentTop3 = rows.slice(0, 3);
-    const selectedNums = new Set(recentTop3.map(x => x.n));
+    // 第1、2碼：保留近期加權排名前2。
+    // 第3碼：從最新一期5碼中，排除前2碼後依近10期次數選取；
+    // 次數同分先比「排除最新一期後」遺漏最少，再依近15、近20期次數逐層破同分。
+    const recentTop2 = rows.slice(0, 2);
+    const selectedNums = new Set(recentTop2.map(x => x.n));
+    const latestDraw = draws[0] || [];
+    const thirdCandidates = latestDraw
+      .filter(n => !selectedNums.has(n))
+      .map(n => {
+        const row = rows.find(x => x.n === n);
+        const countIn = size => draws.slice(0, size).reduce((sum, d) => sum + (d.includes(n) ? 1 : 0), 0);
+        const afterLatest = draws.slice(1);
+        const missedAfterLatestIndex = afterLatest.findIndex(d => d.includes(n));
+        const missedAfterLatest = missedAfterLatestIndex < 0 ? afterLatest.length : missedAfterLatestIndex;
+        return {
+          ...row,
+          count10:countIn(10),
+          count15:countIn(15),
+          count20:countIn(20),
+          missedAfterLatest
+        };
+      });
+    let thirdPick = null;
+    if (thirdCandidates.length) {
+      let pool = thirdCandidates;
+      const max10 = Math.max(...pool.map(x => x.count10));
+      pool = pool.filter(x => x.count10 === max10);
+      if (pool.length > 1) {
+        const leastMissed = Math.min(...pool.map(x => x.missedAfterLatest));
+        pool = pool.filter(x => x.missedAfterLatest === leastMissed);
+      }
+      if (pool.length > 1) {
+        const max15 = Math.max(...pool.map(x => x.count15));
+        pool = pool.filter(x => x.count15 === max15);
+      }
+      if (pool.length > 1) {
+        const max20 = Math.max(...pool.map(x => x.count20));
+        pool = pool.filter(x => x.count20 === max20);
+      }
+      pool.sort((a,b) => (a.missedAfterLatest - b.missedAfterLatest) || (a.n - b.n));
+      thirdPick = { ...pool[0], hot5Type:'latest-draw-third', tie10:thirdCandidates.filter(x=>x.count10===max10).length };
+    }
+    // 若最新一期候選無法構成第三碼，才以原近期排名補位。
+    if (!thirdPick) thirdPick = rows.find(x => !selectedNums.has(x.n)) || null;
+    const recentTop3 = recentTop2.concat(thirdPick ? [thirdPick] : []);
+    recentTop3.forEach(x => selectedNums.add(x.n));
     const historyDraws = draws.slice(14, 40); // 第15～40期（含）
     const recent15 = draws.slice(0, 15);
     let historyHot = null;
@@ -8106,7 +8150,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       <div class="hot5-detail-row">
         <span class="hot5-rank">#${idx+1}</span>
         <b>${String(x.n).padStart(2,'0')}</b>｜
-        ${x.hot5Type === 'history-cold'
+        ${x.hot5Type === 'latest-draw-third'
+          ? `<span class="hot5-fallback">新第3碼｜候選取最新一期5碼｜近10期${x.count10}次｜排除最新一期後遺漏${x.missedAfterLatest}期｜同分延伸近15／20期</span>`
+          : x.hot5Type === 'history-cold'
           ? `<span class="hot5-fallback">歷史回冷碼｜第15～40期開出${x.historyCount}次｜遺漏${x.missedRecent}期（同次數取遺漏最多）</span>`
           : x.hot5Type === 'period5-20'
             ? `<span class="hot5-fallback">第5～20期熱碼｜區間開出${x.periodCount}次｜目前遺漏${x.missedRecent}期（同次數取遺漏最少）</span>`
