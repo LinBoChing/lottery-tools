@@ -1656,6 +1656,15 @@
 .quick-cost-item strong{color:#fbbf24;font-size:clamp(17px,4.4vw,23px);overflow-wrap:anywhere}
 @media(min-width:700px){.quick-fast-picks{display:inline-flex;flex-direction:column;vertical-align:top;width:48%;box-sizing:border-box}.quick-cost-panel{display:inline-block;vertical-align:top;width:48%;box-sizing:border-box;margin:10px 0 12px 2%;}}
 
+
+/* 柱碰浮動柱位切換：固定於手機視窗右側，頁面滑動時仍可切換柱位 */
+#quickFloatingColumns{position:fixed;right:5px;top:42%;transform:translateY(-50%);z-index:9999;display:none;flex-direction:column;gap:5px;max-height:70vh;overflow-y:auto;padding:6px 4px;background:rgba(7,13,29,.94);border:1px solid #64748b;border-radius:12px;box-shadow:0 3px 16px #0006;}
+#quickFloatingColumns button{min-width:48px;min-height:43px;padding:5px 3px;border:1px solid #64748b;border-radius:8px;background:#1e293b;color:#e2e8f0;font-weight:800;font-size:11px;line-height:1.15;}
+#quickFloatingColumns button.active{background:#38bdf8;color:#082f49;border-color:#7dd3fc;}
+#quickFloatingColumns button small{display:block;font-size:10px;font-weight:600;margin-top:3px;}
+body.quick-pillar-floating-on{padding-right:0}
+@media(min-width:700px){#quickFloatingColumns{right:12px;}}
+
 </style>
 </head>
 <body>
@@ -18939,13 +18948,19 @@ if ('serviceWorker' in navigator) {
  let selected=new Set(), buckets=[];
  const grid=document.getElementById('quickNumberGrid'), tabs=document.getElementById('quickColumnTabs');
  const settings=document.getElementById('quickPillarSettings'), count=document.getElementById('quickSelectedCount');
+ const floating=document.createElement('div');floating.id='quickFloatingColumns';floating.setAttribute('aria-label','固定柱位快速切換');document.body.appendChild(floating);
  const out=document.getElementById('quickGeneratedText'), note=document.getElementById('quickOutputNote');
  function ensureBuckets(){while(buckets.length<cols)buckets.push(new Set());buckets=buckets.slice(0,cols);activeCol=Math.min(activeCol,cols-1);}
  function owner(n){return buckets.findIndex(s=>s.has(n));}
  function renderTabs(){
-   tabs.innerHTML=''; ensureBuckets();
-   for(let i=0;i<cols;i++){const b=document.createElement('button');b.type='button';b.className='quick-column-tab'+(i===activeCol?' active':'');
-     b.innerHTML='第'+(i+1)+'柱<small>'+buckets[i].size+'支</small>';b.onclick=()=>{activeCol=i;renderTabs();renderGrid();};tabs.appendChild(b);}
+   tabs.innerHTML='';floating.innerHTML='';ensureBuckets();
+   for(let i=0;i<cols;i++){
+     const choose=()=>{activeCol=i;renderTabs();renderGrid();};
+     const b=document.createElement('button');b.type='button';b.className='quick-column-tab'+(i===activeCol?' active':'');
+     b.innerHTML='第'+(i+1)+'柱<small>'+buckets[i].size+'支</small>';b.onclick=choose;tabs.appendChild(b);
+     const f=document.createElement('button');f.type='button';f.className=i===activeCol?'active':'';f.innerHTML='第'+(i+1)+'柱<small>'+buckets[i].size+'支</small>';f.setAttribute('aria-label','切換至第'+(i+1)+'柱');f.onclick=choose;floating.appendChild(f);
+   }
+   floating.style.display=mode==='pillar'?'flex':'none';
  }
  function format(){
    if(mode!=='pillar')return [...selected].sort((a,b)=>a-b).map(n=>String(n).padStart(2,'0')).join(',');
@@ -19014,7 +19029,7 @@ if ('serviceWorker' in navigator) {
  }));
  root.querySelectorAll('[data-qmode]').forEach(b=>b.addEventListener('click',()=>{
    mode=b.dataset.qmode;root.querySelectorAll('[data-qmode]').forEach(x=>x.classList.toggle('active',x===b));
-   settings.hidden=mode!=='pillar';tabs.hidden=mode!=='pillar';
+   settings.hidden=mode!=='pillar';tabs.hidden=mode!=='pillar';floating.style.display=mode==='pillar'?'flex':'none';
    if(mode==='pillar'){cols=Number(document.getElementById('quickColumnCount').value)||3;ensureBuckets();renderTabs();}
    renderGrid();refresh();
  }));
