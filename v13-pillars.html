@@ -16164,8 +16164,37 @@ ${settleRecord.analysisLines.join('\n')}`;
     if (dailyAgentResult) dailyAgentResult.innerHTML = selected ? `已選擇校正後類型：<b>${selected.name}</b><br><span class="small-note">現在按「天選雙柱」會用這個類型生成。</span>` : '已取消校正後類型，將使用原始預設生成。';
   });
   if (dailyAgentBtn) dailyAgentBtn.addEventListener('click', () => runDailyPassAgent(dailyAgentBtn));
+  function renderAllNumberHotRank() {
+    try {
+      const mode = currentGameMode();
+      const allDraws = parseDraws(getActiveDrawText(), mode);
+      const selector = document.getElementById('allNumberHotRankWindow');
+      const requested = selector ? selector.value : '20';
+      const windowSize = requested === 'all' ? allDraws.length : Math.max(1, Number(requested) || 20);
+      // 歷史資料以最新一期排在最前，排行只使用所選期數。
+      const draws = allDraws.slice(0, windowSize);
+      const max = is49Mode(mode) ? 49 : 39;
+      const rows = [];
+      for (let n = 1; n <= max; n++) {
+        let count = 0, miss = draws.length;
+        for (let i = 0; i < draws.length; i++) {
+          if (draws[i].includes(n)) { count++; if (miss === draws.length) miss = i; }
+        }
+        rows.push({n, count, miss: miss === draws.length ? draws.length : miss});
+      }
+      rows.sort((a,b) => b.count-a.count || a.miss-b.miss || a.n-b.n);
+      const body = document.getElementById('allNumberHotRankBody');
+      const meta = document.getElementById('allNumberHotRankMeta');
+      if (!body || !meta) return;
+      body.innerHTML = rows.map((r,i) => `<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700">${String(r.n).padStart(2,'0')}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.count}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.miss}</td></tr>`).join('');
+      meta.textContent = `目前彩種：${mode}｜比較期數：${draws.length}／${allDraws.length} 期｜共列出 ${max} 號`;
+    } catch (err) { console.warn('全號碼熱門排行載入失敗', err); }
+  }
   autoRebuildDaydayCacheOnce();
   initDrawDatabase();
+  // 排行區塊位於主程式之後，先公開刷新函式，待 DOM 區塊建立後再綁定選單。
+  window.refreshAllNumberHotRank = renderAllNumberHotRank;
+  setTimeout(renderAllNumberHotRank, 450);
   // 啟動時自動讀取目前彩種固定雙柱並建立第五模式五碼快照，
   // 不必使用者先手動按「天選雙柱」才會顯示原始五碼／最終五碼並供開獎判斷。
   setTimeout(() => {
@@ -18787,6 +18816,29 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+</script>
+
+
+<section id="allNumberHotRankPanel" style="margin:20px auto;padding:16px;max-width:1000px;border:1px solid #d1d5db;border-radius:14px;background:#f4f6f8;color:#202938;color-scheme:light;box-shadow:0 2px 10px rgba(15,23,42,.06)">
+ <h2 style="margin:0 0 8px;font-size:1.15rem;color:#172033">01～39 全號碼熱門程度排行</h2>
+ <p style="margin:0 0 12px;font-size:.9rem;line-height:1.6;color:#475569">選擇要比較的歷史期數，不必每次統計整個資料庫。出現次數越多排名越前；同次數以目前遺漏期數較少者優先。遺漏期數以所選區間最新一期為基準，最新一期開出為 0 期。</p>
+ <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;color:#202938">
+  <label for="allNumberHotRankWindow" style="font-size:.92rem;font-weight:700;color:#202938">比較期數</label>
+  <select id="allNumberHotRankWindow" style="min-width:140px;padding:10px 12px;border:1px solid #9ca3af;border-radius:9px;background:#fff;color:#111827;font-size:16px">
+   <option value="5">近 5 期</option><option value="10">近 10 期</option><option value="15">近 15 期</option><option value="20" selected>近 20 期</option><option value="33">近 33 期</option><option value="50">近 50 期</option><option value="100">近 100 期</option><option value="150">近 150 期</option><option value="200">近 200 期</option><option value="250">近 250 期</option><option value="300">近 300 期</option><option value="all">全部資料庫</option>
+  </select>
+ </div>
+ <div id="allNumberHotRankMeta" style="font-size:.88rem;margin-bottom:8px;color:#334155">載入統計中…</div>
+ <div style="overflow-x:auto;border:1px solid #d7dde5;border-radius:10px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:.92rem;color:#273449;background:#fff"><thead style="background:#e8edf3;color:#1f2937"><tr><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">排名</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">號碼</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">出現次數</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">目前遺漏</th></tr></thead><tbody id="allNumberHotRankBody"></tbody></table></div>
+</section>
+<script>
+(function(){
+  const selector = document.getElementById('allNumberHotRankWindow');
+  if (selector) selector.addEventListener('change', function(){
+    if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
+  });
+  if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
+})();
 </script>
 
 </body>
