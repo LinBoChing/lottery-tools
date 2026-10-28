@@ -1621,6 +1621,17 @@
 .quick-mode{min-height:48px;border:1px solid #475569;border-radius:11px;background:#0b1220;color:#e5e7eb;font-size:16px;font-weight:900}
 .quick-mode.active{background:#ef4444;border-color:#f87171;color:white;box-shadow:0 0 0 2px #ef444433}
 .quick-fast-picks{display:grid;gap:8px;margin:10px 0 12px;padding:10px;border:1px solid #334155;border-radius:12px;background:rgba(2,6,23,.55)}
+.quick-fast-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(210px,.95fr);gap:10px;align-items:stretch}
+.quick-cost-panel{border:1px solid #475569;border-radius:12px;background:linear-gradient(155deg,#111c30,#080e1b);padding:10px;min-width:0}
+.quick-cost-title{font-size:14px;font-weight:1000;margin-bottom:8px;color:#f8fafc}
+.quick-cost-meta{font-size:11px;color:#a8b6ca;line-height:1.5;margin-bottom:8px}
+.quick-cost-row{display:grid;grid-template-columns:42px 1fr 1fr;gap:5px;align-items:center;padding:7px 0;border-top:1px solid #334155;font-size:12px}
+.quick-cost-row strong{font-size:13px;color:#f8fafc;text-align:right;font-variant-numeric:tabular-nums}
+.quick-cost-row small{display:block;color:#94a3b8;font-size:10px;text-align:right}
+.quick-cost-head{display:grid;grid-template-columns:42px 1fr 1fr;gap:5px;color:#94a3b8;font-size:10px;text-align:right;padding-bottom:4px}
+.quick-cost-head span:first-child{text-align:left}
+.quick-cost-total{color:#fbbf24;font-size:14px;font-weight:1000}
+@media(max-width:600px){.quick-fast-layout{grid-template-columns:1fr}.quick-cost-panel{margin-top:0}.quick-cost-row{font-size:13px}}
 .quick-fast-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .quick-fast-label{min-width:42px;color:#cbd5e1;font-size:13px;font-weight:900}
 .quick-fast-btn{min-width:52px;min-height:44px;padding:8px 12px;border:1px solid #64748b;border-radius:10px;background:#1e293b;color:#f8fafc;font-size:15px;font-weight:900;touch-action:manipulation}
@@ -1956,18 +1967,29 @@
           <span class="quick-hint">先選柱位，再點號碼；每柱至少選1支。</span>
         </div>
         <div class="quick-fast-picks" aria-label="快速分類選號">
-          <div class="quick-fast-row"><span class="quick-fast-label">頭數</span>
-            <button type="button" class="quick-fast-btn" data-qhead="0">0頭</button>
-            <button type="button" class="quick-fast-btn" data-qhead="1">1頭</button>
-            <button type="button" class="quick-fast-btn" data-qhead="2">2頭</button>
-            <button type="button" class="quick-fast-btn" data-qhead="3">3頭</button>
+          <div class="quick-fast-layout">
+            <div style="display:grid;gap:8px;align-content:start">
+              <div class="quick-fast-row"><span class="quick-fast-label">頭數</span>
+                <button type="button" class="quick-fast-btn" data-qhead="0">0頭</button>
+                <button type="button" class="quick-fast-btn" data-qhead="1">1頭</button>
+                <button type="button" class="quick-fast-btn" data-qhead="2">2頭</button>
+                <button type="button" class="quick-fast-btn" data-qhead="3">3頭</button>
+              </div>
+              <div class="quick-fast-row"><span class="quick-fast-label">單雙</span>
+                <button type="button" class="quick-fast-btn" data-qparity="odd">單</button>
+                <button type="button" class="quick-fast-btn" data-qparity="even">雙</button>
+                <button type="button" class="quick-fast-btn" data-qparity="all">全</button>
+              </div>
+              <div class="quick-hint">點擊分類即可快速選入號碼；柱碰模式會加入目前選定的柱位。</div>
+            </div>
+            <section class="quick-cost-panel" aria-label="下注成本估算">
+              <div class="quick-cost-title">即時成本估算｜0.01注</div>
+              <div class="quick-cost-meta" id="quickCostSummary">選號後自動計算兩星、三星、四星組數與成本。</div>
+              <div class="quick-cost-head"><span>玩法</span><span>組數</span><span>成本</span></div>
+              <div id="quickCostRows"></div>
+              <div class="quick-hint" style="margin-top:8px">成本＝組數 × 對應單價 × 0.01。依你提供的價表級距估算；組數介於級距時採用下一個較高組數級距單價。</div>
+            </section>
           </div>
-          <div class="quick-fast-row"><span class="quick-fast-label">單雙</span>
-            <button type="button" class="quick-fast-btn" data-qparity="odd">單</button>
-            <button type="button" class="quick-fast-btn" data-qparity="even">雙</button>
-            <button type="button" class="quick-fast-btn" data-qparity="all">全</button>
-          </div>
-          <div class="quick-hint">點擊分類即可快速選入號碼；柱碰模式會加入目前選定的柱位。</div>
         </div>
         <div class="quick-status"><span id="quickSelectedCount">已選 0 號</span><button type="button" id="quickClearBtn">清空重選</button></div>
         <div id="quickColumnTabs" class="quick-column-tabs" hidden></div>
@@ -18922,6 +18944,35 @@ if ('serviceWorker' in navigator) {
  const grid=document.getElementById('quickNumberGrid'), tabs=document.getElementById('quickColumnTabs');
  const settings=document.getElementById('quickPillarSettings'), count=document.getElementById('quickSelectedCount');
  const out=document.getElementById('quickGeneratedText'), note=document.getElementById('quickOutputNote');
+ const costRows=document.getElementById('quickCostRows'), costSummary=document.getElementById('quickCostSummary');
+ // 價格級距來源：使用者提供之下注價格表。小於最低級距時採散單價。
+ const priceSheets={
+   2:{chain:[[666,71.70],[595,71.70],[496,71.70],[300,71.70],[200,71.80]],scatter:71.55},
+   3:{chain:[[5000,62.55],[4200,62.50],[4060,62.50],[3915,62.50],[3720,62.50],[3168,62.60],[2380,62.70],[2000,62.70],[1900,62.80],[1800,62.90],[1700,62.90],[1445,62.90],[1225,62.90],[1080,63.10],[496,63.20],[121,63.20]],pillar:[[5000,62.55],[4200,62.45],[4060,62.45],[3915,62.45],[3720,62.45],[3168,62.45],[2380,62.45],[2000,62.45],[1900,62.45],[1800,62.45],[1700,62.50],[1445,62.55],[1225,62.70],[1080,62.90],[496,63.10],[121,63.20]],chainpillar:[[5000,62.55],[4200,62.55],[4060,62.70],[3915,62.80],[3720,62.90],[3168,63.20],[2380,64.00],[2000,63.80],[1900,63.80],[1800,64.00],[1700,63.20],[1445,63.10],[1225,63.10],[1080,63.10],[496,63.20],[121,63.20]],scatter:62.50},
+   4:{chain:[[10000,49],[9000,49],[6000,50],[4000,50.50],[2000,50.50]],pillar:[[10000,49],[9000,49],[6000,50],[4000,50.50],[2000,50.50]],scatter:49.50}
+ };
+ function chooseRate(sheet,kind,qty){const arr=sheet[kind]||sheet.chain;if(qty<=0)return 0;const sorted=[...arr].sort((a,b)=>a[0]-b[0]);if(qty<sorted[0][0])return sheet.scatter;const row=sorted.find(r=>qty<=r[0]);return row?row[1]:sorted[sorted.length-1][1];}
+ function nChoose(n,k){if(n<k)return 0;let v=1;for(let i=1;i<=k;i++)v=v*(n-i+1)/i;return Math.round(v);}
+ function waysFromBuckets(k){if(mode!=='pillar')return nChoose(selected.size,k);let ways=0;const counts=buckets.map(s=>s.size);function walk(i,used,prod){if(used===k){ways+=prod;return;}if(i>=counts.length||counts.length-i<k-used)return;walk(i+1,used,prod);if(counts[i])walk(i+1,used+1,prod*counts[i]);}walk(0,0,1);return ways;}
+ function calcCost(){
+   const kind=mode==='pillar'?'pillar':'chain';
+   const details=[{stars:2,groups:waysFromBuckets(2)},{stars:3,groups:waysFromBuckets(3)},{stars:4,groups:waysFromBuckets(4)}];
+   costRows.innerHTML='';
+   details.forEach(d=>{const sheet=priceSheets[d.stars];let rate;
+     if(mode==='pillar')rate=chooseRate(sheet,'pillar',d.groups);
+     else rate=chooseRate(sheet,'chain',d.groups);
+     const cost=d.groups?d.groups*rate*.01:0;
+     const row=document.createElement('div');row.className='quick-cost-row';
+     const label=document.createElement('b');label.textContent=d.stars+'星';
+     const qty=document.createElement('strong');qty.textContent=d.groups.toLocaleString('en-US')+'組';
+     const amount=document.createElement('strong');amount.className='quick-cost-total';amount.textContent='$'+cost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+     const rateNote=document.createElement('small');rateNote.textContent=d.groups?'單價 '+rate.toFixed(2):'尚無組數';amount.appendChild(rateNote);
+     row.append(label,qty,amount);costRows.appendChild(row);
+   });
+   const n=mode==='pillar'?buckets.reduce((t,s)=>t+s.size,0):selected.size;
+   costSummary.textContent=mode==='pillar'?'柱碰｜已選 '+n+' 號｜按各柱取不同柱位組合計算':'連碰/單碰｜已選 '+n+' 號｜按所選號碼組合計算';
+ }
+
  function ensureBuckets(){while(buckets.length<cols)buckets.push(new Set());buckets=buckets.slice(0,cols);activeCol=Math.min(activeCol,cols-1);}
  function owner(n){return buckets.findIndex(s=>s.has(n));}
  function renderTabs(){
@@ -18938,6 +18989,7 @@ if ('serviceWorker' in navigator) {
    count.textContent='已選 '+total+' 號';out.value=format();
    const emptyCols=mode==='pillar'?buckets.map((s,i)=>s.size?null:i+1).filter(Boolean):[];
    note.textContent=mode==='pillar'?(emptyCols.length?'尚未選滿第'+emptyCols.join('、')+'柱':'格式已整理，可複製'):(selected.size?'已依號碼小到大排列':'點選號碼後自動更新');
+   calcCost();
  }
  function renderGrid(){
    grid.innerHTML='';
