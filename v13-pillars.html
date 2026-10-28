@@ -1658,12 +1658,12 @@
 
 
 /* 柱碰浮動柱位切換：固定於手機視窗右側，頁面滑動時仍可切換柱位 */
-#quickFloatingColumns{position:fixed;right:5px;top:42%;transform:translateY(-50%);z-index:9999;display:none;flex-direction:column;gap:5px;max-height:70vh;overflow-y:auto;padding:6px 4px;background:rgba(7,13,29,.94);border:1px solid #64748b;border-radius:12px;box-shadow:0 3px 16px #0006;}
-#quickFloatingColumns button{min-width:48px;min-height:43px;padding:5px 3px;border:1px solid #64748b;border-radius:8px;background:#1e293b;color:#e2e8f0;font-weight:800;font-size:11px;line-height:1.15;}
-#quickFloatingColumns button.active{background:#38bdf8;color:#082f49;border-color:#7dd3fc;}
-#quickFloatingColumns button small{display:block;font-size:10px;font-weight:600;margin-top:3px;}
+#quickFloatingColumns{position:fixed;right:4px;top:42%;transform:translateY(-50%);z-index:9999;display:none;flex-direction:column;gap:7px;max-height:76vh;overflow-y:auto;padding:8px 6px;background:rgba(7,13,29,.96);border:1px solid #64748b;border-radius:14px;box-shadow:0 3px 18px #0007;}
+#quickFloatingColumns button{min-width:66px;min-height:60px;padding:8px 5px;border:1px solid #64748b;border-radius:10px;background:#1e293b;color:#e2e8f0;font-weight:900;font-size:14px;line-height:1.2;touch-action:manipulation;}
+#quickFloatingColumns button.active{background:#38bdf8;color:#082f49;border-color:#7dd3fc;box-shadow:0 0 0 2px #bae6fd66;}
+#quickFloatingColumns button small{display:block;font-size:12px;font-weight:700;margin-top:4px;}
 body.quick-pillar-floating-on{padding-right:0}
-@media(min-width:700px){#quickFloatingColumns{right:12px;}}
+@media(min-width:700px){#quickFloatingColumns{right:12px;}#quickFloatingColumns button{min-width:72px;min-height:62px;font-size:14px;}}
 
 </style>
 </head>
@@ -19048,14 +19048,18 @@ if ('serviceWorker' in navigator) {
  // 供下方熱門排行表點號碼後呼叫：沿用目前玩法與目前柱位加入號碼。
  window.quickPickAddRankNumber=function(raw){
    const n=Number(raw);if(!Number.isInteger(n)||n<1||n>39)return false;
+   let removed=false;
    if(mode==='pillar'){
      ensureBuckets();const at=owner(n);
-     if(at>=0){activeCol=at;}else{buckets[activeCol].add(n);}
+     if(at>=0){buckets[at].delete(n);removed=true;}
+     else{buckets[activeCol].add(n);}
      renderTabs();
-   }else{selected.add(n);}
+   }else{
+     if(selected.has(n)){selected.delete(n);removed=true;}else{selected.add(n);}
+   }
    renderGrid();refresh();
    const feedback=document.getElementById('quickCopyFeedback');
-   if(feedback)feedback.textContent='已加入 '+String(n).padStart(2,'0')+'；'+(mode==='pillar'?'目前柱位：第'+(activeCol+1)+'柱。':'');
+   if(feedback)feedback.textContent=removed?'已取消 '+String(n).padStart(2,'0')+'。':'已加入 '+String(n).padStart(2,'0')+'；'+(mode==='pillar'?'目前柱位：第'+(activeCol+1)+'柱。':'');
    return true;
  };
  // 單碰、連碰均提供同一組可選號碼；單碰以逗號格式呈現，便於貼入多選輸入欄。
