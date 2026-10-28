@@ -1984,8 +1984,9 @@ body.quick-pillar-floating-on{padding-right:0}
             <button type="button" class="quick-fast-btn" data-qparity="odd">單</button>
             <button type="button" class="quick-fast-btn" data-qparity="even">雙</button>
             <button type="button" class="quick-fast-btn" data-qparity="all">全</button>
+            <button type="button" class="quick-fast-btn" id="quickRandomPairBtn">隨機配對</button>
           </div>
-          <div class="quick-hint">點擊分類即可快速選入號碼；柱碰模式會加入目前選定的柱位。</div>
+          <div class="quick-hint">點擊分類即可快速選入號碼；柱碰模式會加入目前選定的柱位。「隨機配對」會將已選號碼隨機且平均分配至各柱。</div>
         </div>
         <div id="quickCostPanel" class="quick-cost-panel">
           <div class="quick-cost-title">即時成本估算｜0.01注</div>
@@ -16285,7 +16286,8 @@ ${settleRecord.analysisLines.join('\n')}`;
       const body = document.getElementById('allNumberHotRankBody');
       const meta = document.getElementById('allNumberHotRankMeta');
       if (!body || !meta) return;
-      body.innerHTML = rows.map((r,i) => `<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700"><button type="button" class="hot-rank-pick-number" data-pick-number="${r.n}" title="點選 ${String(r.n).padStart(2,'0')} 加入快速選號" style="border:0;background:transparent;color:#1f2937;font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;padding:5px 9px;border-radius:7px;cursor:pointer;touch-action:manipulation">${String(r.n).padStart(2,'0')}</button></td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.count}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.miss}</td></tr>`).join('');
+      body.innerHTML = rows.map((r,i) => `<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700"><button type="button" class="hot-rank-pick-number" data-pick-number="${r.n}" aria-pressed="false" title="點選 ${String(r.n).padStart(2,'0')} 加入／取消快速選號" style="border:0;background:transparent;color:#1f2937;font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;padding:5px 9px;border-radius:7px;cursor:pointer;touch-action:manipulation">${String(r.n).padStart(2,'0')}</button></td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.count}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.miss}</td></tr>`).join('');
+      if (typeof window.quickPickSyncRankMarks === 'function') window.quickPickSyncRankMarks();
       meta.textContent = `目前彩種：${mode}｜比較期數：${draws.length}／${allDraws.length} 期｜共列出 ${max} 號`;
     } catch (err) { console.warn('全號碼熱門排行載入失敗', err); }
   }
@@ -18947,6 +18949,8 @@ if ('serviceWorker' in navigator) {
  let mode='single', activeCol=0, cols=3;
  let selected=new Set(), buckets=[];
  const grid=document.getElementById('quickNumberGrid'), tabs=document.getElementById('quickColumnTabs');
+ const pillarColors=['#2563eb','#16a34a','#dc2626','#9333ea','#ea580c','#0891b2','#be185d','#4f46e5','#65a30d','#c2410c'];
+ const pillarColor=i=>pillarColors[i%pillarColors.length];
  const settings=document.getElementById('quickPillarSettings'), count=document.getElementById('quickSelectedCount');
  const floating=document.createElement('div');floating.id='quickFloatingColumns';floating.setAttribute('aria-label','固定柱位快速切換');document.body.appendChild(floating);
  const out=document.getElementById('quickGeneratedText'), note=document.getElementById('quickOutputNote');
@@ -18994,11 +18998,35 @@ if ('serviceWorker' in navigator) {
    const emptyCols=mode==='pillar'?buckets.map((s,i)=>s.size?null:i+1).filter(Boolean):[];
    note.textContent=mode==='pillar'?(emptyCols.length?'尚未選滿第'+emptyCols.join('、')+'柱':'格式已整理，可複製'):(selected.size?'已依號碼小到大排列':'點選號碼後自動更新');
  }
+ function syncRankMarks(){
+   document.querySelectorAll('[data-pick-number]').forEach(btn=>{
+     const n=Number(btn.dataset.pickNumber);
+     const at=mode==='pillar'?owner(n):-1;
+     const has=mode==='pillar'?at!==-1:selected.has(n);
+     const color=mode==='pillar'&&at>=0?pillarColor(at):'#2563eb';
+     btn.classList.toggle('rank-picked',has);
+     btn.setAttribute('aria-pressed',String(has));
+     btn.style.background=has?color:'transparent';
+     btn.style.color=has?'#ffffff':'#1f2937';
+     btn.style.textDecoration=has?'none':'underline';
+     btn.style.boxShadow=has?`0 0 0 2px ${color}44`:'none';
+     btn.style.outline=has&&mode==='pillar'?'2px solid '+color:'none';
+     btn.title=has?`${String(n).padStart(2,'0')} 已選取${mode==='pillar'?'｜第'+(at+1)+'柱':''}｜再點一次取消`:`點選 ${String(n).padStart(2,'0')} 加入快速選號`;
+   });
+ }
+ window.quickPickSyncRankMarks=syncRankMarks;
  function renderGrid(){
    grid.innerHTML='';
    for(let n=1;n<=39;n++){const b=document.createElement('button');b.type='button';b.className='quick-number';
-     const has=mode==='pillar'?owner(n)!==-1:selected.has(n);
+     const at=mode==='pillar'?owner(n):-1;
+     const has=mode==='pillar'?at!==-1:selected.has(n);
      b.classList.toggle('selected',has);b.textContent=String(n).padStart(2,'0');
+     if(has&&mode==='pillar'){
+       const color=pillarColor(at);b.style.background=color;b.style.backgroundImage='none';b.style.borderColor=color;b.style.color='#ffffff';b.style.boxShadow=`0 2px 8px ${color}66`;
+       b.title='已選取｜第'+(at+1)+'柱';
+     }else{
+       b.style.background='';b.style.backgroundImage='';b.style.borderColor='';b.style.color='';b.style.boxShadow='';b.title=has?'已選取':'點選加入';
+     }
      b.setAttribute('aria-pressed',String(has));
      b.onclick=()=>{
        if(mode==='pillar'){
@@ -19010,6 +19038,7 @@ if ('serviceWorker' in navigator) {
        renderGrid();refresh();
      };grid.appendChild(b);
    }
+   syncRankMarks();
  }
  function addQuickNumbers(nums){
    if(mode==='pillar'){
@@ -19027,6 +19056,26 @@ if ('serviceWorker' in navigator) {
    const nums=Array.from({length:39},(_,i)=>i+1).filter(n=>kind==='all'||(kind==='odd'?n%2===1:n%2===0));
    addQuickNumbers(nums);
  }));
+ document.getElementById('quickRandomPairBtn').addEventListener('click',()=>{
+   if(mode!=='pillar'){
+     const feedback=document.getElementById('quickCopyFeedback');
+     if(feedback)feedback.textContent='請先切換至柱碰模式，再使用隨機配對。';
+     return;
+   }
+   const nums=buckets.flatMap(s=>[...s]);
+   if(!nums.length){
+     const feedback=document.getElementById('quickCopyFeedback');
+     if(feedback)feedback.textContent='請先選擇號碼，再進行隨機配對。';
+     return;
+   }
+   // 洗牌後輪流分派，柱間數量差最多1支；每次執行會重新隨機排序。
+   for(let i=nums.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[nums[i],nums[j]]=[nums[j],nums[i]];}
+   buckets=Array.from({length:cols},()=>new Set());
+   nums.forEach((n,i)=>buckets[i%cols].add(n));
+   activeCol=0;ensureBuckets();renderTabs();renderGrid();refresh();
+   const feedback=document.getElementById('quickCopyFeedback');
+   if(feedback)feedback.textContent='已隨機平均配對至 '+cols+' 柱；各柱數量差最多1支。';
+ });
  root.querySelectorAll('[data-qmode]').forEach(b=>b.addEventListener('click',()=>{
    mode=b.dataset.qmode;root.querySelectorAll('[data-qmode]').forEach(x=>x.classList.toggle('active',x===b));
    settings.hidden=mode!=='pillar';tabs.hidden=mode!=='pillar';floating.style.display=mode==='pillar'?'flex':'none';
