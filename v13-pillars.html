@@ -1614,6 +1614,39 @@
 .hot5-note{margin-top:8px;color:#94a3b8;font-size:12px;line-height:1.55;}
 @media(max-width:768px){.hot5-grid{grid-template-columns:1fr;}.hot5-num{font-size:16px;min-width:38px;padding:6px 8px;}}
 
+
+/* 快速選號模式：取代原資料摘要區的可視內容，舊狀態節點保留供原程式運作 */
+.quick-pick-card{grid-column:1/-1;background:linear-gradient(150deg,#101827,#171d32);border:1px solid #475569}
+.quick-mode-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.quick-mode{min-height:48px;border:1px solid #475569;border-radius:11px;background:#0b1220;color:#e5e7eb;font-size:16px;font-weight:900}
+.quick-mode.active{background:#ef4444;border-color:#f87171;color:white;box-shadow:0 0 0 2px #ef444433}
+.quick-fast-picks{display:grid;gap:8px;margin:10px 0 12px;padding:10px;border:1px solid #334155;border-radius:12px;background:rgba(2,6,23,.55)}
+.quick-fast-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.quick-fast-label{min-width:42px;color:#cbd5e1;font-size:13px;font-weight:900}
+.quick-fast-btn{min-width:52px;min-height:44px;padding:8px 12px;border:1px solid #64748b;border-radius:10px;background:#1e293b;color:#f8fafc;font-size:15px;font-weight:900;touch-action:manipulation}
+.quick-fast-btn:active{transform:scale(.97);background:#0e7490}
+.quick-pillar-settings{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 12px}
+.quick-pillar-settings[hidden],.quick-column-tabs[hidden]{display:none}
+.quick-pillar-settings label{font-weight:800}
+.quick-pillar-settings select{background:#020617;color:#f8fafc;border:1px solid #475569;border-radius:10px;padding:10px;min-width:80px}
+.quick-hint{font-size:12px;color:#a8b6ca;line-height:1.6}
+.quick-status{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:8px 0;font-weight:800}
+.quick-status button{background:#334155;border:1px solid #475569;color:#e2e8f0;border-radius:9px;padding:9px 13px;font-weight:800}
+.quick-column-tabs{display:flex;gap:7px;overflow-x:auto;margin:10px 0;padding:2px}
+.quick-column-tab{flex:1;min-width:62px;min-height:42px;border:1px solid #475569;border-radius:9px;background:#0b1220;color:#cbd5e1;font-weight:900}
+.quick-column-tab.active{background:#0ea5e9;border-color:#7dd3fc;color:#082f49}
+.quick-column-tab small{display:block;font-size:10px;font-weight:700}
+.quick-number-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:12px 0}
+.quick-number{aspect-ratio:1;border:1px solid #475569;border-radius:50%;background:linear-gradient(145deg,#1e293b,#0b1220);color:#e2e8f0;font-size:clamp(16px,4.5vw,21px);font-weight:900;touch-action:manipulation}
+.quick-number.selected{background:linear-gradient(145deg,#facc15,#d97706);border-color:#fde68a;color:#171717;box-shadow:0 2px 8px #f59e0b44}
+.quick-number:active{transform:scale(.96)}
+.quick-output-box{margin-top:14px;padding:12px;border:1px solid #475569;border-radius:13px;background:#080e1b}
+.quick-output-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.quick-output-head span{font-size:12px;color:#94a3b8}
+#quickGeneratedText{width:100%;min-height:64px;resize:vertical;background:#020617;color:#fef3c7;border:1px solid #475569;border-radius:10px;padding:12px;font-size:19px;font-weight:900;line-height:1.6}
+.quick-copy-btn{min-height:56px!important;margin-top:9px;font-size:17px!important;font-weight:1000!important}
+@media(min-width:600px){.quick-number-grid{grid-template-columns:repeat(8,minmax(0,1fr))}}
+
 </style>
 </head>
 <body>
@@ -1910,6 +1943,44 @@
         </div>
       </div>
 
+      <div class="card quick-pick-card">
+        <div class="section-title">快速選號｜一鍵生成複製</div>
+        <div class="quick-mode-row" role="group" aria-label="選號玩法">
+          <button type="button" class="quick-mode active" data-qmode="single">單碰</button>
+          <button type="button" class="quick-mode" data-qmode="chain">連碰</button>
+          <button type="button" class="quick-mode" data-qmode="pillar">柱碰</button>
+        </div>
+        <div id="quickPillarSettings" class="quick-pillar-settings" hidden>
+          <label for="quickColumnCount">柱數</label>
+          <select id="quickColumnCount"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select>
+          <span class="quick-hint">先選柱位，再點號碼；每柱至少選1支。</span>
+        </div>
+        <div class="quick-fast-picks" aria-label="快速分類選號">
+          <div class="quick-fast-row"><span class="quick-fast-label">頭數</span>
+            <button type="button" class="quick-fast-btn" data-qhead="0">0頭</button>
+            <button type="button" class="quick-fast-btn" data-qhead="1">1頭</button>
+            <button type="button" class="quick-fast-btn" data-qhead="2">2頭</button>
+            <button type="button" class="quick-fast-btn" data-qhead="3">3頭</button>
+          </div>
+          <div class="quick-fast-row"><span class="quick-fast-label">單雙</span>
+            <button type="button" class="quick-fast-btn" data-qparity="odd">單</button>
+            <button type="button" class="quick-fast-btn" data-qparity="even">雙</button>
+            <button type="button" class="quick-fast-btn" data-qparity="all">全</button>
+          </div>
+          <div class="quick-hint">點擊分類即可快速選入號碼；柱碰模式會加入目前選定的柱位。</div>
+        </div>
+        <div class="quick-status"><span id="quickSelectedCount">已選 0 號</span><button type="button" id="quickClearBtn">清空重選</button></div>
+        <div id="quickColumnTabs" class="quick-column-tabs" hidden></div>
+        <div id="quickNumberGrid" class="quick-number-grid"></div>
+        <div class="quick-output-box">
+          <div class="quick-output-head"><b>生成結果</b><span id="quickOutputNote">點選號碼後自動更新</span></div>
+          <textarea id="quickGeneratedText" rows="2" readonly placeholder="選擇號碼後，結果會顯示在這裡"></textarea>
+          <button type="button" class="btn btn-secondary quick-copy-btn" id="quickCopyBtn">複製生成號碼</button>
+          <div id="quickCopyFeedback" class="quick-hint" aria-live="polite"></div>
+        </div>
+        <div class="quick-hint">連碰：號碼以逗號分隔。柱碰：同柱以逗號分隔，不同柱以「+」分隔。此工具只整理格式，不會自動下注。</div>
+      </div>
+      <div id="legacyStatusKeep" hidden aria-hidden="true">
       <div class="card">
         <div class="section-title">資料摘要 / 執行狀態</div>
         <div class="stat-grid">
@@ -1935,6 +2006,7 @@
           <button type="button" class="toggle-btn" id="toggleLogBtn">收起天運推演</button>
         </div>
         <div class="log" id="logBox">等待資料與今日推演。</div>
+      </div>
       </div>
     </div>
 
@@ -18838,6 +18910,88 @@ if ('serviceWorker' in navigator) {
     if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
   });
   if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
+})();
+</script>
+
+
+<script>
+(function(){
+ const root=document.querySelector('.quick-pick-card'); if(!root)return;
+ let mode='single', activeCol=0, cols=3;
+ let selected=new Set(), buckets=[];
+ const grid=document.getElementById('quickNumberGrid'), tabs=document.getElementById('quickColumnTabs');
+ const settings=document.getElementById('quickPillarSettings'), count=document.getElementById('quickSelectedCount');
+ const out=document.getElementById('quickGeneratedText'), note=document.getElementById('quickOutputNote');
+ function ensureBuckets(){while(buckets.length<cols)buckets.push(new Set());buckets=buckets.slice(0,cols);activeCol=Math.min(activeCol,cols-1);}
+ function owner(n){return buckets.findIndex(s=>s.has(n));}
+ function renderTabs(){
+   tabs.innerHTML=''; ensureBuckets();
+   for(let i=0;i<cols;i++){const b=document.createElement('button');b.type='button';b.className='quick-column-tab'+(i===activeCol?' active':'');
+     b.innerHTML='第'+(i+1)+'柱<small>'+buckets[i].size+'支</small>';b.onclick=()=>{activeCol=i;renderTabs();renderGrid();};tabs.appendChild(b);}
+ }
+ function format(){
+   if(mode!=='pillar')return [...selected].sort((a,b)=>a-b).map(n=>String(n).padStart(2,'0')).join(',');
+   return buckets.map(s=>[...s].sort((a,b)=>a-b).map(n=>String(n).padStart(2,'0')).join(',')).join('+');
+ }
+ function refresh(){
+   const total=mode==='pillar'?buckets.reduce((v,s)=>v+s.size,0):selected.size;
+   count.textContent='已選 '+total+' 號';out.value=format();
+   const emptyCols=mode==='pillar'?buckets.map((s,i)=>s.size?null:i+1).filter(Boolean):[];
+   note.textContent=mode==='pillar'?(emptyCols.length?'尚未選滿第'+emptyCols.join('、')+'柱':'格式已整理，可複製'):(selected.size?'已依號碼小到大排列':'點選號碼後自動更新');
+ }
+ function renderGrid(){
+   grid.innerHTML='';
+   for(let n=1;n<=39;n++){const b=document.createElement('button');b.type='button';b.className='quick-number';
+     const has=mode==='pillar'?owner(n)!==-1:selected.has(n);
+     b.classList.toggle('selected',has);b.textContent=String(n).padStart(2,'0');
+     b.setAttribute('aria-pressed',String(has));
+     b.onclick=()=>{
+       if(mode==='pillar'){
+         const at=owner(n);
+         if(at>=0)buckets[at].delete(n);
+         else buckets[activeCol].add(n);
+         renderTabs();
+       }else{if(selected.has(n))selected.delete(n);else selected.add(n);}
+       renderGrid();refresh();
+     };grid.appendChild(b);
+   }
+ }
+ function addQuickNumbers(nums){
+   if(mode==='pillar'){
+     ensureBuckets();nums.forEach(n=>{const at=owner(n);if(at<0)buckets[activeCol].add(n);});renderTabs();
+   }else{nums.forEach(n=>selected.add(n));}
+   renderGrid();refresh();
+ }
+ root.querySelectorAll('[data-qhead]').forEach(b=>b.addEventListener('click',()=>{
+   const head=Number(b.dataset.qhead);
+   const nums=Array.from({length:39},(_,i)=>i+1).filter(n=>Math.floor(n/10)===head);
+   addQuickNumbers(nums);
+ }));
+ root.querySelectorAll('[data-qparity]').forEach(b=>b.addEventListener('click',()=>{
+   const kind=b.dataset.qparity;
+   const nums=Array.from({length:39},(_,i)=>i+1).filter(n=>kind==='all'||(kind==='odd'?n%2===1:n%2===0));
+   addQuickNumbers(nums);
+ }));
+ root.querySelectorAll('[data-qmode]').forEach(b=>b.addEventListener('click',()=>{
+   mode=b.dataset.qmode;root.querySelectorAll('[data-qmode]').forEach(x=>x.classList.toggle('active',x===b));
+   settings.hidden=mode!=='pillar';tabs.hidden=mode!=='pillar';
+   if(mode==='pillar'){cols=Number(document.getElementById('quickColumnCount').value)||3;ensureBuckets();renderTabs();}
+   renderGrid();refresh();
+ }));
+ document.getElementById('quickColumnCount').addEventListener('change',e=>{
+   const old=buckets.flatMap(s=>[...s]);cols=Number(e.target.value)||3;buckets=Array.from({length:cols},()=>new Set());
+   // 調整柱數時保留已選號碼，依序分派到現有柱位，每柱先分配一支再循環。
+   old.forEach((n,i)=>buckets[i%cols].add(n));ensureBuckets();activeCol=0;renderTabs();renderGrid();refresh();
+ });
+ document.getElementById('quickClearBtn').onclick=()=>{selected.clear();buckets=Array.from({length:cols},()=>new Set());activeCol=0;renderTabs();renderGrid();refresh();document.getElementById('quickCopyFeedback').textContent='已清空。';};
+ document.getElementById('quickCopyBtn').onclick=async()=>{
+   const val=out.value.trim(), feedback=document.getElementById('quickCopyFeedback');
+   if(!val||!selected.size&&mode!=='pillar'||mode==='pillar'&&!buckets.some(s=>s.size)){feedback.textContent='請先選擇號碼。';return;}
+   try{await navigator.clipboard.writeText(val);feedback.textContent='已複製，可直接貼上。';}
+   catch(e){out.focus();out.select();try{document.execCommand('copy');feedback.textContent='已嘗試複製；若未成功，請長按文字手動複製。';}catch(_){feedback.textContent='請長按生成結果手動複製。';}}
+ };
+ // 單碰、連碰均提供同一組可選號碼；單碰以逗號格式呈現，便於貼入多選輸入欄。
+ renderGrid();refresh();
 })();
 </script>
 
