@@ -1985,6 +1985,7 @@ body.quick-pillar-floating-on{padding-right:0}
             <button type="button" class="quick-fast-btn" data-qparity="even">雙</button>
             <button type="button" class="quick-fast-btn" data-qparity="all">全</button>
             <button type="button" class="quick-fast-btn" id="quickRandomPairBtn">隨機配對</button>
+            <button type="button" class="quick-fast-btn" id="quickDeployBtn">一鍵部署</button>
           </div>
           <div class="quick-hint">點擊分類即可快速選入號碼；柱碰模式會加入目前選定的柱位。「隨機配對」會將已選號碼隨機且平均分配至各柱。</div>
         </div>
@@ -19056,6 +19057,22 @@ if ('serviceWorker' in navigator) {
    const nums=Array.from({length:39},(_,i)=>i+1).filter(n=>kind==='all'||(kind==='odd'?n%2===1:n%2===0));
    addQuickNumbers(nums);
  }));
+ document.getElementById('quickDeployBtn').addEventListener('click',()=>{
+   const feedback=document.getElementById('quickCopyFeedback');
+   if(mode!=='pillar'){if(feedback)feedback.textContent='請先切換至柱碰模式，再使用一鍵部署。';return;}
+   if(cols!==3){if(feedback)feedback.textContent='一鍵部署目前限定設定三柱。';return;}
+   const body=document.getElementById('allNumberHotRankBody');
+   const rows=body?Array.from(body.querySelectorAll('tr')):[];
+   const ranked=[];
+   rows.forEach(row=>{const cells=row.querySelectorAll('td');if(cells.length>=2){const rank=parseInt(cells[0].textContent.trim(),10);const m=cells[1].textContent.match(/\d{1,2}/);const n=m?Number(m[0]):NaN;if(Number.isInteger(rank)&&n>=1&&n<=39)ranked.push({rank,n});}});
+   ranked.sort((a,b)=>a.rank-b.rank);
+   const unique=[];const seen=new Set();ranked.forEach(x=>{if(!seen.has(x.n)){seen.add(x.n);unique.push(x);}});
+   if(unique.length<39){if(feedback)feedback.textContent='目前熱門排行尚未完整載入39個號碼，請稍後再試。';return;}
+   buckets=Array.from({length:3},()=>new Set());
+   unique.forEach(({rank,n})=>{if(rank>=1&&rank<=10)buckets[0].add(n);else if(rank>=11&&rank<=24)buckets[1].add(n);else if(rank>=25&&rank<=39)buckets[2].add(n);});
+   activeCol=0;selected.clear();ensureBuckets();renderTabs();renderGrid();refresh();
+   if(feedback)feedback.textContent='已部署目前比較期數熱門排行：第1柱排名1～10、第2柱11～24、第3柱25～39。';
+ });
  document.getElementById('quickRandomPairBtn').addEventListener('click',()=>{
    if(mode!=='pillar'){
      const feedback=document.getElementById('quickCopyFeedback');
