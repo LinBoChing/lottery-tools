@@ -16291,6 +16291,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (typeof window.quickPickSyncRankMarks === 'function') window.quickPickSyncRankMarks();
       meta.textContent = `目前彩種：${mode}｜比較期數：${draws.length}／${allDraws.length} 期｜共列出 ${max} 號`;
       if (typeof window.refreshAutoDeployHistory === 'function') window.refreshAutoDeployHistory();
+      if (typeof window.refreshRankHitFrequency === 'function') window.refreshRankHitFrequency();
     } catch (err) { console.warn('全號碼熱門排行載入失敗', err); }
   }
   function renderAutoDeployHistory() {
@@ -16345,6 +16346,65 @@ ${settleRecord.analysisLines.join('\n')}`;
       console.warn('一鍵部署三柱歷史回測失敗', err);
     }
   }
+  function renderRankHitFrequency() {
+    const summary=document.getElementById('rankHitFrequencySummary');
+    const groupsBox=document.getElementById('rankHitFrequencyGroups');
+    const body=document.getElementById('rankHitFrequencyBody');
+    if(!summary||!groupsBox||!body)return;
+    try {
+      const mode=currentGameMode();
+      if(getBallMax(mode)!==39){summary.textContent='此統計僅適用01～39號彩種。';groupsBox.innerHTML='';body.innerHTML='';return;}
+      const all=parseDraws(getActiveDrawText(),mode);
+      const compareSelector=document.getElementById('allNumberHotRankWindow');
+      const requested=compareSelector?compareSelector.value:'20';
+      const win=requested==='all'?Math.max(1,all.length):Math.max(1,Number(requested)||20);
+      const targetSelector=document.getElementById('rankHitTargetPeriods');
+      const targetLimit=Math.max(10,Math.min(50,Number(targetSelector?.value)||10));
+      const hits=Array(39).fill(0);
+      let evaluated=0;
+      for(let i=0;i<all.length&&evaluated<targetLimit;i++){
+        const target=all[i], history=all.slice(i+1,i+1+win);
+        if(!target||history.length<win)continue;
+        const ranked=[];
+        for(let n=1;n<=39;n++){
+          let count=0,miss=history.length;
+          for(let j=0;j<history.length;j++)if((history[j]||[]).includes(n)){count++;if(miss===history.length)miss=j;}
+          ranked.push({n,count,miss});
+        }
+        ranked.sort((a,b)=>b.count-a.count||a.miss-b.miss||a.n-b.n);
+        const drawn=new Set(target.map(Number));
+        ranked.forEach((r,rank)=>{if(drawn.has(r.n))hits[rank]++;});
+        evaluated++;
+      }
+      if(!evaluated){summary.textContent=`資料不足：需有比較窗口${win}期以外的更早開獎資料，才能重建目標期排行。`;groupsBox.innerHTML='';body.innerHTML='';return;}
+      const buckets={};
+      hits.forEach((v,i)=>(buckets[v]??=[]).push(i+1));
+      groupsBox.innerHTML=Object.keys(buckets).map(Number).sort((a,b)=>a-b).map(k=>
+        `<div style="padding:8px 10px;border:1px solid #d7dde5;border-radius:9px;background:#fff"><b>開出${k}次：</b>${buckets[k].join('、')}</div>`
+      ).join('');
+      body.innerHTML=hits.map((n,i)=>`<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700">${n}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${(n/evaluated*100).toFixed(1)}%</td></tr>`).join('');
+      summary.textContent=`彩種：${mode}｜每期比較窗口：${requested==='all'?'該期之前全部可用資料':win+'期'}｜設定目標期：${targetLimit}期｜有效目標期：${evaluated}期｜排行命中率以${evaluated}期計算`;
+    }catch(e){summary.textContent='排行命中統計失敗，請確認資料庫。';groupsBox.innerHTML='';body.innerHTML='';console.warn(e);}
+  }
+  window.refreshRankHitFrequency=renderRankHitFrequency;
+  // 從命中統計名次部署：按命中次數排序，不是固定彩球熱門次數。
+  document.addEventListener('click', function(ev){
+    const btn=ev.target && ev.target.closest ? ev.target.closest('#rankHitDeployPillarsBtn') : null;
+    if(!btn)return;
+    const hint=document.getElementById('rankHitDeployHint');
+    const rows=Array.from(document.querySelectorAll('#rankHitFrequencyBody tr'));
+    const rankStats=rows.map(row=>{const c=row.querySelectorAll('td');return {rank:Number(c[0]?.textContent),hits:Number(c[1]?.textContent)};}).filter(x=>Number.isInteger(x.rank)&&x.rank>=1&&x.rank<=39&&Number.isFinite(x.hits));
+    if(rankStats.length!==39){if(hint)hint.textContent='排行統計尚未完整載入39名，請稍後再試。';return;}
+    const topFirst=[...rankStats].sort((a,b)=>b.hits-a.hits||a.rank-b.rank);
+    const first=topFirst.slice(0,10);
+    const firstRanks=new Set(first.map(x=>x.rank));
+    const remaining=topFirst.filter(x=>!firstRanks.has(x.rank));
+    const second=[...remaining].sort((a,b)=>b.hits-a.hits||a.rank-b.rank).slice(0,14);
+    const picked=new Set([...first,...second].map(x=>x.rank));
+    const third=rankStats.filter(x=>!picked.has(x.rank)).sort((a,b)=>a.hits-b.hits||a.rank-b.rank).slice(0,15);
+    document.dispatchEvent(new CustomEvent('rank-hit-deploy-pillars',{detail:{pillars:[first,second,third].map(g=>g.map(x=>x.rank)),periods:document.getElementById('rankHitTargetPeriods')?.value||'10'}}));
+    if(hint)hint.textContent='已送出部署指令；請查看快速選號區的回饋訊息確認部署結果。';
+  });
   autoRebuildDaydayCacheOnce();
   initDrawDatabase();
   // 排行區塊位於主程式之後，先公開刷新函式，待 DOM 區塊建立後再綁定選單。
@@ -16352,17 +16412,24 @@ ${settleRecord.analysisLines.join('\n')}`;
   window.refreshAutoDeployHistory = renderAutoDeployHistory;
   setTimeout(renderAllNumberHotRank, 450);
   setTimeout(renderAutoDeployHistory, 500);
+  setTimeout(renderRankHitFrequency, 550);
+  // 統計區塊在主程式之後才輸出，直接查找可能尚不存在；使用事件委派確保選單切換一定重新計算。
+  document.addEventListener('change', function(ev) {
+    if(ev.target && ev.target.id === 'rankHitTargetPeriods') {
+      renderRankHitFrequency();
+    }
+  });
   // 新增／匯入開獎後，等原有資料庫流程完成再更新排行與回測。
   ['addDrawBtn','importPasteBtn','importPasteNearbyBtn'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.addEventListener('click',()=>setTimeout(()=>{
-      renderAllNumberHotRank(); renderAutoDeployHistory();
+      renderAllNumberHotRank(); renderAutoDeployHistory(); renderRankHitFrequency();
     },350));
   });
   ['drawInput','noDrawInput'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) ['input','change'].forEach(evt=>el.addEventListener(evt,()=>{
-      setTimeout(()=>{renderAllNumberHotRank();renderAutoDeployHistory();},180);
+      setTimeout(()=>{renderAllNumberHotRank();renderAutoDeployHistory();renderRankHitFrequency();},180);
     }));
   });
   // 啟動時自動讀取目前彩種固定雙柱並建立第五模式五碼快照，
@@ -19001,6 +19068,19 @@ if ('serviceWorker' in navigator) {
  <div id="allNumberHotRankMeta" style="font-size:.88rem;margin-bottom:8px;color:#334155">載入統計中…</div>
  <div style="overflow-x:auto;border:1px solid #d7dde5;border-radius:10px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:.92rem;color:#273449;background:#fff"><thead style="background:#e8edf3;color:#1f2937"><tr><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">排名</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">號碼</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">出現次數</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">目前遺漏</th></tr></thead><tbody id="allNumberHotRankBody"></tbody></table></div>
 </section>
+<section id="rankHitFrequencyPanel" style="margin:14px auto;padding:14px;max-width:1000px;border:1px solid #cbd5e1;border-radius:14px;background:#f4f6f8;color:#202938;color-scheme:light">
+ <h2 style="margin:0 0 6px;font-size:1.1rem;color:#172033">熱門排行第1～39名｜個別命中統計</h2>
+ <p style="margin:0 0 10px;font-size:.88rem;line-height:1.55;color:#475569">逐期重建當期排行：每個歷史目標期只使用該期之前的比較窗口資料，再檢查該期開獎號碼落在排行第幾名。命中次數是該名號碼出現在目標期的期數。</p>
+ <label for="rankHitTargetPeriods" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;font-weight:700;color:#263449">統計有效目標期
+ <select id="rankHitTargetPeriods" style="padding:8px 12px;border:1px solid #b8c3d1;border-radius:8px;background:#fff;color:#172033;font-size:1rem">
+ <option value="10" selected>10期</option><option value="20">20期</option><option value="30">30期</option><option value="40">40期</option><option value="50">50期</option>
+ </select></label>
+ <div id="rankHitFrequencySummary" style="font-weight:800;margin:8px 0;color:#334155">排行命中統計載入中…</div>
+ <button id="rankHitDeployPillarsBtn" type="button" style="display:block;width:100%;margin:10px 0 12px;padding:14px 16px;border:0;border-radius:11px;background:#2457a7;color:#fff;font-size:1.02rem;font-weight:800">一鍵部署三柱（依排行命中次數）</button>
+ <div id="rankHitDeployHint" style="font-size:.85rem;color:#475569;margin:-4px 0 12px">第1柱取命中次數最高10支；第2柱取剩餘最高14支；第3柱取剩餘命中次數最低15支。</div>
+ <div id="rankHitFrequencyGroups" style="display:grid;gap:8px;margin-bottom:12px"></div>
+ <div style="overflow-x:auto;border:1px solid #d7dde5;border-radius:10px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:.9rem;color:#273449;background:#fff"><thead style="background:#e8edf3;color:#1f2937"><tr><th style="padding:8px 6px;border-bottom:1px solid #cbd5e1">排行</th><th style="padding:8px 6px;border-bottom:1px solid #cbd5e1">命中期數</th><th style="padding:8px 6px;border-bottom:1px solid #cbd5e1">命中率</th></tr></thead><tbody id="rankHitFrequencyBody"></tbody></table></div>
+</section>
 <section id="autoDeployHistoryPanel" style="margin:14px auto;padding:14px;max-width:1000px;border:1px solid #cbd5e1;border-radius:14px;background:#f4f6f8;color:#202938;color-scheme:light">
  <h2 style="margin:0 0 6px;font-size:1.1rem;color:#172033">一鍵部署三柱｜歷史過往10期</h2>
  <p style="margin:0 0 10px;font-size:.88rem;line-height:1.55;color:#475569">每一期都只用該期之前已開出的資料，獨立重排熱門榜並模擬部署：第1柱排名1～10、第2柱11～24、第3柱25～39。</p>
@@ -19013,6 +19093,7 @@ if ('serviceWorker' in navigator) {
   if (selector) selector.addEventListener('change', function(){
     if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
     if (typeof window.refreshAutoDeployHistory === 'function') window.refreshAutoDeployHistory();
+      if (typeof window.refreshRankHitFrequency === 'function') window.refreshRankHitFrequency();
   });
   if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
 })();
@@ -19132,6 +19213,22 @@ if ('serviceWorker' in navigator) {
    const nums=Array.from({length:39},(_,i)=>i+1).filter(n=>kind==='all'||(kind==='odd'?n%2===1:n%2===0));
    addQuickNumbers(nums);
  }));
+ document.addEventListener('rank-hit-deploy-pillars',function(ev){
+   const feedback=document.getElementById('quickCopyFeedback');
+   if(mode!=='pillar'){if(feedback)feedback.textContent='請先切換至柱碰模式，再使用統計一鍵部署。';return;}
+   if(cols!==3){if(feedback)feedback.textContent='統計一鍵部署限定設定三柱。';return;}
+   const pillars=ev.detail&&ev.detail.pillars;
+   if(!Array.isArray(pillars)||pillars.length!==3||pillars[0].length!==10||pillars[1].length!==14||pillars[2].length!==15){if(feedback)feedback.textContent='部署資料格式不正確，請重新整理統計後再試。';return;}
+   // 統計結果是排行「名次」；需依目前熱門榜把名次轉成實際彩球號碼，不能把名次當球號。
+   const rankRows=Array.from(document.querySelectorAll('#allNumberHotRankBody tr'));
+   const currentRankToBall=new Map();
+   rankRows.forEach(row=>{const c=row.querySelectorAll('td');if(c.length>=2){const rank=Number(c[0].textContent.trim());const match=c[1].textContent.match(/\d{1,2}/);const ball=match?Number(match[0]):NaN;if(Number.isInteger(rank)&&ball>=1&&ball<=39)currentRankToBall.set(rank,ball);}});
+   if(currentRankToBall.size!==39){if(feedback)feedback.textContent='目前熱門排行未完整載入，請稍後再按統計一鍵部署。';return;}
+   buckets=pillars.map(group=>new Set(group.map(rank=>currentRankToBall.get(Number(rank))).filter(n=>Number.isInteger(n))));
+   if(buckets.some((set,i)=>set.size!==[10,14,15][i])){if(feedback)feedback.textContent='名次轉換後號碼不完整，請重新整理排行再試。';return;}
+   activeCol=0;selected.clear();ensureBuckets();renderTabs();renderGrid();refresh();
+   if(feedback)feedback.textContent='已依排行命中次數部署三柱：10／14／15支。';
+ });
  document.getElementById('quickDeployBtn').addEventListener('click',()=>{
    const feedback=document.getElementById('quickCopyFeedback');
    if(mode!=='pillar'){if(feedback)feedback.textContent='請先切換至柱碰模式，再使用一鍵部署。';return;}
