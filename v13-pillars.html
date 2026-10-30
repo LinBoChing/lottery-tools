@@ -16349,11 +16349,11 @@ ${settleRecord.analysisLines.join('\n')}`;
   function renderRankHitFrequency() {
     const summary=document.getElementById('rankHitFrequencySummary');
     const groupsBox=document.getElementById('rankHitFrequencyGroups');
-    const body=document.getElementById('rankHitFrequencyBody');
-    if(!summary||!groupsBox||!body)return;
+    const tableBody=document.getElementById('rankHitFrequencyBody');
+    if(!summary||!groupsBox||!tableBody)return;
     try {
       const mode=currentGameMode();
-      if(getBallMax(mode)!==39){summary.textContent='此統計僅適用01～39號彩種。';groupsBox.innerHTML='';body.innerHTML='';return;}
+      if(getBallMax(mode)!==39){summary.textContent='此統計僅適用01～39號彩種。';groupsBox.innerHTML='';tableBody.innerHTML='';return;}
       const all=parseDraws(getActiveDrawText(),mode);
       const compareSelector=document.getElementById('allNumberHotRankWindow');
       const requested=compareSelector?compareSelector.value:'20';
@@ -16376,15 +16376,15 @@ ${settleRecord.analysisLines.join('\n')}`;
         ranked.forEach((r,rank)=>{if(drawn.has(r.n))hits[rank]++;});
         evaluated++;
       }
-      if(!evaluated){summary.textContent=`資料不足：需有比較窗口${win}期以外的更早開獎資料，才能重建目標期排行。`;groupsBox.innerHTML='';body.innerHTML='';return;}
+      if(!evaluated){summary.textContent=`資料不足：需有比較窗口${win}期以外的更早開獎資料，才能重建目標期排行。`;groupsBox.innerHTML='';tableBody.innerHTML='';return;}
       const buckets={};
       hits.forEach((v,i)=>(buckets[v]??=[]).push(i+1));
       groupsBox.innerHTML=Object.keys(buckets).map(Number).sort((a,b)=>a-b).map(k=>
         `<div style="padding:8px 10px;border:1px solid #d7dde5;border-radius:9px;background:#fff"><b>開出${k}次：</b>${buckets[k].join('、')}</div>`
       ).join('');
-      body.innerHTML=hits.map((n,i)=>`<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700">${n}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${(n/evaluated*100).toFixed(1)}%</td></tr>`).join('');
+      tableBody.innerHTML=hits.map((n,i)=>`<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700">${n}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${(n/evaluated*100).toFixed(1)}%</td></tr>`).join('');
       summary.textContent=`彩種：${mode}｜每期比較窗口：${requested==='all'?'該期之前全部可用資料':win+'期'}｜設定目標期：${targetLimit}期｜有效目標期：${evaluated}期｜排行命中率以${evaluated}期計算`;
-    }catch(e){summary.textContent='排行命中統計失敗，請確認資料庫。';groupsBox.innerHTML='';body.innerHTML='';console.warn(e);}
+    }catch(e){summary.textContent='排行命中統計失敗，請確認資料庫。';groupsBox.innerHTML='';tableBody.innerHTML='';console.warn(e);}
   }
   window.refreshRankHitFrequency=renderRankHitFrequency;
   // 從命中統計名次部署：按命中次數排序，不是固定彩球熱門次數。
@@ -19069,7 +19069,11 @@ if ('serviceWorker' in navigator) {
  <div style="overflow-x:auto;border:1px solid #d7dde5;border-radius:10px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:.92rem;color:#273449;background:#fff"><thead style="background:#e8edf3;color:#1f2937"><tr><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">排名</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">號碼</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">出現次數</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">目前遺漏</th></tr></thead><tbody id="allNumberHotRankBody"></tbody></table></div>
 </section>
 <section id="rankHitFrequencyPanel" style="margin:14px auto;padding:14px;max-width:1000px;border:1px solid #cbd5e1;border-radius:14px;background:#f4f6f8;color:#202938;color-scheme:light">
- <h2 style="margin:0 0 6px;font-size:1.1rem;color:#172033">熱門排行第1～39名｜個別命中統計</h2>
+ <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:2px">
+  <h2 style="margin:0 0 6px;font-size:1.1rem;color:#172033">熱門排行第1～39名｜個別命中統計</h2>
+  <button id="rankHitFrequencyToggle" type="button" aria-expanded="false" aria-controls="rankHitFrequencyContent" style="width:auto;margin:0 0 6px;padding:8px 13px;border:1px solid #b8c3d1;border-radius:9px;background:#fff;color:#172033;font-size:.9rem;font-weight:800">展開統計　＋</button>
+ </div>
+ <div id="rankHitFrequencyContent" hidden>
  <p style="margin:0 0 10px;font-size:.88rem;line-height:1.55;color:#475569">逐期重建當期排行：每個歷史目標期只使用該期之前的比較窗口資料，再檢查該期開獎號碼落在排行第幾名。命中次數是該名號碼出現在目標期的期數。</p>
  <label for="rankHitTargetPeriods" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;font-weight:700;color:#263449">統計有效目標期
  <select id="rankHitTargetPeriods" style="padding:8px 12px;border:1px solid #b8c3d1;border-radius:8px;background:#fff;color:#172033;font-size:1rem">
@@ -19080,7 +19084,30 @@ if ('serviceWorker' in navigator) {
  <div id="rankHitDeployHint" style="font-size:.85rem;color:#475569;margin:-4px 0 12px">第1柱取命中次數最高10支；第2柱取剩餘最高14支；第3柱取剩餘命中次數最低15支。</div>
  <div id="rankHitFrequencyGroups" style="display:grid;gap:8px;margin-bottom:12px"></div>
  <div style="overflow-x:auto;border:1px solid #d7dde5;border-radius:10px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:.9rem;color:#273449;background:#fff"><thead style="background:#e8edf3;color:#1f2937"><tr><th style="padding:8px 6px;border-bottom:1px solid #cbd5e1">排行</th><th style="padding:8px 6px;border-bottom:1px solid #cbd5e1">命中期數</th><th style="padding:8px 6px;border-bottom:1px solid #cbd5e1">命中率</th></tr></thead><tbody id="rankHitFrequencyBody"></tbody></table></div>
+ </div>
 </section>
+<script>
+(function(){
+ const panel=document.getElementById('rankHitFrequencyPanel');
+ const content=document.getElementById('rankHitFrequencyContent');
+ const btn=document.getElementById('rankHitFrequencyToggle');
+ if(!panel||!content||!btn)return;
+ // 預設收合整個統計內容區，而非誤操作表格 tbody。
+ content.hidden=true;
+ btn.textContent='展開統計　＋';
+ btn.setAttribute('aria-expanded','false');
+ btn.addEventListener('click',function(){
+  const opening=content.hidden;
+  content.hidden=!opening;
+  btn.textContent=opening?'收合統計　－':'展開統計　＋';
+  btn.setAttribute('aria-expanded',String(opening));
+  // 展開時立即刷新統計，避免區塊開啟卻沒有內容。
+  if(opening && typeof window.refreshRankHitFrequency==='function'){
+    window.refreshRankHitFrequency();
+  }
+ });
+})();
+</script>
 <section id="autoDeployHistoryPanel" style="margin:14px auto;padding:14px;max-width:1000px;border:1px solid #cbd5e1;border-radius:14px;background:#f4f6f8;color:#202938;color-scheme:light">
  <h2 style="margin:0 0 6px;font-size:1.1rem;color:#172033">一鍵部署三柱｜歷史過往10期</h2>
  <p style="margin:0 0 10px;font-size:.88rem;line-height:1.55;color:#475569">每一期都只用該期之前已開出的資料，獨立重排熱門榜並模擬部署：第1柱排名1～10、第2柱11～24、第3柱25～39。</p>
