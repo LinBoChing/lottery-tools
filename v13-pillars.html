@@ -16290,13 +16290,81 @@ ${settleRecord.analysisLines.join('\n')}`;
       body.innerHTML = rows.map((r,i) => `<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700"><button type="button" class="hot-rank-pick-number" data-pick-number="${r.n}" aria-pressed="false" title="點選 ${String(r.n).padStart(2,'0')} 加入／取消快速選號" style="border:0;background:transparent;color:#1f2937;font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;padding:5px 9px;border-radius:7px;cursor:pointer;touch-action:manipulation">${String(r.n).padStart(2,'0')}</button></td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.count}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.miss}</td></tr>`).join('');
       if (typeof window.quickPickSyncRankMarks === 'function') window.quickPickSyncRankMarks();
       meta.textContent = `目前彩種：${mode}｜比較期數：${draws.length}／${allDraws.length} 期｜共列出 ${max} 號`;
+      if (typeof window.refreshAutoDeployHistory === 'function') window.refreshAutoDeployHistory();
     } catch (err) { console.warn('全號碼熱門排行載入失敗', err); }
+  }
+  function renderAutoDeployHistory() {
+    const summary = document.getElementById('autoDeployHistorySummary');
+    const rowsBox = document.getElementById('autoDeployHistoryRows');
+    if (!summary || !rowsBox) return;
+    try {
+      const mode = currentGameMode();
+      if (getBallMax(mode) !== 39) {
+        summary.textContent = '此回測僅適用01～39號彩種。';
+        rowsBox.innerHTML = '';
+        return;
+      }
+      const all = parseDraws(getActiveDrawText(), mode);
+      const selector = document.getElementById('allNumberHotRankWindow');
+      const requested = selector ? selector.value : '20';
+      const win = requested === 'all' ? Math.max(1, all.length) : Math.max(1, Number(requested) || 20);
+      const limit = Math.min(10, all.length);
+      const out = [];
+      let pass = 0, evaluated = 0;
+      for (let i = 0; i < limit; i++) {
+        // all[0] is latest. Target draw i must be ranked only with older known draws.
+        const target = all[i];
+        const history = all.slice(i + 1, i + 1 + win);
+        if (!target || history.length < win) continue;
+        const stat = [];
+        for (let n = 1; n <= 39; n++) {
+          let count = 0, miss = history.length;
+          for (let j = 0; j < history.length; j++) {
+            if ((history[j] || []).includes(n)) { count++; if (miss === history.length) miss = j; }
+          }
+          stat.push({n, count, miss});
+        }
+        stat.sort((a,b)=>b.count-a.count || a.miss-b.miss || a.n-b.n);
+        const groups = [stat.slice(0,10), stat.slice(10,24), stat.slice(24,39)].map(a=>a.map(x=>x.n));
+        const drawSet = new Set((target || []).map(Number));
+        const hits = groups.map(g=>g.reduce((c,n)=>c+(drawSet.has(n)?1:0),0));
+        const isPass = hits.every(x=>x>0);
+        evaluated++; if (isPass) pass++;
+        const label = target.period ? String(target.period) : `近端第${i+1}期`;
+        out.push(`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid #d7dde5;border-radius:9px;background:#fff;font-size:.92rem">
+          <b style="min-width:84px;color:#475569">${label}</b>
+          <b style="font-size:1.03rem;color:#172033;flex:1">${hits.join('-')}</b>
+          <b style="color:${isPass?'#15803d':'#b91c1c'}">${isPass?'過關':'未過'}</b>
+        </div>`);
+      }
+      rowsBox.innerHTML = out.join('') || '<div style="color:#b91c1c">可供逐期重建的歷史資料不足：需有比較期數之外的更早期資料。</div>';
+      summary.textContent = `彩種：${mode}｜每期排行窗口：${requested==='all'?'該期之前全部可用資料':win+'期'}｜有效 ${evaluated} 期｜整體過關 ${evaluated?pass+'/'+evaluated+'（'+(pass/evaluated*100).toFixed(1)+'%）':'尚無'}`;
+    } catch (err) {
+      summary.textContent = '歷史回測無法計算，請確認資料庫內容完整。';
+      rowsBox.innerHTML = '';
+      console.warn('一鍵部署三柱歷史回測失敗', err);
+    }
   }
   autoRebuildDaydayCacheOnce();
   initDrawDatabase();
   // 排行區塊位於主程式之後，先公開刷新函式，待 DOM 區塊建立後再綁定選單。
   window.refreshAllNumberHotRank = renderAllNumberHotRank;
+  window.refreshAutoDeployHistory = renderAutoDeployHistory;
   setTimeout(renderAllNumberHotRank, 450);
+  setTimeout(renderAutoDeployHistory, 500);
+  // 新增／匯入開獎後，等原有資料庫流程完成再更新排行與回測。
+  ['addDrawBtn','importPasteBtn','importPasteNearbyBtn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('click',()=>setTimeout(()=>{
+      renderAllNumberHotRank(); renderAutoDeployHistory();
+    },350));
+  });
+  ['drawInput','noDrawInput'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) ['input','change'].forEach(evt=>el.addEventListener(evt,()=>{
+      setTimeout(()=>{renderAllNumberHotRank();renderAutoDeployHistory();},180);
+    }));
+  });
   // 啟動時自動讀取目前彩種固定雙柱並建立第五模式五碼快照，
   // 不必使用者先手動按「天選雙柱」才會顯示原始五碼／最終五碼並供開獎判斷。
   setTimeout(() => {
@@ -18933,11 +19001,18 @@ if ('serviceWorker' in navigator) {
  <div id="allNumberHotRankMeta" style="font-size:.88rem;margin-bottom:8px;color:#334155">載入統計中…</div>
  <div style="overflow-x:auto;border:1px solid #d7dde5;border-radius:10px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:.92rem;color:#273449;background:#fff"><thead style="background:#e8edf3;color:#1f2937"><tr><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">排名</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">號碼</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">出現次數</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">目前遺漏</th></tr></thead><tbody id="allNumberHotRankBody"></tbody></table></div>
 </section>
+<section id="autoDeployHistoryPanel" style="margin:14px auto;padding:14px;max-width:1000px;border:1px solid #cbd5e1;border-radius:14px;background:#f4f6f8;color:#202938;color-scheme:light">
+ <h2 style="margin:0 0 6px;font-size:1.1rem;color:#172033">一鍵部署三柱｜歷史過往10期</h2>
+ <p style="margin:0 0 10px;font-size:.88rem;line-height:1.55;color:#475569">每一期都只用該期之前已開出的資料，獨立重排熱門榜並模擬部署：第1柱排名1～10、第2柱11～24、第3柱25～39。</p>
+ <div id="autoDeployHistorySummary" style="font-weight:800;margin:8px 0;color:#334155">歷史回測載入中…</div>
+ <div id="autoDeployHistoryRows" style="display:grid;gap:6px"></div>
+</section>
 <script>
 (function(){
   const selector = document.getElementById('allNumberHotRankWindow');
   if (selector) selector.addEventListener('change', function(){
     if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
+    if (typeof window.refreshAutoDeployHistory === 'function') window.refreshAutoDeployHistory();
   });
   if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
 })();
