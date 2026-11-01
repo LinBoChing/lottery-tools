@@ -16398,8 +16398,8 @@ ${settleRecord.analysisLines.join('\n')}`;
           hist.push({target,ranked,rankHits,sourceIndex:i});
         }
         const records=[];
-        // 最近目標期數逐筆呈現；統計部署依據只取該目標期之前已完成的紀錄。
-        for(let h=0;h<Math.min(targetLimit,hist.length);h++){
+        // 固定顯示最近10個有效目標期；統計部署依據仍依設定的目標期數取該目標期之前已完成的紀錄。
+        for(let h=0;h<Math.min(10,hist.length);h++){
           const rec=hist[h];
           const prior=hist.slice(h+1,h+1+targetLimit);
           if(!prior.length)continue;
