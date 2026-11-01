@@ -16377,6 +16377,53 @@ ${settleRecord.analysisLines.join('\n')}`;
         evaluated++;
       }
       if(!evaluated){summary.textContent=`資料不足：需有比較窗口${win}期以外的更早開獎資料，才能重建目標期排行。`;groupsBox.innerHTML='';tableBody.innerHTML='';return;}
+      // 新增：逐期回測「依排行歷史命中次數部署」。每個目標期只統計它之前各期的排行命中紀錄。
+      const tripleBox=document.getElementById('rankHitTripleRows');
+      const tripleSummary=document.getElementById('rankHitTripleSummary');
+      if(tripleBox&&tripleSummary){
+        const hist=[];
+        // 先為資料庫每一期重建該期排行，target只使用更舊資料。
+        for(let i=0;i<all.length;i++){
+          const target=all[i], history=all.slice(i+1,i+1+win);
+          if(!target||history.length<win)continue;
+          const ranked=[];
+          for(let n=1;n<=39;n++){
+            let count=0,miss=history.length;
+            for(let j=0;j<history.length;j++)if((history[j]||[]).includes(n)){count++;if(miss===history.length)miss=j;}
+            ranked.push({n,count,miss});
+          }
+          ranked.sort((a,b)=>b.count-a.count||a.miss-b.miss||a.n-b.n);
+          const drawn=new Set(target.map(Number));
+          const rankHits=ranked.map(r=>drawn.has(r.n)?1:0);
+          hist.push({target,ranked,rankHits,sourceIndex:i});
+        }
+        const records=[];
+        // 最近目標期數逐筆呈現；統計部署依據只取該目標期之前已完成的紀錄。
+        for(let h=0;h<Math.min(targetLimit,hist.length);h++){
+          const rec=hist[h];
+          const prior=hist.slice(h+1,h+1+targetLimit);
+          if(!prior.length)continue;
+          const rankCounts=Array(39).fill(0);
+          prior.forEach(pr=>pr.rankHits.forEach((v,r)=>{rankCounts[r]+=v;}));
+          const ranks=Array.from({length:39},(_,i)=>({rank:i+1,hits:rankCounts[i]}));
+          const first=[...ranks].sort((a,b)=>b.hits-a.hits||a.rank-b.rank).slice(0,10);
+          const firstSet=new Set(first.map(x=>x.rank));
+          const rest=ranks.filter(x=>!firstSet.has(x.rank));
+          const second=[...rest].sort((a,b)=>b.hits-a.hits||a.rank-b.rank).slice(0,14);
+          const picked=new Set([...first,...second].map(x=>x.rank));
+          const third=ranks.filter(x=>!picked.has(x.rank)).sort((a,b)=>a.hits-b.hits||a.rank-b.rank).slice(0,15);
+          // rank is a position in this target period's independently reconstructed number ranking.
+          const groups=[first,second,third].map(g=>g.map(x=>rec.ranked[x.rank-1].n));
+          const drawSet=new Set(rec.target.map(Number));
+          const hitCounts=groups.map(g=>g.reduce((sum,n)=>sum+(drawSet.has(n)?1:0),0));
+          const passed=hitCounts.every(v=>v>0);
+          const period=rec.target.period?String(rec.target.period):`近端第${h+1}期`;
+          records.push({period,hitCounts,passed,priorCount:prior.length});
+        }
+        const passCount=records.filter(r=>r.passed).length;
+        tripleSummary.textContent=`依各排行名次「目標期之前」的命中次數部署｜有效 ${records.length} 期｜過關 ${passCount}｜未過 ${records.length-passCount}｜過關率 ${records.length?(passCount/records.length*100).toFixed(1):'0.0'}%`;
+        tripleBox.innerHTML=records.map(r=>`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid #d7dde5;border-radius:9px;background:#fff;font-size:.92rem"><b style="min-width:84px;color:#475569">${r.period}</b><b style="font-size:1.03rem;color:#172033;flex:1">${r.hitCounts.join('-')}</b><b style="color:${r.passed?'#15803d':'#b91c1c'}">${r.passed?'過關':'未過'}</b><span style="font-size:.78rem;color:#64748b">部署依據：前${r.priorCount}期</span></div>`).join('')||'<div style="color:#b91c1c">歷史資料不足，尚無可用的前期命中紀錄。</div>';
+      }
       const buckets={};
       hits.forEach((v,i)=>(buckets[v]??=[]).push(i+1));
       groupsBox.innerHTML=Object.keys(buckets).map(Number).sort((a,b)=>a-b).map(k=>
@@ -19080,6 +19127,12 @@ if ('serviceWorker' in navigator) {
  <option value="10" selected>10期</option><option value="20">20期</option><option value="30">30期</option><option value="40">40期</option><option value="50">50期</option>
  </select></label>
  <div id="rankHitFrequencySummary" style="font-weight:800;margin:8px 0;color:#334155">排行命中統計載入中…</div>
+ <div style="margin:12px 0;padding:12px;border:1px solid #cbd5e1;border-radius:11px;background:#eef3f8">
+  <h3 style="margin:0 0 6px;font-size:1rem;color:#172033">依排行命中次數部署｜過往過倒紀錄</h3>
+  <p style="margin:0 0 8px;font-size:.84rem;line-height:1.55;color:#475569">每個目標期只用該期之前已完成的排行命中紀錄部署：第1柱取命中次數最高10個排行名次；第2柱取剩餘最高14個；第3柱取剩餘命中次數最低15個。再將名次對應回該目標期獨立重建的號碼排行，計算過倒。</p>
+  <div id="rankHitTripleSummary" style="font-weight:800;margin:8px 0;color:#334155">載入中…</div>
+  <div id="rankHitTripleRows" style="display:grid;gap:7px"></div>
+ </div>
  <button id="rankHitDeployPillarsBtn" type="button" style="display:block;width:100%;margin:10px 0 12px;padding:14px 16px;border:0;border-radius:11px;background:#2457a7;color:#fff;font-size:1.02rem;font-weight:800">一鍵部署三柱（依排行命中次數）</button>
  <div id="rankHitDeployHint" style="font-size:.85rem;color:#475569;margin:-4px 0 12px">第1柱取命中次數最高10支；第2柱取剩餘最高14支；第3柱取剩餘命中次數最低15支。</div>
  <div id="rankHitFrequencyGroups" style="display:grid;gap:8px;margin-bottom:12px"></div>
