@@ -19196,6 +19196,12 @@ if ('serviceWorker' in navigator) {
   </select>
  </div>
  <div id="allNumberHotRankMeta" style="font-size:.88rem;margin-bottom:8px;color:#334155">載入統計中…</div>
+ <div id="allHotRankRecPanel" style="margin:12px 0;padding:12px;border:1px solid #b9c9dd;border-radius:12px;background:#f0f6ff;color:#172033">
+  <h3 style="margin:0 0 6px;font-size:1rem">熱門程度排行｜三星連倒與最低過關率推薦</h3>
+  <p style="margin:0 0 8px;font-size:.84rem;line-height:1.55;color:#475569">獨立分析熱門排行5／10／15／20／33／50／100／150期。每個窗口取最近10個有效目標期，按當期前置窗口重建熱門排名，模擬第1柱排行1～10、第2柱11～24、第3柱25～39。連倒只看最新期起連續未過至少2期；最低過關率並列全列。</p>
+  <div id="allHotRankRecSummary" style="font-weight:800;margin:8px 0;color:#334155">熱門排行推薦分析載入中…</div>
+  <div id="allHotRankRecRows" style="display:grid;gap:10px"></div>
+ </div>
  <div style="overflow-x:auto;border:1px solid #d7dde5;border-radius:10px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:.92rem;color:#273449;background:#fff"><thead style="background:#e8edf3;color:#1f2937"><tr><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">排名</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">號碼</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">出現次數</th><th style="padding:10px 7px;border-bottom:1px solid #cbd5e1">目前遺漏</th></tr></thead><tbody id="allNumberHotRankBody"></tbody></table></div>
 </section>
 <section id="rankHitFrequencyPanel" style="margin:14px auto;padding:14px;max-width:1000px;border:1px solid #cbd5e1;border-radius:14px;background:#f4f6f8;color:#202938;color-scheme:light">
@@ -19479,6 +19485,47 @@ document.addEventListener('click',function(e){
 });
 </script>
 
+<script>
+(function(){
+ const hotWindows=[5,10,15,20,33,50,100,150];
+ function renderHotRankRec(){
+  const summary=document.getElementById('allHotRankRecSummary'),box=document.getElementById('allHotRankRecRows');if(!summary||!box)return;
+  try{
+   const mode=(document.getElementById('gameMode')||{}).value||'539';if(!['539','dayday'].includes(mode)){summary.textContent='此分析僅適用01～39號彩種。';box.innerHTML='';return;}
+   const raw=JSON.parse(localStorage.getItem('pillar_app_draw_db_v41_'+mode)||'[]');
+   const all=Array.isArray(raw)?raw.map(r=>({period:r.period||r.issue||r.date||'',nums:Array.isArray(r.nums)?r.nums.map(Number):[]})).filter(r=>r.nums.length===5&&r.nums.every(n=>n>=1&&n<=39)):[];
+   if(!all.length)throw new Error('資料庫內找不到有效的39選5開獎紀錄（請確認彩種與資料庫）');
+   const analyses=[];
+   for(const win of hotWindows){const recs=[];
+    for(let i=0;i<all.length&&recs.length<10;i++){
+     const target=all[i],prior=all.slice(i+1,i+1+win);if(!target||prior.length<win)continue;
+     const ranks=[];for(let n=1;n<=39;n++){let count=0,miss=win;for(let j=0;j<win;j++)if((prior[j]&&Array.isArray(prior[j].nums)?prior[j].nums:[]).includes(n)){count++;if(miss===win)miss=j;}ranks.push({n,count,miss});}
+     ranks.sort((a,b)=>b.count-a.count||a.miss-b.miss||a.n-b.n);
+     const gs=[ranks.slice(0,10),ranks.slice(10,24),ranks.slice(24,39)],targetNums=Array.isArray(target.nums)?target.nums.map(Number):[],ds=new Set(targetNums);
+     const hit=gs.map(g=>g.reduce((sum,x)=>sum+(ds.has(x.n)?1:0),0));recs.push({period:target.period?String(target.period):`近端第${i+1}期`,hit,pass:hit.every(x=>x>0)});
+    }
+    let streak=0;for(const r of recs){if(!r.pass)streak++;else break;}
+    const passed=recs.filter(r=>r.pass).length;analyses.push({win,recs,streak,passed,rate:recs.length?passed/recs.length:NaN});
+   }
+   const complete=analyses.filter(a=>a.recs.length===10),min=complete.length?Math.min(...complete.map(a=>a.rate)):NaN;
+   const lowest=complete.filter(a=>Math.abs(a.rate-min)<1e-10),streaks=analyses.filter(a=>a.streak>=2);
+   const card=(a,why)=>`<section style="padding:10px;border:1px solid #d7dde5;border-radius:10px;background:#fff"><b>熱門排行${a.win}期</b>　<span style="color:#475569">${why}</span><div style="font-size:.84rem;color:#475569;margin-top:4px">最近${a.recs.length}個有效目標期｜過關${a.passed}｜未過${a.recs.length-a.passed}｜過關率${Number.isFinite(a.rate)?(a.rate*100).toFixed(0)+'%':'資料不足'}｜最新連倒${a.streak}期</div><div style="font-size:.82rem;color:#334155;margin-top:5px">過倒（新→舊）：${a.recs.map(r=>`${r.period} ${r.hit.join('-')} ${r.pass?'過':'倒'}`).join('、')}</div><button type="button" data-hot-rec-jump="${a.win}" style="border:0;border-radius:8px;padding:9px 12px;margin-top:8px;background:#2457a7;color:#fff;font-weight:800">跳轉熱門${a.win}期並自動部署三柱</button></section>`;
+   let html=[];if(streaks.length)html.push(`<div style="font-weight:800;color:#92400e">最新連倒2期以上（${streaks.length}組）</div>`,...streaks.map(a=>card(a,`最新連倒${a.streak}期`)));else html.push('<div style="padding:8px;color:#64748b">最新連倒2期以上：目前無符合組別</div>');
+   if(lowest.length)html.push(`<div style="font-weight:800;color:#92400e;margin-top:4px">完整10期最低過關率（${lowest.length}組並列）</div>`,...lowest.map(a=>card(a,'最低過關率並列')));else html.push('<div style="padding:8px;color:#64748b">完整10期最低過關率：資料不足</div>');
+   summary.textContent=`已檢查${analyses.length}種熱門排行窗口；各窗口獨立回測最近10個有效目標期。`;box.innerHTML=html.join('');
+  }catch(e){summary.textContent='熱門排行推薦分析失敗：'+(e&&e.message?e.message:String(e));box.innerHTML='<div style="padding:8px;color:#991b1b">計算發生錯誤，請確認歷史資料格式；錯誤原因已顯示於上方，方便定位。</div>';console.warn('熱門排行推薦分析失敗',e);}
+ }
+ document.addEventListener('click',ev=>{const b=ev.target.closest&&ev.target.closest('[data-hot-rec-jump]');if(!b)return;const sel=document.getElementById('allNumberHotRankWindow');if(sel){sel.value=b.dataset.hotRecJump;sel.dispatchEvent(new Event('change',{bubbles:true}));}if(typeof renderAllNumberHotRank==='function')renderAllNumberHotRank();if(typeof renderAutoDeployHistory==='function')renderAutoDeployHistory();
+  // 熱門排行推薦須走「熱門排行一鍵部署」，先明確切換柱碰/三柱，避免快速選號仍停留在單碰或其他柱數。
+  const pillarModeBtn=document.querySelector('.quick-pick-card [data-qmode="pillar"]');if(pillarModeBtn)pillarModeBtn.click();
+  const colCount=document.getElementById('quickColumnCount');if(colCount){colCount.value='3';colCount.dispatchEvent(new Event('change',{bubbles:true}));}
+  const deployBtn=document.getElementById('quickDeployBtn');if(deployBtn){deployBtn.click();}
+  const feedback=document.getElementById('quickCopyFeedback');if(feedback)feedback.textContent=`已切換熱門排行${b.dataset.hotRecJump}期，並執行熱門排行三柱部署（10／14／15支）。`;document.querySelector('.quick-pick-card')?.scrollIntoView({behavior:'smooth',block:'start'});});
+ window.refreshHotRankRecommendations=renderHotRankRec;setTimeout(renderHotRankRec,800);
+ document.addEventListener('change',ev=>{if(ev.target&&ev.target.id==='allNumberHotRankWindow')setTimeout(renderHotRankRec,100);});
+ ['addDrawBtn','importPasteBtn','importPasteNearbyBtn'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(renderHotRankRec,500)));
+})();
+</script>
 </body>
 </html>
 
