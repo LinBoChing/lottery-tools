@@ -16441,6 +16441,74 @@ ${settleRecord.analysisLines.join('\n')}`;
       summary.textContent=`彩種：${mode}｜每期比較窗口：${requested==='all'?'該期之前全部可用資料':win+'期'}｜設定目標期：${targetLimit}期｜有效目標期：${evaluated}期｜排行命中率以${evaluated}期計算`;
     }catch(e){summary.textContent='排行命中統計失敗，請確認資料庫。';groupsBox.innerHTML='';tableBody.innerHTML='';console.warn(e);}
   }
+  function renderRankHitRecommendations(){
+    const box=document.getElementById('rankHitRecommendationRows'),summary=document.getElementById('rankHitRecommendationSummary');
+    if(!box||!summary)return;
+    try{
+      const mode=currentGameMode();
+      if(getBallMax(mode)!==39){summary.textContent='此分析僅適用01～39號彩種。';box.innerHTML='';return;}
+      const all=parseDraws(getActiveDrawText(),mode),hotWindows=[5,10,15,20,33,50,100,150],targetWindows=[10,20,30,40,50];
+      const analyses=[];let available=0;
+      for(const win of hotWindows){
+        const hist=[];
+        // 每期重建當期號碼熱門排行；只取目標期之前的 win 期，杜絕未來資料。
+        for(let i=0;i<all.length;i++){
+          const target=all[i],older=all.slice(i+1,i+1+win);if(!target||older.length<win)continue;
+          const ranked=[];
+          for(let n=1;n<=39;n++){let count=0,miss=older.length;for(let j=0;j<older.length;j++)if((older[j]||[]).includes(n)){count++;if(miss===older.length)miss=j;}ranked.push({n,count,miss});}
+          ranked.sort((a,b)=>b.count-a.count||a.miss-b.miss||a.n-b.n);
+          const drawn=new Set(target.map(Number));hist.push({target,ranked,rankHits:ranked.map(r=>drawn.has(r.n)?1:0)});
+        }
+        const results=[];
+        for(const tw of targetWindows){
+          const records=[];
+          for(let h=0;h<Math.min(10,hist.length);h++){
+            const rec=hist[h],prior=hist.slice(h+1,h+1+tw);if(prior.length<tw)continue;
+            const counts=Array(39).fill(0);prior.forEach(pr=>pr.rankHits.forEach((v,r)=>counts[r]+=v));
+            const scores=Array.from({length:39},(_,i)=>({rank:i+1,hits:counts[i]})).sort((a,b)=>b.hits-a.hits||a.rank-b.rank);
+            const groups=[[],[],[]],caps=[10,14,15];let g=0;
+            for(const item of scores){let skips=0;while(skips<3&&groups[g].length>=caps[g]){g=(g+1)%3;skips++;}if(skips>=3)break;groups[g].push(item);g=(g+1)%3;}
+            const drawSet=new Set(rec.target.map(Number)),hits=groups.map(list=>list.reduce((sum,x)=>sum+(drawSet.has(rec.ranked[x.rank-1].n)?1:0),0));
+            records.push({pass:hits.every(x=>x>0),hits,period:rec.target.period||`近端第${h+1}期`});
+          }
+          const passed=records.filter(x=>x.pass).length,rate=records.length?passed/records.length:NaN;
+          let streak=0;for(const r of records){if(r.pass)break;streak++;}
+          results.push({win,tw,records,passed,rate,streak});
+        }
+        available+=results.reduce((n,r)=>n+r.records.length,0);analyses.push({win,results});
+      }
+      const html=[];
+      for(const a of analyses){
+        const eligible=a.results.filter(r=>r.records.length===10);
+        const valid=eligible.filter(r=>r.rate===r.rate),min=valid.length?Math.min(...valid.map(r=>r.rate)):NaN;
+        const low=valid.filter(r=>Math.abs(r.rate-min)<1e-10);
+        const streaks=a.results.filter(r=>r.streak>=2);
+        html.push(`<section style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff"><div style="font-weight:900;margin-bottom:6px">熱門排行 ${a.win} 期</div><div style="font-size:.85rem;color:#475569;line-height:1.6">${streaks.length?`<b style="color:#b91c1c">最新連續倒關：</b>${streaks.map(r=>`${r.tw}期（連倒${r.streak}）`).join('、')}`:'<span style="color:#64748b">最新連續倒2期以上：無</span>'}<br>${low.length?`<b style="color:#92400e">完整10期最低過關率：</b>${low.map(r=>`${r.tw}期（${r.passed}/10，${(r.rate*100).toFixed(0)}%）`).join('、')}`:'<span style="color:#64748b">完整10期最低過關率：資料不足</span>'}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${[...new Map([...streaks,...low].map(r=>[r.tw,r])).values()].map(r=>`<button type="button" data-rec-hot="${a.win}" data-rec-target="${r.tw}" style="border:0;border-radius:8px;padding:9px 11px;background:#2457a7;color:#fff;font-weight:800">跳轉：熱門${a.win}期／命中統計${r.tw}期</button>`).join('')||'<span style="font-size:.82rem;color:#64748b">目前沒有符合條件的跳轉推薦</span>'}</div></section>`);
+      }
+      summary.textContent=`已分析 ${analyses.length} 種熱門窗口 × 5種統計目標期；最近10個有效目標期逐組計算。有效回測紀錄合計 ${available} 筆。`;
+      box.innerHTML=html.join('');
+    }catch(err){summary.textContent='推薦分析計算失敗，請確認歷史資料。';box.innerHTML='';console.warn('個別命中過倒推薦分析失敗',err);}
+  }
+  document.addEventListener('click',ev=>{
+    const b=ev.target.closest&&ev.target.closest('[data-rec-hot][data-rec-target]');if(!b)return;
+    const hot=document.getElementById('allNumberHotRankWindow'),target=document.getElementById('rankHitTargetPeriods');
+    if(hot){hot.value=b.dataset.recHot;hot.dispatchEvent(new Event('change',{bubbles:true}));}
+    if(target){target.value=b.dataset.recTarget;target.dispatchEvent(new Event('change',{bubbles:true}));}
+    // 先同步刷新本次推薦對應的熱門排行與個別命中統計。
+    renderAllNumberHotRank();renderRankHitFrequency();renderRankHitRecommendations();
+    // 自動切換快速選號為「柱碰」，並指定三柱，供B2-A部署事件使用。
+    const pillarModeBtn=document.querySelector('.quick-pick-card [data-qmode="pillar"]');
+    if(pillarModeBtn)pillarModeBtn.click();
+    const colCount=document.getElementById('quickColumnCount');
+    if(colCount){colCount.value='3';colCount.dispatchEvent(new Event('change',{bubbles:true}));}
+    // 使用現有B2-A一鍵部署流程：以當前排行名次轉換成實際球號，更新三柱及顏色。
+    const deployBtn=document.getElementById('rankHitDeployPillarsBtn');
+    if(deployBtn)deployBtn.click();
+    const feedback=document.getElementById('quickCopyFeedback');
+    if(feedback)feedback.textContent='已切換至熱門'+b.dataset.recHot+'期／命中統計'+b.dataset.recTarget+'期，並自動部署B2-A三柱。';
+    document.querySelector('.quick-pick-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+
   window.refreshRankHitFrequency=renderRankHitFrequency;
   // 從命中統計名次部署：按命中次數排序，不是固定彩球熱門次數。
   document.addEventListener('click', function(ev){
@@ -16472,11 +16540,14 @@ ${settleRecord.analysisLines.join('\n')}`;
   setTimeout(renderAllNumberHotRank, 450);
   setTimeout(renderAutoDeployHistory, 500);
   setTimeout(renderRankHitFrequency, 550);
+  setTimeout(renderRankHitRecommendations, 650);
   // 統計區塊在主程式之後才輸出，直接查找可能尚不存在；使用事件委派確保選單切換一定重新計算。
   document.addEventListener('change', function(ev) {
     if(ev.target && ev.target.id === 'rankHitTargetPeriods') {
       renderRankHitFrequency();
+      renderRankHitRecommendations();
     }
+    if(ev.target && ev.target.id === 'allNumberHotRankWindow') { renderRankHitRecommendations(); }
   });
   // 新增／匯入開獎後，等原有資料庫流程完成再更新排行與回測。
   ['addDrawBtn','importPasteBtn','importPasteNearbyBtn'].forEach(id=>{
@@ -16488,7 +16559,7 @@ ${settleRecord.analysisLines.join('\n')}`;
   ['drawInput','noDrawInput'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) ['input','change'].forEach(evt=>el.addEventListener(evt,()=>{
-      setTimeout(()=>{renderAllNumberHotRank();renderAutoDeployHistory();renderRankHitFrequency();},180);
+      setTimeout(()=>{renderAllNumberHotRank();renderAutoDeployHistory();renderRankHitFrequency();renderRankHitRecommendations();},180);
     }));
   });
   // 啟動時自動讀取目前彩種固定雙柱並建立第五模式五碼快照，
@@ -19139,6 +19210,12 @@ if ('serviceWorker' in navigator) {
  <option value="10" selected>10期</option><option value="20">20期</option><option value="30">30期</option><option value="40">40期</option><option value="50">50期</option>
  </select></label>
  <div id="rankHitFrequencySummary" style="font-weight:800;margin:8px 0;color:#334155">排行命中統計載入中…</div>
+ <div id="rankHitRecommendationPanel" style="margin:12px 0;padding:12px;border:1px solid #b9c9dd;border-radius:12px;background:#f0f6ff;color:#172033">
+  <h3 style="margin:0 0 6px;font-size:1rem">熱門排行期數｜個別命中三星過倒推薦</h3>
+  <p style="margin:0 0 8px;font-size:.84rem;line-height:1.55;color:#475569">分別分析熱門排行5／10／15／20／33／50／100／150期；每種熱門窗口各自檢查個別命中統計目標10／20／30／40／50期。只顯示最近10個有效目標期。連續倒只計最新期起連續未過至少2期；最低過關率在同一熱門窗口的5種目標期中比較，並列全部顯示。</p>
+  <div id="rankHitRecommendationSummary" style="font-weight:800;margin:8px 0;color:#334155">推薦分析載入中…</div>
+  <div id="rankHitRecommendationRows" style="display:grid;gap:10px"></div>
+ </div>
  <div style="margin:12px 0;padding:12px;border:1px solid #cbd5e1;border-radius:11px;background:#eef3f8">
   <h3 style="margin:0 0 6px;font-size:1rem;color:#172033">依排行命中次數部署｜過往過倒紀錄</h3>
   <p style="margin:0 0 8px;font-size:.84rem;line-height:1.55;color:#475569">每個目標期只用該期之前已完成的排行命中紀錄部署：第1柱取命中次數最高10個排行名次；第2柱取剩餘最高14個；第3柱取剩餘命中次數最低15個。再將名次對應回該目標期獨立重建的號碼排行，計算過倒。</p>
