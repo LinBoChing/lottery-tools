@@ -1712,14 +1712,14 @@ body.quick-pillar-floating-on{padding-right:0}
       </div>
       <div class="hot5-tracking-panel hot5-today-panel">
         <div class="hot5-tracking-title">🔥 今日原始五碼｜長期累積 <button class="btn btn-dark" id="resetOriginalHot5StatsBtn" type="button" style="width:auto;padding:6px 10px;font-size:12px;margin-left:8px;">原始五碼統計重置</button></div>
-        <div class="hot5-tracking-note">只顯示今天。開獎後按「✓」＝過（5支過熱號碼全部沒開）、按「✕」＝沒過（至少1支過熱號碼開出）。「↺」可清除今天紀錄。統計會長期累積，不會隨每週更新或清除損益表重置。</div>
+        <div class="hot5-tracking-note">只顯示今天。新增開獎資料後會自動判斷：5支原始五碼全部沒開＝過；至少開出1支＝沒過。下方按鈕保留作為人工更正紀錄用途。</div>
         <div class="hot5-today-row">
           <div class="hot5-today-card"><div class="hot5-today-label">天天樂｜原始五碼</div><div id="hot5TodayDaydayNumbers" style="font-weight:900;color:#fcd34d;text-align:center;margin-bottom:6px;">尚未產生</div><div id="hot5TodayDayday"></div></div>
           <div class="hot5-today-card"><div class="hot5-today-label">539｜原始五碼</div><div id="hot5Today539Numbers" style="font-weight:900;color:#fcd34d;text-align:center;margin-bottom:6px;">尚未產生</div><div id="hot5Today539"></div></div>
         </div>
         <div class="hot5-tracking-stats">
-          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 天天樂｜原始五碼累積</div><div class="hot5-tracking-stat-main" id="hot5RateDayday">尚無紀錄</div></div>
-          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">🔥 539｜原始五碼累積</div><div class="hot5-tracking-stat-main" id="hot5Rate539">尚無紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">💰 天天樂｜下一期應投注</div><div class="hot5-tracking-stat-main" id="hot5BetDaydayStake">$2,000</div><div class="hot5-rate-note" id="hot5BetDaydayStatus">尚未有自動結算紀錄</div></div>
+          <div class="hot5-tracking-stat"><div class="hot5-tracking-stat-title">💰 539｜下一期應投注</div><div class="hot5-tracking-stat-main" id="hot5Bet539Stake">$2,000</div><div class="hot5-rate-note" id="hot5Bet539Status">尚未有自動結算紀錄</div></div>
         </div>
       </div>
       <div class="weekly-input-panel" id="weeklyInputPanel">
@@ -1821,7 +1821,7 @@ body.quick-pillar-floating-on{padding-right:0}
                 <div id="hot5539Detail" class="hot5-detail"></div>
               </div>
             </div>
-            <div class="hot5-note">固定算法：近期熱碼權重為近5／8／12／20期＝40／30／20／10%，已取消近3期條件；原始五碼先取近期加權排名前3。第4碼沿用第15～40期開出次數最高且近15期未開的歷史回冷碼，次數同分取遺漏最多者；第5碼取第5～20期出現最多且目前遺漏至少5期的號碼，次數同分取遺漏最少者。條件不足時才以未重複的近期排名補位。只做過熱排名，不直接改動其他選號模式的推薦權重。</div>
+            <div class="hot5-note">原始五碼固定算法：各彩種分開統計最新100期每個號碼的開出次數，依次數由高至低取前5名；同次數以號碼小者優先。資料不足100期時，以現有有效期數計算。</div>
           </div>
 
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；首次開啟自動補齊舊資料日期，日後手動新增號碼時自動填日期（539 星期日除外）；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
@@ -2244,15 +2244,15 @@ body.quick-pillar-floating-on{padding-right:0}
   function saveHot5DailySnapshots(data) {
     try { localStorage.setItem(HOT5_DAILY_SNAPSHOT_STORAGE_KEY, JSON.stringify(data || {})); } catch (e) {}
   }
-  function saveHot5DailySnapshot(mode, dateKey, rawNumbers, finalNumbers) {
+  function saveHot5DailySnapshot(mode, dateKey, rawNumbers, finalNumbers = []) {
     const raw = (rawNumbers || []).map(Number).filter(Number.isFinite);
     const final = (finalNumbers || []).map(Number).filter(Number.isFinite);
-    if (raw.length !== 5 || final.length !== 5) return;
+    if (raw.length !== 5) return;
     const all = loadHot5DailySnapshots();
-    // 同一天一旦建立快照就不覆蓋，確保開獎後重新計算不會改掉當天原本的五碼。
+    // 同一天一旦建立快照就不覆蓋，避免開獎後資料庫更新而改掉當日原始五碼。
     if (!all[dateKey]) all[dateKey] = {};
-    if (!all[dateKey][mode] || !Array.isArray(all[dateKey][mode].raw) || !Array.isArray(all[dateKey][mode].final)) {
-      all[dateKey][mode] = { raw, final, createdAt: Date.now() };
+    if (all[dateKey][mode]?.algorithm !== 'top100' || !Array.isArray(all[dateKey][mode]?.raw) || all[dateKey][mode].raw.length !== 5) {
+      all[dateKey][mode] = { raw, final, algorithm:'top100', createdAt: Date.now() };
       saveHot5DailySnapshots(all);
     }
   }
@@ -2262,26 +2262,72 @@ body.quick-pillar-floating-on{padding-right:0}
   }
   function ensureHot5SnapshotFromCurrentDisplay(mode, dateKey) {
     const all = loadHot5DailySnapshots();
-    if (all[dateKey]?.[mode]?.raw?.length === 5 && all[dateKey]?.[mode]?.final?.length === 5) return;
-    if (!dailyAgentResult) return;
-    const text = dailyAgentResult.textContent || '';
-    const finalMatch = text.match(/最終五碼：\s*([0-9]{2}(?:、[0-9]{2}){4})/);
-    const rawMatch = text.match(/原始五碼：\s*([0-9]{2}(?:、[0-9]{2}){4})/);
-    if (!finalMatch || !rawMatch) return;
-    const final = finalMatch[1].split('、').map(Number);
-    const raw = rawMatch[1].split('、').map(Number);
-    saveHot5DailySnapshot(mode, dateKey, raw, final);
+    if (all[dateKey]?.[mode]?.algorithm === 'top100' && all[dateKey]?.[mode]?.raw?.length === 5) return;
+    const result = calcOriginalHot5ForMode(mode);
+    const raw = result && !result.insufficient ? result.top.slice(0,5).map(x => Number(x.n)) : [];
+    if (raw.length === 5) saveHot5DailySnapshot(mode, dateKey, raw);
+  }
+
+  const HOT5_BET_STATE_PREFIX = 'hot5_bet_progress_v1_';
+  const HOT5_BASE_STAKE = 2000;
+  const HOT5_STAKE_STEPS = [2000, 4000, 6000, 12000, 24000];
+  function getNextHot5Stake(currentStake) {
+    const current = Math.max(HOT5_BASE_STAKE, Number(currentStake) || HOT5_BASE_STAKE);
+    const stepIndex = HOT5_STAKE_STEPS.indexOf(current);
+    return stepIndex >= 0 && stepIndex < HOT5_STAKE_STEPS.length - 1
+      ? HOT5_STAKE_STEPS[stepIndex + 1]
+      : current * 2;
+  }
+  function loadHot5BetState(mode) {
+    try {
+      const raw = localStorage.getItem(HOT5_BET_STATE_PREFIX + mode);
+      const state = raw ? JSON.parse(raw) : null;
+      return state && typeof state === 'object'
+        ? { nextStake:Math.max(HOT5_BASE_STAKE, Number(state.nextStake) || HOT5_BASE_STAKE), lastDate:String(state.lastDate || ''), lastResult:state.lastResult || '', history:state.history && typeof state.history === 'object' ? state.history : {} }
+        : { nextStake:HOT5_BASE_STAKE, lastDate:'', lastResult:'', history:{} };
+    } catch (e) {
+      return { nextStake:HOT5_BASE_STAKE, lastDate:'', lastResult:'', history:{} };
+    }
+  }
+  function saveHot5BetState(mode, state) {
+    try { localStorage.setItem(HOT5_BET_STATE_PREFIX + mode, JSON.stringify(state)); } catch (e) {}
+  }
+  function formatHot5Money(value) {
+    return '$' + Math.round(Number(value) || 0).toLocaleString('zh-TW');
+  }
+  function renderHot5Betting() {
+    ['dayday','539'].forEach(mode => {
+      const state = loadHot5BetState(mode);
+      const stakeEl = document.getElementById(mode === 'dayday' ? 'hot5BetDaydayStake' : 'hot5Bet539Stake');
+      const statusEl = document.getElementById(mode === 'dayday' ? 'hot5BetDaydayStatus' : 'hot5Bet539Status');
+      if (stakeEl) stakeEl.textContent = formatHot5Money(state.nextStake);
+      if (statusEl) {
+        const resultText = state.lastResult === 'pass' ? '上一期過關，已重置' : state.lastResult === 'fail' ? '上一期沒過，投注加倍' : '尚未有自動結算紀錄';
+        statusEl.textContent = state.lastDate ? `${resultText}｜${state.lastDate}` : resultText;
+      }
+    });
   }
   function autoEvaluateHot5ForDraw(mode, dateKey, drawNums) {
     const snapshots = loadHot5DailySnapshots();
     const snap = snapshots[dateKey]?.[mode];
-    if (!snap || snap.raw?.length !== 5 || snap.final?.length !== 5) return;
+    if (!snap || snap.raw?.length !== 5) return;
     const draw = new Set((drawNums || []).map(Number));
     const rawPass = !snap.raw.some(n => draw.has(Number(n)));
-    const finalPass = !snap.final.some(n => draw.has(Number(n)));
     setHot5DailyResult(mode, dateKey, rawPass);
-    setHot5FinalResult(mode, dateKey, finalPass);
+
+    const state = loadHot5BetState(mode);
+    // 同一彩種同一日期只推進一次，避免重複新增或重新整理造成重複加碼。
+    if (!state.history[dateKey]) {
+      const stakeForDraw = state.nextStake;
+      state.nextStake = rawPass ? HOT5_BASE_STAKE : getNextHot5Stake(stakeForDraw);
+      state.lastDate = dateKey;
+      state.lastResult = rawPass ? 'pass' : 'fail';
+      state.history[dateKey] = { pass:rawPass, stake:stakeForDraw, draw:(drawNums || []).map(Number) };
+      saveHot5BetState(mode, state);
+    }
+    renderHot5Betting();
   }
+
 
   document.getElementById('resetOriginalHot5StatsBtn')?.addEventListener('click', () => {
     if (!confirm('確定重置原始五碼的過關統計？只會清除過／沒過紀錄，不會刪除原始五碼或開獎資料。')) return;
@@ -2335,8 +2381,8 @@ body.quick-pillar-floating-on{padding-right:0}
       if (note) note.textContent = '「過」＝當期5支過熱號碼全部沒開。';
       return;
     }
-    el.textContent = `第${st.total}天｜過 ${st.pass}｜沒過 ${st.fail}｜過關機率 ${st.rate.toFixed(1)}%`;
-    if (note) note.textContent = `已記錄 ${st.total} 天；過關率＝過 ÷ 已記錄天數。`;
+    el.textContent = `第${st.total}天｜過 ${st.pass}｜沒過 ${st.fail}`;
+    if (note) note.textContent = `已記錄 ${st.total} 天。`; 
   }
   function hot5CheckCellHtml(mode, dateKey, value, isFinal = false) {
     const statusText = value === true ? '過' : value === false ? '沒過' : '未記';
@@ -2345,20 +2391,15 @@ body.quick-pillar-floating-on{padding-right:0}
     return `<div class="hot5-track-cell"><button class="btn hot5-check-btn hot5-check-pass" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="true"${finalAttr}>✓</button><button class="btn hot5-check-btn hot5-check-fail" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="false"${finalAttr}>✕</button><button class="btn hot5-check-btn hot5-check-clear" type="button" data-hot5-mode="${mode}" data-hot5-date="${dateKey}" data-hot5-value="clear"${finalAttr}>↺</button><span class="hot5-track-status ${statusClass}">${statusText}</span></div>`;
   }
   function renderHot5TodayChecks() {
-    const snapshots = loadHot5DailySnapshots();
     const today = dateKeyFromDate(new Date());
     const rawDayday = document.getElementById('hot5TodayDaydayNumbers');
     const raw539 = document.getElementById('hot5Today539Numbers');
-    // 上方今日追蹤區直接顯示下方「每日過熱五支」同一套原始五碼；
-    // 不再因為今天尚未建立快照，就錯誤顯示「尚未產生」。
     const formatRaw = (mode) => {
-      const result = calcDailyHot5ForMode(mode);
-      const nums = result && !result.insufficient && Array.isArray(result.top)
-        ? result.top.map(x => Number(x.n))
-        : [];
-      return nums.length === 5
-        ? nums.map(n => String(n).padStart(2,'0')).join('、')
-        : '資料不足（至少需要12期）';
+      ensureHot5SnapshotFromCurrentDisplay(mode, today);
+      const snap = loadHot5DailySnapshots()[today]?.[mode];
+      return snap?.raw?.length === 5
+        ? snap.raw.map(n => String(n).padStart(2,'0')).join('、')
+        : '資料不足（需要至少5筆有效開獎資料）';
     };
     if (rawDayday) rawDayday.textContent = formatRaw('dayday');
     if (raw539) raw539.textContent = formatRaw('539');
@@ -2374,6 +2415,7 @@ body.quick-pillar-floating-on{padding-right:0}
     if (hot5Today539Final) hot5Today539Final.innerHTML = hot5CheckCellHtml('539', todayKey, finalRow['539'], true);
   }
   function renderWeeklyHot5Checks() {
+    renderHot5Betting();
     if (!hot5TrackingBody) {
       renderHot5TodayChecks();
       renderHot5RateSummary('dayday','hot5RateDayday',null);
@@ -7951,9 +7993,7 @@ ${settleRecord.analysisLines.join('\n')}`;
 
 
 
-  // 每日過熱五支：只讀539 / 天天樂各自資料庫，不寫入任何推薦權重。
-  // 原始五碼規則版本：2026-10-25 第3碼改為最新一期候選＋近10/15/20期篩選。
-  // 原始五碼：近期加權前2＋最新一期候選第3碼＋第5～20期熱碼1＋歷史回冷熱碼1。
+  // 保留第五模式原有近期加權分析，避免本次原始五碼調整影響第五模式推薦。
   const HOT5_WINDOWS = [
     { size:5, weight:0.40 },
     { size:8, weight:0.30 },
@@ -7961,7 +8001,6 @@ ${settleRecord.analysisLines.join('\n')}`;
     { size:20, weight:0.10 }
   ];
   const HOT5_THEORY_P = 5 / 39;
-
   function calcDailyHot5ForMode(mode) {
     const records = loadDrawDb(mode);
     // 最新一期放在索引0；歷史選碼最多需要40期資料。
@@ -8139,6 +8178,39 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
+  // 每日原始五碼：天天樂與539各自取最新100期開出次數排行榜前5名。
+  // 同次數固定以號碼小者優先，確保結果可重現。
+  const HOT5_COMPARE_PERIODS = 100;
+  function calcOriginalHot5ForMode(mode) {
+    const records = loadDrawDb(mode);
+    const draws = records
+      .slice(0, HOT5_COMPARE_PERIODS)
+      .map(r => Array.isArray(r.nums) ? r.nums.map(Number) : [])
+      .filter(nums => nums.length === 5);
+    if (!draws.length) {
+      return { mode, draws:0, top:[], ranked:[], insufficient:true };
+    }
+    const rows = [];
+    for (let n = 1; n <= 39; n++) {
+      const count = draws.reduce((sum, nums) => sum + (nums.includes(n) ? 1 : 0), 0);
+      rows.push({ n, count, score:count, missedPeriods:(() => {
+        const idx = draws.findIndex(nums => nums.includes(n));
+        return idx < 0 ? draws.length : idx;
+      })() });
+    }
+    rows.sort((a,b) => (b.count - a.count) || (a.n - b.n));
+    const top = rows.slice(0,5).map((row, idx) => ({ ...row, rank:idx + 1 }));
+    return {
+      mode,
+      draws:draws.length,
+      historyDraws:draws.length,
+      top,
+      ranked:rows,
+      qualifiedCount:rows.filter(x => x.count > 0).length,
+      insufficient:top.length < 5
+    };
+  }
+
   // 第五模式選碼規則修訂：第1碼維持加權榜首；第2、3碼依最新一期候選新規則依序取前二。
   // 第五模式「最終過熱五碼」：只定義一組共用的5碼，必須同時滿足推薦1、推薦2、推薦3的柱位配額。
   // 推薦1：1-2-2；推薦2：1-2-2；推薦3：1-1-3。
@@ -8243,36 +8315,20 @@ ${settleRecord.analysisLines.join('\n')}`;
     const detail = document.getElementById(detailId);
     const meta = document.getElementById(metaId);
     if (!main || !detail) return;
-    const result = calcDailyHot5ForMode(mode);
+    const result = calcOriginalHot5ForMode(mode);
     if (result.insufficient) {
-      main.innerHTML = '<span class="db-mini">至少需要12期資料才能做穩定過熱判定。</span>';
+      main.innerHTML = '<span class="db-mini">資料不足，至少需要5筆有效開獎資料。</span>';
       detail.innerHTML = '';
       if (meta) meta.textContent = `目前 ${result.draws} 期`;
       return;
     }
     main.innerHTML = result.top.map(x => `<span class="hot5-num">${String(x.n).padStart(2,'0')}</span>`).join('');
     detail.innerHTML = result.top.map((x, idx) => `
-      <div class="hot5-detail-row">
-        <span class="hot5-rank">#${idx+1}</span>
-        <b>${String(x.n).padStart(2,'0')}</b>｜
-        ${x.hot5Type === 'latest-draw-second'
-          ? `<span class="hot5-fallback">新第2碼｜候選取最新一期5碼｜近10期${x.count10}次｜排除最新一期後遺漏${x.missedAfterLatest}期｜同分延伸近15／20期</span>`
-          : x.hot5Type === 'latest-draw-third'
-          ? `<span class="hot5-fallback">新第3碼｜候選取最新一期5碼（排除第1、2碼）｜近10期${x.count10}次｜排除最新一期後遺漏${x.missedAfterLatest}期｜同分延伸近15／20期</span>`
-          : x.hot5Type === 'history-cold'
-          ? `<span class="hot5-fallback">歷史回冷碼｜第15～40期開出${x.historyCount}次｜遺漏${x.missedRecent}期（同次數取遺漏最多）</span>`
-          : x.hot5Type === 'period5-20'
-            ? `<span class="hot5-fallback">第5～20期熱碼｜區間開出${x.periodCount}次｜目前遺漏${x.missedRecent}期（同次數取遺漏最少）</span>`
-            : `近期過熱指數 <span class="hot5-score">${x.score.toFixed(1)}</span>｜5期${x.counts[5]}・8期${x.counts[8]}・12期${x.counts[12]}・20期${x.counts[20]}｜<span class="${x.qualified ? 'hot5-ok' : 'hot5-fallback'}">穩定確認 ${x.corePass}/3${x.qualified ? ' ✓' : '（候補）'}</span>`}
-      </div>`).join('');
-    if (!result.historyHotAvailable) {
-      detail.innerHTML += '<div class="db-mini" style="margin-top:6px;color:#fcd34d;">第15～40期歷史回冷碼條件未成立；該位置以未重複的近期排名補位。</div>';
-    }
-    if (!result.period5to20HotAvailable) {
-      detail.innerHTML += '<div class="db-mini" style="margin-top:6px;color:#fcd34d;">找不到同時符合「第5～20期出現過、目前遺漏至少5期」的號碼；該位置以未重複的近期排名補位。</div>';
-    }
-    if (meta) meta.textContent = `最新${result.draws}期｜合格${result.qualifiedCount}支`;
+      <div class="hot5-detail-row"><span class="hot5-rank">#${idx+1}</span><b>${String(x.n).padStart(2,'0')}</b>｜最新${result.draws}期開出 <b>${x.count}</b> 次</div>
+    `).join('');
+    if (meta) meta.textContent = `比較最新${HOT5_COMPARE_PERIODS}期｜實際採計${result.draws}期`;
   }
+
 
   function renderDailyHot5() {
     renderOneDailyHot5('dayday', 'hot5DaydayMain', 'hot5DaydayDetail', 'hot5DaydayMeta');
