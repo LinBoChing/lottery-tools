@@ -16442,8 +16442,11 @@ ${settleRecord.analysisLines.join('\n')}`;
       const hits=Array(39).fill(0);
       let evaluated=0;
       for(let i=0;i<all.length&&evaluated<targetLimit;i++){
-        const target=all[i], history=all.slice(i+1,i+1+win);
-        if(!target||history.length<win)continue;
+        // 選「所有期數」時，完全忽略上方熱門排行比較期數；每個目標期使用它之前全部可用歷史資料。
+        // 只有最舊的一期沒有任何更早資料，無法建立前置排行，因此不納入回測。
+        const target=all[i];
+        const history=targetRequested==='all' ? all.slice(i+1) : all.slice(i+1,i+1+win);
+        if(!target||!history.length||(targetRequested!=='all'&&history.length<win))continue;
         const ranked=[];
         for(let n=1;n<=39;n++){
           let count=0,miss=history.length;
@@ -16463,8 +16466,9 @@ ${settleRecord.analysisLines.join('\n')}`;
         const hist=[];
         // 先為資料庫每一期重建該期排行，target只使用更舊資料。
         for(let i=0;i<all.length;i++){
-          const target=all[i], history=all.slice(i+1,i+1+win);
-          if(!target||history.length<win)continue;
+          const target=all[i];
+          const history=targetRequested==='all' ? all.slice(i+1) : all.slice(i+1,i+1+win);
+          if(!target||!history.length||(targetRequested!=='all'&&history.length<win))continue;
           const ranked=[];
           for(let n=1;n<=39;n++){
             let count=0,miss=history.length;
@@ -16517,7 +16521,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;border:1px solid #d7dde5;border-radius:9px;background:#fff"><button type="button" data-rank-hit-bucket="${k}" data-rank-hit-ranks="${buckets[k].join(',')}" style="border:0;border-radius:7px;padding:6px 9px;background:#e8edf3;color:#1f2937;font-weight:800;cursor:pointer;touch-action:manipulation">開出${k}次</button><span>：${buckets[k].join('、')}</span></div>`
       ).join('');
       tableBody.innerHTML=hits.map((n,i)=>`<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700">${n}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${(n/evaluated*100).toFixed(1)}%</td></tr>`).join('');
-      summary.textContent=`彩種：${mode}｜每期比較窗口：${requested==='all'?'該期之前全部可用資料':win+'期'}｜設定目標期：${targetRequested==='all'?'所有期數':targetLimit+'期'}｜有效目標期：${evaluated}期｜排行命中率以${evaluated}期計算`;
+      summary.textContent=`彩種：${mode}｜每期比較窗口：${targetRequested==='all'?'每期之前全部可用歷史資料（不受上方熱門排行比較期數限制）':(requested==='all'?'該期之前全部可用資料':win+'期')}｜設定目標期：${targetRequested==='all'?'所有期數':targetLimit+'期'}｜有效目標期：${evaluated}期｜排行命中率以${evaluated}期計算`;
     }catch(e){summary.textContent='排行命中統計失敗，請確認資料庫。';groupsBox.innerHTML='';tableBody.innerHTML='';console.warn(e);}
   }
   function renderRankHitRecommendations(){
