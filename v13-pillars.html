@@ -16436,7 +16436,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       const requested=compareSelector?compareSelector.value:'20';
       const win=requested==='all'?Math.max(1,all.length):Math.max(1,Number(requested)||20);
       const targetSelector=document.getElementById('rankHitTargetPeriods');
-      const targetLimit=Math.max(10,Math.min(200,Number(targetSelector?.value)||10));
+      // 預設「所有期數」：統計資料庫內所有具備完整前置比較窗口的有效目標期。
+      const targetRequested=targetSelector?.value||'all';
+      const targetLimit=targetRequested==='all' ? all.length : Math.max(10,Math.min(200,Number(targetRequested)||10));
       const hits=Array(39).fill(0);
       let evaluated=0;
       for(let i=0;i<all.length&&evaluated<targetLimit;i++){
@@ -16512,10 +16514,10 @@ ${settleRecord.analysisLines.join('\n')}`;
       const buckets={};
       hits.forEach((v,i)=>(buckets[v]??=[]).push(i+1));
       groupsBox.innerHTML=Object.keys(buckets).map(Number).sort((a,b)=>a-b).map(k=>
-        `<div style="padding:8px 10px;border:1px solid #d7dde5;border-radius:9px;background:#fff"><b>開出${k}次：</b>${buckets[k].join('、')}</div>`
+        `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;border:1px solid #d7dde5;border-radius:9px;background:#fff"><button type="button" data-rank-hit-bucket="${k}" data-rank-hit-ranks="${buckets[k].join(',')}" style="border:0;border-radius:7px;padding:6px 9px;background:#e8edf3;color:#1f2937;font-weight:800;cursor:pointer;touch-action:manipulation">開出${k}次</button><span>：${buckets[k].join('、')}</span></div>`
       ).join('');
       tableBody.innerHTML=hits.map((n,i)=>`<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700">${n}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${(n/evaluated*100).toFixed(1)}%</td></tr>`).join('');
-      summary.textContent=`彩種：${mode}｜每期比較窗口：${requested==='all'?'該期之前全部可用資料':win+'期'}｜設定目標期：${targetLimit}期｜有效目標期：${evaluated}期｜排行命中率以${evaluated}期計算`;
+      summary.textContent=`彩種：${mode}｜每期比較窗口：${requested==='all'?'該期之前全部可用資料':win+'期'}｜設定目標期：${targetRequested==='all'?'所有期數':targetLimit+'期'}｜有效目標期：${evaluated}期｜排行命中率以${evaluated}期計算`;
     }catch(e){summary.textContent='排行命中統計失敗，請確認資料庫。';groupsBox.innerHTML='';tableBody.innerHTML='';console.warn(e);}
   }
   function renderRankHitRecommendations(){
@@ -16587,6 +16589,49 @@ ${settleRecord.analysisLines.join('\n')}`;
   });
 
   window.refreshRankHitFrequency=renderRankHitFrequency;
+  // 點選「開出N次」：後方數字代表熱門排行名次，先對照目前熱門排行轉成實際彩球號碼，再部署。
+  // 不清除原有選號；柱碰模式加入目前作用中的柱，其他模式加入目前選號集合；不自動捲動畫面。
+  document.addEventListener('click', function(ev){
+    const btn = ev.target && ev.target.closest ? ev.target.closest('[data-rank-hit-bucket]') : null;
+    if (!btn) return;
+    const ranks = String(btn.dataset.rankHitRanks || '').split(',').map(Number)
+      .filter(rank => Number.isInteger(rank) && rank >= 1 && rank <= 39);
+    if (!ranks.length) return;
+
+    // 與「一鍵部署三柱」使用相同的熱門排行名次 -> 實際彩球號碼對照。
+    const rankRows = Array.from(document.querySelectorAll('#allNumberHotRankBody tr'));
+    const currentRankToBall = new Map();
+    rankRows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      if (cells.length >= 2) {
+        const rank = Number(cells[0].textContent.trim());
+        // 直接讀取熱門排行第二欄的 data-pick-number，避免從顯示文字解析時發生誤判。
+        const numberButton = cells[1].querySelector('[data-pick-number]');
+        const ball = numberButton ? Number(numberButton.dataset.pickNumber) : NaN;
+        if (Number.isInteger(rank) && rank >= 1 && rank <= 39 && Number.isInteger(ball) && ball >= 1 && ball <= 39) {
+          currentRankToBall.set(rank, ball);
+        }
+      }
+    });
+    if (currentRankToBall.size !== 39) {
+      const feedback = document.getElementById('rankHitDeployHint');
+      if (feedback) feedback.textContent = '目前熱門排行尚未完整載入39名，請稍後再點一次。';
+      return;
+    }
+
+    const balls = [...new Set(ranks.map(rank => currentRankToBall.get(rank)).filter(Number.isInteger))];
+    if (!balls.length) return;
+    if (typeof window.quickPickDeployRankNumbers === 'function') {
+      window.quickPickDeployRankNumbers(balls);
+      const feedback = document.getElementById('quickCopyFeedback');
+      if (feedback) feedback.textContent = '已將熱門排行第 ' + ranks.join('、') + ' 名對應的彩球 ' +
+        balls.map(n => String(n).padStart(2,'0')).join('、') + ' 部署至上方快速選號區。';
+    } else {
+      const feedback = document.getElementById('rankHitDeployHint');
+      if (feedback) feedback.textContent = '上方快速選號區尚未載入完成，請稍後再點一次。';
+    }
+  });
+
   // 從命中統計名次部署：按命中次數排序，不是固定彩球熱門次數。
   document.addEventListener('click', function(ev){
     const btn=ev.target && ev.target.closest ? ev.target.closest('#rankHitDeployPillarsBtn') : null;
@@ -19290,7 +19335,7 @@ if ('serviceWorker' in navigator) {
  <p style="margin:0 0 10px;font-size:.88rem;line-height:1.55;color:#475569">逐期重建當期排行：每個歷史目標期只使用該期之前的比較窗口資料，再檢查該期開獎號碼落在排行第幾名。命中次數是該名號碼出現在目標期的期數。</p>
  <label for="rankHitTargetPeriods" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;font-weight:700;color:#263449">統計有效目標期
  <select id="rankHitTargetPeriods" style="padding:8px 12px;border:1px solid #b8c3d1;border-radius:8px;background:#fff;color:#172033;font-size:1rem">
- <option value="10" selected>10期</option><option value="20">20期</option><option value="30">30期</option><option value="40">40期</option><option value="50">50期</option><option value="100">100期</option><option value="150">150期</option><option value="200">200期</option>
+ <option value="all" selected>所有期數</option><option value="10">10期</option><option value="20">20期</option><option value="30">30期</option><option value="40">40期</option><option value="50">50期</option><option value="100">100期</option><option value="150">150期</option><option value="200">200期</option>
  </select></label>
  <div id="rankHitFrequencySummary" style="font-weight:800;margin:8px 0;color:#334155">排行命中統計載入中…</div>
  <div id="rankHitRecommendationPanel" style="margin:12px 0;padding:12px;border:1px solid #b9c9dd;border-radius:12px;background:#f0f6ff;color:#172033">
@@ -19550,6 +19595,22 @@ if ('serviceWorker' in navigator) {
    renderGrid();refresh();
    const feedback=document.getElementById('quickCopyFeedback');
    if(feedback)feedback.textContent=removed?'已取消 '+String(n).padStart(2,'0')+'。':'已加入 '+String(n).padStart(2,'0')+'；'+(mode==='pillar'?'目前柱位：第'+(activeCol+1)+'柱。':'');
+   return true;
+ };
+ // 由命中次數分組直接部署多個號碼；此 API 採「加入」而非切換，避免已選號碼被誤取消。
+ window.quickPickDeployRankNumbers=function(rawNumbers){
+   const nums=[...new Set((Array.isArray(rawNumbers)?rawNumbers:[]).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=39))];
+   if(!nums.length)return false;
+   if(mode==='pillar'){
+     ensureBuckets();
+     nums.forEach(n=>{if(owner(n)<0)buckets[activeCol].add(n);});
+     renderTabs();
+   }else{
+     nums.forEach(n=>selected.add(n));
+   }
+   renderGrid();refresh();
+   const feedback=document.getElementById('quickCopyFeedback');
+   if(feedback)feedback.textContent='已將開出次數相同的 '+nums.map(n=>String(n).padStart(2,'0')).join('、')+' 部署至上方快速選號區'+(mode==='pillar'?'（第'+(activeCol+1)+'柱）':'')+'。';
    return true;
  };
  // 單碰、連碰均提供同一組可選號碼；單碰以逗號格式呈現，便於貼入多選輸入欄。
