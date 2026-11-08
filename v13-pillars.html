@@ -1821,7 +1821,7 @@ body.quick-pillar-floating-on{padding-right:0}
                 <div id="hot5539Detail" class="hot5-detail"></div>
               </div>
             </div>
-            <div class="hot5-note">原始五碼固定算法：天天樂與539各自統計最新100期，依開出次數由高至低排序，取熱門排行第16～20名；同次數改以遺漏期數較少者優先（越近期開出越前）；若遺漏期數仍相同，再以號碼小者優先。資料不足100期時，以現有有效期數計算。</div>
+            <div class="hot5-note">原始五碼固定算法：各彩種分開統計最新200期，取開出次數最低的5個號碼；同次數以目前遺漏期數較少者優先，再以號碼小者優先。資料不足200期時，以現有有效期數計算。</div>
           </div>
 
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；首次開啟自動補齊舊資料日期，日後手動新增號碼時自動填日期（539 星期日除外）；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
@@ -2251,8 +2251,8 @@ body.quick-pillar-floating-on{padding-right:0}
     const all = loadHot5DailySnapshots();
     // 同一天一旦建立快照就不覆蓋，避免開獎後資料庫更新而改掉當日原始五碼。
     if (!all[dateKey]) all[dateKey] = {};
-    if (all[dateKey][mode]?.algorithm !== 'top100-r16-20' || !Array.isArray(all[dateKey][mode]?.raw) || all[dateKey][mode].raw.length !== 5) {
-      all[dateKey][mode] = { raw, final, algorithm:'top100-r16-20', createdAt: Date.now() };
+    if (all[dateKey][mode]?.algorithm !== 'bottom200' || !Array.isArray(all[dateKey][mode]?.raw) || all[dateKey][mode].raw.length !== 5) {
+      all[dateKey][mode] = { raw, final, algorithm:'bottom200', createdAt: Date.now() };
       saveHot5DailySnapshots(all);
     }
   }
@@ -2262,7 +2262,7 @@ body.quick-pillar-floating-on{padding-right:0}
   }
   function ensureHot5SnapshotFromCurrentDisplay(mode, dateKey) {
     const all = loadHot5DailySnapshots();
-    if (all[dateKey]?.[mode]?.algorithm === 'top100-r16-20' && all[dateKey]?.[mode]?.raw?.length === 5) return;
+    if (all[dateKey]?.[mode]?.algorithm === 'bottom200' && all[dateKey]?.[mode]?.raw?.length === 5) return;
     const result = calcOriginalHot5ForMode(mode);
     const raw = result && !result.insufficient ? result.top.slice(0,5).map(x => Number(x.n)) : [];
     if (raw.length === 5) saveHot5DailySnapshot(mode, dateKey, raw);
@@ -8178,11 +8178,9 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
-  // 每日原始五碼：天天樂與539各自統計最新100期，取熱門排行第16～20名。
-  // 排名依開出次數由高至低；同次數以遺漏期數較少者優先，再以號碼小者優先。
-  const HOT5_COMPARE_PERIODS = 100;
-  const HOT5_RANK_START = 16;
-  const HOT5_RANK_END = 20;
+  // 每日原始五碼：天天樂與539各自取最新200期開出次數最低的5個號碼。
+  // 次數相同時，遺漏期數較少者優先；仍相同則號碼小者優先。
+  const HOT5_COMPARE_PERIODS = 200;
   function calcOriginalHot5ForMode(mode) {
     const records = loadDrawDb(mode);
     const draws = records
@@ -8200,15 +8198,14 @@ ${settleRecord.analysisLines.join('\n')}`;
         return idx < 0 ? draws.length : idx;
       })() });
     }
-    rows.sort((a,b) => (b.count - a.count) || (a.missedPeriods - b.missedPeriods) || (a.n - b.n));
-    const ranked = rows.map((row, idx) => ({ ...row, rank:idx + 1 }));
-    const top = ranked.slice(HOT5_RANK_START - 1, HOT5_RANK_END);
+    rows.sort((a,b) => (a.count - b.count) || (a.missedPeriods - b.missedPeriods) || (a.n - b.n));
+    const top = rows.slice(0,5).map((row, idx) => ({ ...row, rank:idx + 1 }));
     return {
       mode,
       draws:draws.length,
       historyDraws:draws.length,
       top,
-      ranked,
+      ranked:rows,
       qualifiedCount:rows.filter(x => x.count > 0).length,
       insufficient:top.length < 5
     };
@@ -8327,9 +8324,9 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     main.innerHTML = result.top.map(x => `<span class="hot5-num">${String(x.n).padStart(2,'0')}</span>`).join('');
     detail.innerHTML = result.top.map((x, idx) => `
-      <div class="hot5-detail-row"><span class="hot5-rank">#${x.rank}</span><b>${String(x.n).padStart(2,'0')}</b>｜最新${result.draws}期開出 <b>${x.count}</b> 次</div>
+      <div class="hot5-detail-row"><span class="hot5-rank">#${idx+1}</span><b>${String(x.n).padStart(2,'0')}</b>｜最新${result.draws}期開出 <b>${x.count}</b> 次</div>
     `).join('');
-    if (meta) meta.textContent = `比較最新${HOT5_COMPARE_PERIODS}期｜實際採計${result.draws}期`;
+    if (meta) meta.textContent = `比較最新${HOT5_COMPARE_PERIODS}期最低次數｜實際採計${result.draws}期`;
   }
 
 
@@ -16414,7 +16411,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       const mode=currentGameMode();
       if(getBallMax(mode)!==39){summary.textContent='此統計僅適用01～39號彩種。';groupsBox.innerHTML='';tableBody.innerHTML='';return;}
       const all=parseDraws(getActiveDrawText(),mode);
-      const compareSelector=document.getElementById('allNumberHotRankWindow');
+      const compareSelector=document.getElementById('rankHitCompareWindow') || document.getElementById('allNumberHotRankWindow');
       const requested=compareSelector?compareSelector.value:'20';
       const win=requested==='all'?Math.max(1,all.length):Math.max(1,Number(requested)||20);
       const targetSelector=document.getElementById('rankHitTargetPeriods');
@@ -19270,6 +19267,10 @@ if ('serviceWorker' in navigator) {
  </div>
  <div id="rankHitFrequencyContent" hidden>
  <p style="margin:0 0 10px;font-size:.88rem;line-height:1.55;color:#475569">逐期重建當期排行：每個歷史目標期只使用該期之前的比較窗口資料，再檢查該期開獎號碼落在排行第幾名。命中次數是該名號碼出現在目標期的期數。</p>
+ <label for="rankHitCompareWindow" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;font-weight:700;color:#263449">熱門排行比較期段
+ <select id="rankHitCompareWindow" style="padding:8px 12px;border:1px solid #b8c3d1;border-radius:8px;background:#fff;color:#172033;font-size:1rem">
+ <option value="5">5期</option><option value="10">10期</option><option value="15">15期</option><option value="20" selected>20期</option><option value="33">33期</option><option value="50">50期</option><option value="100">100期</option><option value="150">150期</option><option value="200">200期</option><option value="250">250期</option><option value="300">300期</option><option value="all">全部資料</option>
+ </select></label>
  <label for="rankHitTargetPeriods" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;font-weight:700;color:#263449">統計有效目標期
  <select id="rankHitTargetPeriods" style="padding:8px 12px;border:1px solid #b8c3d1;border-radius:8px;background:#fff;color:#172033;font-size:1rem">
  <option value="10" selected>10期</option><option value="20">20期</option><option value="30">30期</option><option value="40">40期</option><option value="50">50期</option>
@@ -19323,6 +19324,10 @@ if ('serviceWorker' in navigator) {
 </section>
 <script>
 (function(){
+  const rankHitWindowSelector = document.getElementById('rankHitCompareWindow');
+  if (rankHitWindowSelector) rankHitWindowSelector.addEventListener('change', function(){
+    if (typeof window.refreshRankHitFrequency === 'function') window.refreshRankHitFrequency();
+  });
   const selector = document.getElementById('allNumberHotRankWindow');
   if (selector) selector.addEventListener('change', function(){
     if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
