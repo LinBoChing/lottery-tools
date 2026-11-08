@@ -1821,7 +1821,7 @@ body.quick-pillar-floating-on{padding-right:0}
                 <div id="hot5539Detail" class="hot5-detail"></div>
               </div>
             </div>
-            <div class="hot5-note">原始五碼固定算法：各彩種分開統計最新100期每個號碼的開出次數，依次數由高至低取前5名；同次數以號碼小者優先。資料不足100期時，以現有有效期數計算。</div>
+            <div class="hot5-note">原始五碼固定算法：天天樂與539各自統計最新100期，依開出次數由高至低排序，取熱門排行第16～20名；同次數改以遺漏期數較少者優先（越近期開出越前）；若遺漏期數仍相同，再以號碼小者優先。資料不足100期時，以現有有效期數計算。</div>
           </div>
 
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；首次開啟自動補齊舊資料日期，日後手動新增號碼時自動填日期（539 星期日除外）；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
@@ -2251,8 +2251,8 @@ body.quick-pillar-floating-on{padding-right:0}
     const all = loadHot5DailySnapshots();
     // 同一天一旦建立快照就不覆蓋，避免開獎後資料庫更新而改掉當日原始五碼。
     if (!all[dateKey]) all[dateKey] = {};
-    if (all[dateKey][mode]?.algorithm !== 'top100' || !Array.isArray(all[dateKey][mode]?.raw) || all[dateKey][mode].raw.length !== 5) {
-      all[dateKey][mode] = { raw, final, algorithm:'top100', createdAt: Date.now() };
+    if (all[dateKey][mode]?.algorithm !== 'top100-r16-20' || !Array.isArray(all[dateKey][mode]?.raw) || all[dateKey][mode].raw.length !== 5) {
+      all[dateKey][mode] = { raw, final, algorithm:'top100-r16-20', createdAt: Date.now() };
       saveHot5DailySnapshots(all);
     }
   }
@@ -2262,7 +2262,7 @@ body.quick-pillar-floating-on{padding-right:0}
   }
   function ensureHot5SnapshotFromCurrentDisplay(mode, dateKey) {
     const all = loadHot5DailySnapshots();
-    if (all[dateKey]?.[mode]?.algorithm === 'top100' && all[dateKey]?.[mode]?.raw?.length === 5) return;
+    if (all[dateKey]?.[mode]?.algorithm === 'top100-r16-20' && all[dateKey]?.[mode]?.raw?.length === 5) return;
     const result = calcOriginalHot5ForMode(mode);
     const raw = result && !result.insufficient ? result.top.slice(0,5).map(x => Number(x.n)) : [];
     if (raw.length === 5) saveHot5DailySnapshot(mode, dateKey, raw);
@@ -8178,9 +8178,11 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
-  // 每日原始五碼：天天樂與539各自取最新100期開出次數排行榜前5名。
-  // 同次數固定以號碼小者優先，確保結果可重現。
+  // 每日原始五碼：天天樂與539各自統計最新100期，取熱門排行第16～20名。
+  // 排名依開出次數由高至低；同次數以遺漏期數較少者優先，再以號碼小者優先。
   const HOT5_COMPARE_PERIODS = 100;
+  const HOT5_RANK_START = 16;
+  const HOT5_RANK_END = 20;
   function calcOriginalHot5ForMode(mode) {
     const records = loadDrawDb(mode);
     const draws = records
@@ -8198,14 +8200,15 @@ ${settleRecord.analysisLines.join('\n')}`;
         return idx < 0 ? draws.length : idx;
       })() });
     }
-    rows.sort((a,b) => (b.count - a.count) || (a.n - b.n));
-    const top = rows.slice(0,5).map((row, idx) => ({ ...row, rank:idx + 1 }));
+    rows.sort((a,b) => (b.count - a.count) || (a.missedPeriods - b.missedPeriods) || (a.n - b.n));
+    const ranked = rows.map((row, idx) => ({ ...row, rank:idx + 1 }));
+    const top = ranked.slice(HOT5_RANK_START - 1, HOT5_RANK_END);
     return {
       mode,
       draws:draws.length,
       historyDraws:draws.length,
       top,
-      ranked:rows,
+      ranked,
       qualifiedCount:rows.filter(x => x.count > 0).length,
       insufficient:top.length < 5
     };
@@ -8324,7 +8327,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     main.innerHTML = result.top.map(x => `<span class="hot5-num">${String(x.n).padStart(2,'0')}</span>`).join('');
     detail.innerHTML = result.top.map((x, idx) => `
-      <div class="hot5-detail-row"><span class="hot5-rank">#${idx+1}</span><b>${String(x.n).padStart(2,'0')}</b>｜最新${result.draws}期開出 <b>${x.count}</b> 次</div>
+      <div class="hot5-detail-row"><span class="hot5-rank">#${x.rank}</span><b>${String(x.n).padStart(2,'0')}</b>｜最新${result.draws}期開出 <b>${x.count}</b> 次</div>
     `).join('');
     if (meta) meta.textContent = `比較最新${HOT5_COMPARE_PERIODS}期｜實際採計${result.draws}期`;
   }
