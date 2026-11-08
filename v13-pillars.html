@@ -1821,7 +1821,7 @@ body.quick-pillar-floating-on{padding-right:0}
                 <div id="hot5539Detail" class="hot5-detail"></div>
               </div>
             </div>
-            <div class="hot5-note">原始五碼固定算法：各彩種分開統計最新200期，取開出次數最低的5個號碼；同次數以目前遺漏期數較少者優先，再以號碼小者優先。資料不足200期時，以現有有效期數計算。</div>
+            <div class="hot5-note">原始五碼固定算法：各彩種分開統計最新100期每個號碼的開出次數，依次數由高至低取前5名；同次數以號碼小者優先。資料不足100期時，以現有有效期數計算。</div>
           </div>
 
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；首次開啟自動補齊舊資料日期，日後手動新增號碼時自動填日期（539 星期日除外）；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
@@ -2251,8 +2251,8 @@ body.quick-pillar-floating-on{padding-right:0}
     const all = loadHot5DailySnapshots();
     // 同一天一旦建立快照就不覆蓋，避免開獎後資料庫更新而改掉當日原始五碼。
     if (!all[dateKey]) all[dateKey] = {};
-    if (all[dateKey][mode]?.algorithm !== 'bottom200' || !Array.isArray(all[dateKey][mode]?.raw) || all[dateKey][mode].raw.length !== 5) {
-      all[dateKey][mode] = { raw, final, algorithm:'bottom200', createdAt: Date.now() };
+    if (all[dateKey][mode]?.algorithm !== 'top100' || !Array.isArray(all[dateKey][mode]?.raw) || all[dateKey][mode].raw.length !== 5) {
+      all[dateKey][mode] = { raw, final, algorithm:'top100', createdAt: Date.now() };
       saveHot5DailySnapshots(all);
     }
   }
@@ -2262,7 +2262,7 @@ body.quick-pillar-floating-on{padding-right:0}
   }
   function ensureHot5SnapshotFromCurrentDisplay(mode, dateKey) {
     const all = loadHot5DailySnapshots();
-    if (all[dateKey]?.[mode]?.algorithm === 'bottom200' && all[dateKey]?.[mode]?.raw?.length === 5) return;
+    if (all[dateKey]?.[mode]?.algorithm === 'top100' && all[dateKey]?.[mode]?.raw?.length === 5) return;
     const result = calcOriginalHot5ForMode(mode);
     const raw = result && !result.insufficient ? result.top.slice(0,5).map(x => Number(x.n)) : [];
     if (raw.length === 5) saveHot5DailySnapshot(mode, dateKey, raw);
@@ -8178,35 +8178,80 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
-  // 每日原始五碼：天天樂與539各自取最新200期開出次數最低的5個號碼。
-  // 次數相同時，遺漏期數較少者優先；仍相同則號碼小者優先。
+  // 每日原始五碼：固定以個別命中統計「有效目標期200期」的排行名次命中次數，
+  // 取命中次數最少的5個排行位置，再對應到目前熱門排行的實際號碼。
+  // 同命中次數依目前排行名次較前者優先；目前排行本身依開出次數高至低、
+  // 遺漏較少、號碼較小排序。天天樂與539分開計算。
   const HOT5_COMPARE_PERIODS = 200;
   function calcOriginalHot5ForMode(mode) {
     const records = loadDrawDb(mode);
     const draws = records
-      .slice(0, HOT5_COMPARE_PERIODS)
-      .map(r => Array.isArray(r.nums) ? r.nums.map(Number) : [])
+      .map(r => Array.isArray(r.nums) ? r.nums.map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 39) : [])
       .filter(nums => nums.length === 5);
-    if (!draws.length) {
+    const compareSelector = document.getElementById('allNumberHotRankWindow');
+    const requested = compareSelector ? compareSelector.value : '20';
+    const win = requested === 'all' ? Math.max(1, draws.length) : Math.max(1, Number(requested) || 20);
+    if (draws.length <= win) {
       return { mode, draws:0, top:[], ranked:[], insufficient:true };
     }
-    const rows = [];
+
+    // 目前熱門排行：使用最新比較窗口建立「排行名次 -> 實際號碼」對照。
+    const currentHistory = draws.slice(0, win);
+    const currentRanked = [];
     for (let n = 1; n <= 39; n++) {
-      const count = draws.reduce((sum, nums) => sum + (nums.includes(n) ? 1 : 0), 0);
-      rows.push({ n, count, score:count, missedPeriods:(() => {
-        const idx = draws.findIndex(nums => nums.includes(n));
-        return idx < 0 ? draws.length : idx;
-      })() });
+      let count = 0, missedPeriods = currentHistory.length;
+      for (let j = 0; j < currentHistory.length; j++) {
+        if (currentHistory[j].includes(n)) {
+          count++;
+          if (missedPeriods === currentHistory.length) missedPeriods = j;
+        }
+      }
+      currentRanked.push({ n, count, score:count, missedPeriods });
     }
-    rows.sort((a,b) => (a.count - b.count) || (a.missedPeriods - b.missedPeriods) || (a.n - b.n));
-    const top = rows.slice(0,5).map((row, idx) => ({ ...row, rank:idx + 1 }));
+    currentRanked.sort((a,b) => (b.count-a.count) || (a.missedPeriods-b.missedPeriods) || (a.n-b.n));
+
+    // 逐期重建歷史排行，只用目標期之前的比較窗口，累計每個排行名次命中次數。
+    const rankHits = Array(39).fill(0);
+    let evaluated = 0;
+    for (let i = 0; i < draws.length && evaluated < HOT5_COMPARE_PERIODS; i++) {
+      const target = draws[i];
+      const history = draws.slice(i + 1, i + 1 + win);
+      if (!target || history.length < win) continue;
+      const ranked = [];
+      for (let n = 1; n <= 39; n++) {
+        let count = 0, miss = history.length;
+        for (let j = 0; j < history.length; j++) {
+          if (history[j].includes(n)) {
+            count++;
+            if (miss === history.length) miss = j;
+          }
+        }
+        ranked.push({ n, count, miss });
+      }
+      ranked.sort((a,b) => (b.count-a.count) || (a.miss-b.miss) || (a.n-b.n));
+      const drawn = new Set(target);
+      ranked.forEach((row, rank) => { if (drawn.has(row.n)) rankHits[rank]++; });
+      evaluated++;
+    }
+    if (!evaluated) return { mode, draws:0, top:[], ranked:[], insufficient:true };
+
+    const rows = currentRanked.map((row, idx) => ({
+      ...row,
+      rank: idx + 1,
+      individualHitCount: rankHits[idx],
+      individualHitRate: rankHits[idx] / evaluated
+    }));
+    const top = [...rows]
+      .sort((a,b) => (a.individualHitCount-b.individualHitCount) || (a.rank-b.rank))
+      .slice(0,5)
+      .map((row, idx) => ({ ...row, selectionRank:idx + 1 }));
     return {
       mode,
-      draws:draws.length,
+      draws:evaluated,
       historyDraws:draws.length,
       top,
       ranked:rows,
-      qualifiedCount:rows.filter(x => x.count > 0).length,
+      qualifiedCount:rows.length,
       insufficient:top.length < 5
     };
   }
@@ -8326,7 +8371,7 @@ ${settleRecord.analysisLines.join('\n')}`;
     detail.innerHTML = result.top.map((x, idx) => `
       <div class="hot5-detail-row"><span class="hot5-rank">#${idx+1}</span><b>${String(x.n).padStart(2,'0')}</b>｜最新${result.draws}期開出 <b>${x.count}</b> 次</div>
     `).join('');
-    if (meta) meta.textContent = `比較最新${HOT5_COMPARE_PERIODS}期最低次數｜實際採計${result.draws}期`;
+    if (meta) meta.textContent = `比較最新${HOT5_COMPARE_PERIODS}期｜實際採計${result.draws}期`;
   }
 
 
@@ -16411,11 +16456,11 @@ ${settleRecord.analysisLines.join('\n')}`;
       const mode=currentGameMode();
       if(getBallMax(mode)!==39){summary.textContent='此統計僅適用01～39號彩種。';groupsBox.innerHTML='';tableBody.innerHTML='';return;}
       const all=parseDraws(getActiveDrawText(),mode);
-      const compareSelector=document.getElementById('rankHitCompareWindow') || document.getElementById('allNumberHotRankWindow');
+      const compareSelector=document.getElementById('allNumberHotRankWindow');
       const requested=compareSelector?compareSelector.value:'20';
       const win=requested==='all'?Math.max(1,all.length):Math.max(1,Number(requested)||20);
       const targetSelector=document.getElementById('rankHitTargetPeriods');
-      const targetLimit=Math.max(10,Math.min(50,Number(targetSelector?.value)||10));
+      const targetLimit=Math.max(10,Math.min(200,Number(targetSelector?.value)||10));
       const hits=Array(39).fill(0);
       let evaluated=0;
       for(let i=0;i<all.length&&evaluated<targetLimit;i++){
@@ -19267,13 +19312,9 @@ if ('serviceWorker' in navigator) {
  </div>
  <div id="rankHitFrequencyContent" hidden>
  <p style="margin:0 0 10px;font-size:.88rem;line-height:1.55;color:#475569">逐期重建當期排行：每個歷史目標期只使用該期之前的比較窗口資料，再檢查該期開獎號碼落在排行第幾名。命中次數是該名號碼出現在目標期的期數。</p>
- <label for="rankHitCompareWindow" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;font-weight:700;color:#263449">熱門排行比較期段
- <select id="rankHitCompareWindow" style="padding:8px 12px;border:1px solid #b8c3d1;border-radius:8px;background:#fff;color:#172033;font-size:1rem">
- <option value="5">5期</option><option value="10">10期</option><option value="15">15期</option><option value="20" selected>20期</option><option value="33">33期</option><option value="50">50期</option><option value="100">100期</option><option value="150">150期</option><option value="200">200期</option><option value="250">250期</option><option value="300">300期</option><option value="all">全部資料</option>
- </select></label>
  <label for="rankHitTargetPeriods" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;font-weight:700;color:#263449">統計有效目標期
  <select id="rankHitTargetPeriods" style="padding:8px 12px;border:1px solid #b8c3d1;border-radius:8px;background:#fff;color:#172033;font-size:1rem">
- <option value="10" selected>10期</option><option value="20">20期</option><option value="30">30期</option><option value="40">40期</option><option value="50">50期</option>
+ <option value="10" selected>10期</option><option value="20">20期</option><option value="30">30期</option><option value="40">40期</option><option value="50">50期</option><option value="100">100期</option><option value="150">150期</option><option value="200">200期</option>
  </select></label>
  <div id="rankHitFrequencySummary" style="font-weight:800;margin:8px 0;color:#334155">排行命中統計載入中…</div>
  <div id="rankHitRecommendationPanel" style="margin:12px 0;padding:12px;border:1px solid #b9c9dd;border-radius:12px;background:#f0f6ff;color:#172033">
@@ -19324,10 +19365,6 @@ if ('serviceWorker' in navigator) {
 </section>
 <script>
 (function(){
-  const rankHitWindowSelector = document.getElementById('rankHitCompareWindow');
-  if (rankHitWindowSelector) rankHitWindowSelector.addEventListener('change', function(){
-    if (typeof window.refreshRankHitFrequency === 'function') window.refreshRankHitFrequency();
-  });
   const selector = document.getElementById('allNumberHotRankWindow');
   if (selector) selector.addEventListener('change', function(){
     if (typeof window.refreshAllNumberHotRank === 'function') window.refreshAllNumberHotRank();
