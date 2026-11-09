@@ -16366,6 +16366,7 @@ ${settleRecord.analysisLines.join('\n')}`;
       if (!body || !meta) return;
       body.innerHTML = rows.map((r,i) => `<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700"><button type="button" class="hot-rank-pick-number" data-pick-number="${r.n}" aria-pressed="false" title="點選 ${String(r.n).padStart(2,'0')} 加入／取消快速選號" style="border:0;background:transparent;color:#1f2937;font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;padding:5px 9px;border-radius:7px;cursor:pointer;touch-action:manipulation">${String(r.n).padStart(2,'0')}</button></td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.count}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${r.miss}</td></tr>`).join('');
       if (typeof window.quickPickSyncRankMarks === 'function') window.quickPickSyncRankMarks();
+      if (typeof window.quickPickSyncRankHitColors === 'function') window.quickPickSyncRankHitColors();
       meta.textContent = `目前彩種：${mode}｜比較期數：${draws.length}／${allDraws.length} 期｜共列出 ${max} 號`;
       if (typeof window.refreshAutoDeployHistory === 'function') window.refreshAutoDeployHistory();
       if (typeof window.refreshRankHitFrequency === 'function') window.refreshRankHitFrequency();
@@ -16521,6 +16522,7 @@ ${settleRecord.analysisLines.join('\n')}`;
         `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;border:1px solid #d7dde5;border-radius:9px;background:#fff"><button type="button" data-rank-hit-bucket="${k}" data-rank-hit-ranks="${buckets[k].join(',')}" style="border:0;border-radius:7px;padding:6px 9px;background:#e8edf3;color:#1f2937;font-weight:800;cursor:pointer;touch-action:manipulation">開出${k}次</button><span>：${buckets[k].join('、')}</span></div>`
       ).join('');
       tableBody.innerHTML=hits.map((n,i)=>`<tr><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb;font-weight:700">${n}</td><td style="text-align:center;padding:6px;border-bottom:1px solid #e5e7eb">${(n/evaluated*100).toFixed(1)}%</td></tr>`).join('');
+      if(typeof window.quickPickSyncRankHitColors==='function')window.quickPickSyncRankHitColors();
       summary.textContent=`彩種：${mode}｜每期比較窗口：${targetRequested==='all'?'每期之前全部可用歷史資料（不受上方熱門排行比較期數限制）':(requested==='all'?'該期之前全部可用資料':win+'期')}｜設定目標期：${targetRequested==='all'?'所有期數':targetLimit+'期'}｜有效目標期：${evaluated}期｜排行命中率以${evaluated}期計算`;
     }catch(e){summary.textContent='排行命中統計失敗，請確認資料庫。';groupsBox.innerHTML='';tableBody.innerHTML='';console.warn(e);}
   }
@@ -19456,6 +19458,46 @@ if ('serviceWorker' in navigator) {
    const emptyCols=mode==='pillar'?buckets.map((s,i)=>s.size?null:i+1).filter(Boolean):[];
    note.textContent=mode==='pillar'?(emptyCols.length?'尚未選滿第'+emptyCols.join('、')+'柱':'格式已整理，可複製'):(selected.size?'已依號碼小到大排列':'點選號碼後自動更新');
  }
+ function syncRankHitDeployedColors(){
+   const statsBody=document.getElementById('rankHitFrequencyBody');
+   const hotBody=document.getElementById('allNumberHotRankBody');
+   if(!statsBody||!hotBody)return;
+   const rankToBall=new Map();
+   hotBody.querySelectorAll('tr').forEach(row=>{
+     const cells=row.querySelectorAll('td');
+     if(cells.length<2)return;
+     const rank=Number(cells[0].textContent.trim());
+     const pick=cells[1].querySelector('[data-pick-number]');
+     const ball=pick?Number(pick.dataset.pickNumber):NaN;
+     if(Number.isInteger(rank)&&rank>=1&&rank<=39&&Number.isInteger(ball)&&ball>=1&&ball<=39)rankToBall.set(rank,ball);
+   });
+   const deployed=new Map();
+   if(mode==='pillar'){
+     buckets.forEach((set,pillarIndex)=>set.forEach(n=>deployed.set(n,{pillar:pillarIndex,color:pillarColor(pillarIndex)})));
+   }else{
+     selected.forEach(n=>deployed.set(n,{pillar:-1,color:'#2563eb'}));
+   }
+   statsBody.querySelectorAll('tr').forEach((row,index)=>{
+     const rank=index+1, ball=rankToBall.get(rank), info=deployed.get(ball);
+     const cells=row.querySelectorAll('td');
+     row.style.background=info?info.color+'18':'';
+     row.style.outline=info?'1px solid '+info.color+'55':'';
+     row.style.outlineOffset='-1px';
+     if(cells.length){
+       const rankCell=cells[0];
+       rankCell.style.fontWeight=info?'900':'';
+       rankCell.style.color=info?'#ffffff':'';
+       rankCell.style.background=info?info.color:'';
+       rankCell.style.borderRadius=info?'6px':'';
+       row.title=info?`已部署彩球 ${String(ball).padStart(2,'0')}${info.pillar>=0?'｜第'+(info.pillar+1)+'柱':''}｜熱門排行第${rank}名`:'';
+       if(info){
+         rankCell.textContent=String(rank);
+       }
+     }
+   });
+ }
+ window.quickPickSyncRankHitColors=syncRankHitDeployedColors;
+
  function syncRankMarks(){
    document.querySelectorAll('[data-pick-number]').forEach(btn=>{
      const n=Number(btn.dataset.pickNumber);
@@ -19497,6 +19539,7 @@ if ('serviceWorker' in navigator) {
      };grid.appendChild(b);
    }
    syncRankMarks();
+   syncRankHitDeployedColors();
  }
  function addQuickNumbers(nums){
    if(mode==='pillar'){
