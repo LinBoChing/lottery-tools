@@ -1821,7 +1821,7 @@ body.quick-pillar-floating-on{padding-right:0}
                 <div id="hot5539Detail" class="hot5-detail"></div>
               </div>
             </div>
-            <div class="hot5-note">原始五碼固定算法：各彩種分開統計資料庫內所有有效開獎期數，依每個號碼累計開出次數由少至多取前5名；同次數以遺漏期數較少者優先，再以號碼小者優先。此統計不受熱門排行比較期數設定影響。</div>
+            <div class="hot5-note">原始五碼算法：各彩種分開統計資料庫最新5期，依開出次數由高至低取前5名；同次數以遺漏期數較少者優先，再以號碼小者優先。</div>
           </div>
 
           <div class="db-mini">資料會存在這台裝置的瀏覽器 localStorage；首次開啟自動補齊舊資料日期，日後手動新增號碼時自動填日期（539 星期日除外）；重新開啟 APP 仍會保留。切換 539 / 天天樂後，會自動把該彩種資料帶入下方百期欄位，最新一期永遠在最上方。</div>
@@ -8178,22 +8178,21 @@ ${settleRecord.analysisLines.join('\n')}`;
     };
   }
 
-  // 每日原始五碼：各彩種分開讀取完整資料庫內所有有效開獎紀錄，
-  // 統計01～39每個號碼的累計開出次數，由少至多取前5名。
-  // 開出次數相同時，遺漏期數較少者優先；仍相同則號碼較小者優先。
-  // 不受熱門排行比較期數、回測期數或星期日未開獎的日期空檔影響。
-  const HOT5_ORIGINAL_ALGORITHM = 'all-history-lowest-count';
+  // 每日原始五碼：各彩種分開統計資料庫最新5期，
+  // 依開出次數由高至低取前5名；同次數以遺漏期數較少者優先，再以號碼小者優先。
+  const HOT5_ORIGINAL_ALGORITHM = 'latest-5-highest-count-v2';
   function calcOriginalHot5ForMode(mode) {
     const records = loadDrawDb(mode);
-    // 資料庫順序為最新一期在前；只納入恰有5個不同有效號碼的紀錄。
+    // 資料庫順序為最新一期在前；只納入恰有5個不同有效號碼的紀錄，最多採計最新5期。
     const draws = records
       .map(r => Array.isArray(r.nums)
         ? r.nums.map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 39)
         : [])
-      .filter(nums => nums.length === 5 && new Set(nums).size === 5);
+      .filter(nums => nums.length === 5 && new Set(nums).size === 5)
+      .slice(0, 5);
 
-    if (!draws.length) {
-      return { mode, draws:0, top:[], ranked:[], insufficient:true };
+    if (draws.length < 5) {
+      return { mode, draws:draws.length, top:[], ranked:[], insufficient:true };
     }
 
     const rows = [];
@@ -8209,9 +8208,9 @@ ${settleRecord.analysisLines.join('\n')}`;
       rows.push({ n, count, score:count, missedPeriods });
     }
 
-    // 次數少者優先；同次數先取目前遺漏較少者，再以號碼小者排序。
+    // 次數多者優先；同次數先取目前遺漏較少者，再以號碼小者排序。
     rows.sort((a,b) =>
-      (a.count - b.count) ||
+      (b.count - a.count) ||
       (a.missedPeriods - b.missedPeriods) ||
       (a.n - b.n)
     );
@@ -8345,9 +8344,9 @@ ${settleRecord.analysisLines.join('\n')}`;
     }
     main.innerHTML = result.top.map(x => `<span class="hot5-num">${String(x.n).padStart(2,'0')}</span>`).join('');
     detail.innerHTML = result.top.map((x, idx) => `
-      <div class="hot5-detail-row"><span class="hot5-rank">#${idx+1}</span><b>${String(x.n).padStart(2,'0')}</b>｜資料庫累計 <b>${x.count}</b> 次</div>
+      <div class="hot5-detail-row"><span class="hot5-rank">#${idx+1}</span><b>${String(x.n).padStart(2,'0')}</b>｜近5期開出 <b>${x.count}</b> 次</div>
     `).join('');
-    if (meta) meta.textContent = `完整資料庫｜實際採計${result.draws}期`;
+    if (meta) meta.textContent = `最新5期｜實際採計${result.draws}期`;
   }
 
 
